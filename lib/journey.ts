@@ -214,8 +214,11 @@ const GOAL: Record<GoalKey, Goal> = Object.fromEntries(GOALS.map((goal) => [goal
 /** The most cards one goal shows (owner). */
 export const DECK_MAX = 5;
 
-/** What someone told Skin needs today. The two optional answers are `null` when skipped. */
-export type Need = { goal: GoalKey; sensitivity: Sensitivity | null; pregnant: boolean | null };
+/**
+ * What someone told Skin needs today. The two optional answers are `null` when
+ * skipped; `uses` is the actives they said they already use (none when not given).
+ */
+export type Need = { goal: GoalKey; sensitivity: Sensitivity | null; pregnant: boolean | null; uses?: readonly ActiveKey[] };
 
 export const PREGNANCY_LINE = "Commonly advised against while pregnant or breastfeeding.";
 
@@ -278,7 +281,8 @@ export function needProfile(need: Need): SkinProfile {
 
 /** A need travels through the scanner to the result as one route param. */
 export function encodeNeed(need: Need): string {
-  return [need.goal, need.sensitivity ?? "", need.pregnant === null ? "" : need.pregnant ? "yes" : "no"].join(".");
+  const parts = [need.goal, need.sensitivity ?? "", need.pregnant === null ? "" : need.pregnant ? "yes" : "no"];
+  return (need.uses?.length ? [...parts, need.uses.join("+")] : parts).join(".");
 }
 
 const SENSITIVITIES: readonly Sensitivity[] = ["none", "some", "high"];
@@ -287,12 +291,14 @@ const SENSITIVITIES: readonly Sensitivity[] = ["none", "some", "high"];
 export function decodeNeed(param: string | string[] | undefined): Need | null {
   const raw = Array.isArray(param) ? param[0] : param;
   if (!raw) return null;
-  const [goal, sensitivity, pregnant] = raw.split(".");
+  const [goal, sensitivity, pregnant, list = ""] = raw.split(".");
   if (!GOALS.some((g) => g.key === goal)) return null;
+  const uses = list.split("+").filter((key): key is ActiveKey => ACTIVES.some((active) => active.key === key));
   return {
     goal: goal as GoalKey,
     sensitivity: SENSITIVITIES.find((s) => s === sensitivity) ?? null,
     pregnant: pregnant === "yes" ? true : pregnant === "no" ? false : null,
+    ...(uses.length > 0 ? { uses } : {}),
   };
 }
 
@@ -466,7 +472,7 @@ export function needVerdict(ingredients: readonly Pick<Ingredient, "name">[], ne
   // 2026): a product holding one of those works on the goal, whatever the
   // scoring rules say of it (a sunscreen for lines), and the line below
   // counts against them, not against a list the person never saw.
-  const suggested = optionsFor({ goal: need.goal, sensitivity: need.sensitivity, pregnancy: need.pregnant === null ? null : need.pregnant ? "yes" : "no" }).actives;
+  const suggested = optionsFor({ goal: need.goal, sensitivity: need.sensitivity, pregnancy: need.pregnant === null ? null : need.pregnant ? "yes" : "no", uses: need.uses }).actives;
   const covers = (active: StoryActive) => holdsActive(ingredients, active) || actives.some((finding) => finding.card?.key === active.key && !finding.trace);
   for (const active of suggested) {
     if (actives.some((finding) => finding.card?.key === active.key)) continue;

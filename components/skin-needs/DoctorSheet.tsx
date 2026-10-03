@@ -40,7 +40,7 @@ export function DoctorSheet({ ingredients, need }: { ingredients: readonly Pick<
       pathname: "/journey-story",
       params: {
         active: alternative.key,
-        answers: encodeAnswers({ goal: need.goal, sensitivity: need.sensitivity, pregnancy: need.pregnant === null ? null : need.pregnant ? "yes" : "no", uses: [] }),
+        answers: encodeAnswers({ goal: need.goal, sensitivity: need.sensitivity, pregnancy: need.pregnant === null ? null : need.pregnant ? "yes" : "no", uses: [...(need.uses ?? [])] }),
       },
     });
   };

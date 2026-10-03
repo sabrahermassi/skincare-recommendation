@@ -180,6 +180,10 @@ it("says it is in the routine when a product of theirs holds it (7f)", async () 
   await toLast(6);
   await waitFor(() => expect(screen.getByLabelText("In your routine: Clear Days Gel Cleanser")).toBeTruthy());
   expect(screen.queryByRole("button", { name: "Add BHA to my routine" })).toBeNull();
+  // Taken out of the routine, it is not theirs any more.
+  await act(async () => useAppStore.setState({ routinePicks: {} }));
+  expect(screen.queryByLabelText("In your routine: Clear Days Gel Cleanser")).toBeNull();
+  expect(screen.getByRole("button", { name: "Add BHA to my routine" })).toBeTruthy();
 });
 
 it("checks a product against what was picked, and opens the routine", async () => {

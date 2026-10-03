@@ -113,6 +113,13 @@ describe("optionsFor", () => {
     expect(hiddenLine(hidden)).toBe("BHA and Retinoids are hidden while you're pregnant or breastfeeding.");
   });
 
+  it("names as hidden only what the carousel would have shown, and says it in good English", () => {
+    // Dark marks: retinoids sit past the first three places, so they hide nothing.
+    expect(optionsFor({ goal: "dark-marks", pregnancy: "yes", sensitivity: null }).hidden).toEqual([]);
+    expect(hiddenLine([activeOf("retinoids")])).toBe("Retinoids are hidden while you're pregnant or breastfeeding.");
+    expect(hiddenLine([activeOf("bha")])).toBe("BHA is hidden while you're pregnant or breastfeeding.");
+  });
+
   // Owner, 3 October 2026: each person needs a different active.
   it("gives very sensitive skin each family's gentlest", () => {
     expect(optionsFor({ goal: "oil", pregnancy: "no", sensitivity: "high" }).actives.map((a) => a.key)).toEqual(["pha", "niacinamide", "bakuchiol"]);
@@ -244,6 +251,8 @@ describe("what a product holds", () => {
     expect(prescriptionIn(gel, "US")).toBeNull();
     expect(prescriptionIn([{ name: "Tretinoin" }], "US")).toMatchObject({ name: "tretinoin", alternative: "retinoids" });
     expect(prescriptionIn([{ name: "Retinol" }], "FR")).toBeNull();
+    // A whole name: isotretinoin is not read as tretinoin.
+    expect(prescriptionIn([{ name: "Isotretinoin" }], "US")?.name).toBe("isotretinoin");
   });
 
   it("tells BHA and retinoids apart as a clash, and not niacinamide and ceramides", () => {

@@ -148,6 +148,9 @@ it("carries a need through a route param, ignoring anything that isn't one", () 
   expect(decodeNeed("pimples.extreme.maybe")).toEqual(need("pimples"));
   expect(decodeNeed("not-a-goal.high.yes")).toBeNull();
   expect(decodeNeed(undefined)).toBeNull();
+  // The actives they already use travel too, so a story opened from the result still knows them.
+  expect(decodeNeed(encodeNeed({ ...need("oil"), uses: ["retinoids", "bha"] }))?.uses).toEqual(["retinoids", "bha"]);
+  expect(decodeNeed("oil.some.no.retinoids+nonsense")?.uses).toEqual(["retinoids"]);
 });
 
 // A scan opened from Skin needs (owner, 2 October 2026): not the skin match,

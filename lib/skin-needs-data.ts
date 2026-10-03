@@ -1178,6 +1178,7 @@ export const ACTIVES_IN_USE: readonly { label: string; active: ActiveKey }[] = [
  * is no longer sold over the counter in the US or the EU.
  */
 export const PRESCRIPTION: readonly { name: string; what: string; alternative: ActiveKey; overTheCounterInUS?: boolean }[] = [
+  { name: "isotretinoin", what: "a prescription-strength retinoid", alternative: "retinoids" },
   { name: "tretinoin", what: "a prescription-strength retinoid", alternative: "retinoids" },
   { name: "tazarotene", what: "a prescription-strength retinoid", alternative: "retinoids" },
   { name: "trifarotene", what: "a prescription-strength retinoid", alternative: "retinoids" },

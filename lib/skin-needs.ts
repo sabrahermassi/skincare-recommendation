@@ -86,12 +86,13 @@ export function optionsFor(answers: Pick<NeedAnswers, "goal" | "sensitivity" | "
   const table = GOAL_OPTIONS[answers.goal];
   const safe = safeOnly(answers);
   const uses = answers.uses ?? [];
-  const hidden: StoryActive[] = [];
+  // Hidden: what the carousel would show if they weren't pregnant, and now doesn't.
+  // A place past the first three would never be shown, so it hides nothing.
+  const hidden = safe ? optionsFor({ ...answers, pregnancy: "no" }).actives.filter((active) => !active.pregnancySafe) : [];
   let actives: StoryActive[] = [];
   for (const place of table.actives) {
     const candidates = (Array.isArray(place) ? place : [place]).map(activeOf).filter(hasStory);
     const allowed = candidates.filter((active) => !(safe && !active.pregnancySafe));
-    if (candidates[0] && !allowed.includes(candidates[0])) hidden.push(candidates[0]);
     const fresh = allowed.filter((active) => !uses.includes(active.key));
     const pool = fresh.length > 0 ? fresh : allowed;
     const choice = answers.sensitivity === "high" ? pool.reduce<StoryActive | undefined>((best, active) => (!best || active.gentleness < best.gentleness ? active : best), undefined) : pool[0];
@@ -111,7 +112,9 @@ export function hiddenLine(hidden: readonly Active[]): string | null {
   if (hidden.length === 0) return null;
   const names = hidden.map((active) => active.name);
   const list = names.length === 1 ? names[0] : `${names.slice(0, -1).join(", ")} and ${names[names.length - 1]}`;
-  return `${list} ${names.length === 1 ? "is" : "are"} hidden while you're pregnant or breastfeeding.`;
+  // One name can still be many: "Retinoids are hidden", "BHA is hidden".
+  const many = names.length > 1 || names[0].endsWith("s");
+  return `${list} ${many ? "are" : "is"} hidden while you're pregnant or breastfeeding.`;
 }
 
 /** The story's cards: six, or five when the active has nothing to avoid. */
@@ -226,7 +229,8 @@ export function holdsActive(ingredients: readonly Pick<Ingredient, "name">[], ac
  */
 export function prescriptionIn(ingredients: readonly Pick<Ingredient, "name">[], region: string | null): (typeof PRESCRIPTION)[number] | null {
   const names = ingredients.map(({ name }) => name.toLowerCase());
-  return PRESCRIPTION.find((entry) => !(entry.overTheCounterInUS && region === "US") && names.some((name) => name.includes(entry.name))) ?? null;
+  // A whole word: "isotretinoin" is its own entry, not tretinoin.
+  return PRESCRIPTION.find((entry) => !(entry.overTheCounterInUS && region === "US") && names.some((name) => new RegExp(`(^|[^a-z])${entry.name}($|[^a-z])`).test(name))) ?? null;
 }
 
 // ── The routine ─────────────────────────────────────────────────────────────
@@ -409,6 +413,6 @@ export function decodeAnswers(param: string | string[] | undefined, goals: reado
 }
 
 /** The answers as the scan-from-Skin-needs check reads them (`lib/journey.ts`, `needVerdict`): skipped and "Prefer not to say" stay unanswered there. */
-export function needFrom(answers: NeedAnswers): { goal: GoalKey; sensitivity: Sensitivity | null; pregnant: boolean | null } {
-  return { goal: answers.goal, sensitivity: answers.sensitivity, pregnant: answers.pregnancy === "yes" ? true : answers.pregnancy === "no" ? false : null };
+export function needFrom(answers: NeedAnswers): { goal: GoalKey; sensitivity: Sensitivity | null; pregnant: boolean | null; uses: readonly ActiveKey[] } {
+  return { goal: answers.goal, sensitivity: answers.sensitivity, pregnant: answers.pregnancy === "yes" ? true : answers.pregnancy === "no" ? false : null, uses: answers.uses };
 }
