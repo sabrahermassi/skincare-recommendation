@@ -981,7 +981,8 @@ function BarcodeStage({
             style={{ minHeight: TOUCH_TARGET, alignItems: "center", justifyContent: "center", paddingHorizontal: 12 }}
             className="active:opacity-70"
           >
-            <Text style={{ fontSize: TYPE.label, fontWeight: "600", color: withAlpha(CANVAS, 0.85) }}>
+            {/* Centred like everything above it, also when it wraps to two lines. */}
+            <Text style={{ textAlign: "center", fontSize: TYPE.label, fontWeight: "600", color: withAlpha(CANVAS, 0.85) }}>
               {READY_BARCODE.link}
             </Text>
           </Pressable>

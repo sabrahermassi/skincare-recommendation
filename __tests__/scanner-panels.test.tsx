@@ -1,4 +1,5 @@
 import { act, fireEvent, render, screen, within } from "@testing-library/react-native";
+import { StyleSheet } from "react-native";
 
 import Scan from "@/app/scanner";
 import { fetchProductByBarcode } from "@/data/api";
@@ -153,6 +154,8 @@ describe("scanner idle hint", () => {
     await act(async () => {
       jest.advanceTimersByTime(8_000);
     });
+    // Centred like the line above it, also on two lines (found in the simulator).
+    expect(StyleSheet.flatten(screen.getByText(HINT).props.style).textAlign).toBe("center");
     await fireEvent.press(screen.getByRole("button", { name: HINT }));
     expect(screen.queryByText(HINT)).toBeNull();
   });
