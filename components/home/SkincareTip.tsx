@@ -95,7 +95,8 @@ function OpenNote({ tip, onClose }: { tip: HomeTip; onClose: () => void }) {
     <View style={StyleSheet.absoluteFill} accessibilityViewIsModal>
       <Animated.View style={[StyleSheet.absoluteFill, { opacity: dim }]}>
         <BlurView intensity={BLUR} tint="default" style={StyleSheet.absoluteFill} />
-        <Pressable onPress={onClose} accessibilityLabel="Close" style={{ flex: 1, backgroundColor: SCRIM }} />
+        {/* Tapping outside closes it for a sighted person; a screen reader has the ✕ button, so this is not a second "Close". */}
+        <Pressable onPress={onClose} accessible={false} style={{ flex: 1, backgroundColor: SCRIM }} />
       </Animated.View>
 
       {/* The envelope rises, tips, and falls away as the note leaves it. */}

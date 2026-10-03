@@ -814,10 +814,10 @@ describe("a routine of one's own", () => {
     expect(s().routinePicks).toEqual({ "evening:treatment": "bha", "morning:serum": "vit-c" });
   });
 
-  it("takes a product out of every step it is in", () => {
-    useAppStore.setState({ routinePicks: { "morning:moisturise": "cream", "evening:moisturise": "night-cream", "evening:treatment": "retinol" } });
-    s().removeFromRoutine("cream");
-    expect(s().routinePicks).toEqual({ "evening:moisturise": "night-cream", "evening:treatment": "retinol" });
+  it("takes a product out of one step, and leaves the same product in another", () => {
+    useAppStore.setState({ routinePicks: { "morning:moisturise": "cream", "evening:moisturise": "cream", "evening:treatment": "retinol" } });
+    s().removeFromStep("morning:moisturise");
+    expect(s().routinePicks).toEqual({ "evening:moisturise": "cream", "evening:treatment": "retinol" });
   });
 
   it("is erased with everything else", () => {

@@ -306,9 +306,6 @@ export function buildRoutine(products: readonly ProductWithIngredients[], profil
 
 // ── A product of one's own ───────────────────────────────────────────────────
 
-/** A step of one routine, as a place a product can be put: "evening:treatment". */
-
-
 /** The id a step's own pick is kept under. */
 export function placeId(time: TimeOfDay, key: string): string {
   return `${time}:${key}`;

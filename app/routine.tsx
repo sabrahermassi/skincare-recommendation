@@ -168,7 +168,7 @@ function Steps({ personalized }: { personalized: boolean }) {
       : [];
   // The products the person put in a step themselves stand in front of ours.
   const routinePicks = useAppStore((s) => s.routinePicks);
-  const removeFromRoutine = useAppStore((s) => s.removeFromRoutine);
+  const removeFromStep = useAppStore((s) => s.removeFromStep);
   const ownProducts = useOwnProducts(Object.values(routinePicks));
   const ownFor = (key: string): OwnPick | null => {
     const id = routinePicks[placeId(time, key)];
@@ -228,7 +228,7 @@ function Steps({ personalized }: { personalized: boolean }) {
               rest={row.rest}
               own={row.rest ? null : ownFor(row.slot.key)}
               step={placeId(time, row.slot.key)}
-              onRemove={removeFromRoutine}
+              onRemove={removeFromStep}
               onRemoveActive={row.added ? () => removeRoutineActive(row.added!.key) : undefined}
               last={i === steps.length - 1}
             />
@@ -317,7 +317,7 @@ function StepCard({
   own: OwnPick | null;
   /** This step's id: a scan from it carries it, so the result can offer to add the product here. */
   step: string;
-  onRemove: (id: string) => void;
+  onRemove: (step: string) => void;
   /** For an active added from Skin needs: takes it out of the routine. */
   onRemoveActive?: () => void;
   last: boolean;
@@ -372,7 +372,7 @@ function StepCard({
               </Pressable>
             ) : null}
             {ownPick ? (
-              <Pressable onPress={() => onRemove(ownPick.id)} accessibilityRole="button" accessibilityLabel={own ? `Remove ${own.product.name} from my routine` : "Remove my pick from this step"} hitSlop={8} style={{ minHeight: 28, justifyContent: "center" }} className="active:opacity-70">
+              <Pressable onPress={() => onRemove(step)} accessibilityRole="button" accessibilityLabel={own ? `Remove ${own.product.name} from my routine` : "Remove my pick from this step"} hitSlop={8} style={{ minHeight: 28, justifyContent: "center" }} className="active:opacity-70">
                 <Text style={{ fontSize: TYPE.label, fontWeight: "600", color: LINK }}>Remove</Text>
               </Pressable>
             ) : null}

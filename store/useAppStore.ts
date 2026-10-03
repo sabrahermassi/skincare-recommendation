@@ -164,8 +164,8 @@ type AppState = {
   routinePicks: Record<string, string>;
   /** Puts a product in a step, in place of whatever was there (one product a step). */
   addToStep: (step: string, id: string) => void;
-  /** Takes a product out of every step it is in. */
-  removeFromRoutine: (id: string) => void;
+  /** Takes whatever product stands in a step out of it; the same product in another step stays. */
+  removeFromStep: (step: string) => void;
 
   /**
    * Actives added to the routine from a Skin needs story (owner, 3 October
@@ -918,7 +918,7 @@ export const useAppStore = create<AppState>()(
       clearHistory: () => set({ history: [] }),
 
       addToStep: (step, id) => set((state) => ({ routinePicks: { ...state.routinePicks, [step]: id } })),
-      removeFromRoutine: (id) => set((state) => ({ routinePicks: Object.fromEntries(Object.entries(state.routinePicks).filter(([, picked]) => picked !== id)) })),
+      removeFromStep: (step) => set((state) => ({ routinePicks: Object.fromEntries(Object.entries(state.routinePicks).filter(([key]) => key !== step)) })),
       setRoutineActives: ({ entries, stepLimit, started }) =>
         set((state) => ({ routineActives: entries, routineStepLimit: stepLimit ?? state.routineStepLimit, routineStarted: started ?? state.routineStarted })),
       removeRoutineActive: (active) => set((state) => ({ routineActives: state.routineActives.filter((entry) => entry.active !== active) })),

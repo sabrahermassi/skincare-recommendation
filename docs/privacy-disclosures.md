@@ -204,7 +204,7 @@ left the phone.
   status may be special-category data under GDPR Art. 9, and #14 has not
   decided it).
 - **Scan history** never leaves the phone either.
-- **The products a person adds to their routine** ("Add to my routine") never
+- **The products a person adds to their routine** ("Add to <step>" on a scanned product's result) never
   leave the phone either: a routine step and a catalogue product id each, in
   `AsyncStorage` with the scan history, kept at sign-out and erased by Delete
   my profile. There is no server copy.

@@ -559,18 +559,37 @@ describe("the product screen opened from a routine step", () => {
 
   it("offers to add a product that belongs in the step, puts it there, and takes it out again", async () => {
     await open({ from: "barcode", step: "morning:serum" });
-    await fireEvent.press(screen.getByRole("button", { name: "Add to serum" }));
+    await fireEvent.press(screen.getByRole("button", { name: "Add to morning serum" }));
     expect(useAppStore.getState().routinePicks).toEqual({ "morning:serum": SERUM.id });
-    expect(screen.getByText("In your routine · Serum")).toBeTruthy();
-    await fireEvent.press(screen.getByRole("button", { name: "Remove from my routine" }));
+    expect(screen.getByText("In your routine · Morning serum")).toBeTruthy();
+    await fireEvent.press(screen.getByRole("button", { name: "Remove from morning serum" }));
     expect(useAppStore.getState().routinePicks).toEqual({});
+  });
+
+  it("takes the product out of the step it was scanned from only", async () => {
+    useAppStore.setState({ routinePicks: { "morning:serum": SERUM.id, "evening:treatment": SERUM.id } });
+    await open({ from: "barcode", step: "morning:serum" });
+    await fireEvent.press(screen.getByRole("button", { name: "Remove from morning serum" }));
+    expect(useAppStore.getState().routinePicks).toEqual({ "evening:treatment": SERUM.id });
   });
 
   it("takes the place of the product picked for that step before", async () => {
     useAppStore.setState({ routinePicks: { "morning:serum": "another" } });
     await open({ from: "barcode", step: "morning:serum" });
-    await fireEvent.press(screen.getByRole("button", { name: "Add to serum" }));
+    await fireEvent.press(screen.getByRole("button", { name: "Add to morning serum" }));
     expect(useAppStore.getState().routinePicks).toEqual({ "morning:serum": SERUM.id });
+  });
+
+  it("names the time of day for a step both routines have", async () => {
+    const MOISTURISER = { ...SERUM, type: "moisturizer" as const, productType: "moisturizer", name: "Cream" };
+    await open({ from: "barcode", step: "evening:moisturise" }, MOISTURISER);
+    expect(screen.getByRole("button", { name: "Add to evening moisturiser" })).toBeTruthy();
+  });
+
+  it("says why a product is not offered for a step it does not belong in", async () => {
+    await open({ from: "barcode", step: "morning:sunscreen" });
+    expect(screen.getByText("This doesn't belong in the morning sunscreen step, so it can't be added there.")).toBeTruthy();
+    expect(screen.queryByRole("button", { name: /^Add to / })).toBeNull();
   });
 
   it("offers nothing for a scan from anywhere else, a step the product doesn't belong in, or a step that isn't one", async () => {

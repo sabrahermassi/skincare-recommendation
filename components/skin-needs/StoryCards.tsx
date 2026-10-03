@@ -304,7 +304,7 @@ export function AvoidCard({ active }: { active: StoryActive }) {
 
 // ── 7 · When shopping ───────────────────────────────────────────────────────
 
-export function ShopCard({ active, actions }: { active: StoryActive; /** Add to my routine, or See my routine, and Check a product. */ actions: ReactNode }) {
+export function ShopCard({ active, actions }: { active: StoryActive; /** "Add <active> to my routine" or "See my routine", and Check a product. */ actions: ReactNode }) {
   const { shopping } = active.story;
   return (
     <View style={{ flex: 1 }}>

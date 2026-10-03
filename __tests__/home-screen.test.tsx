@@ -129,8 +129,8 @@ it("opens the tip as a note with a close button only, then says it was read and 
   expect(shown).toBeTruthy();
   expect(screen.getByText(shown!.why)).toBeTruthy();
   expect(screen.getByText("This morning · SPF")).toBeTruthy();
-  const buttons = screen.getAllByRole("button", { name: "Close" });
-  await fireEvent.press(buttons[buttons.length - 1]);
+  // One Close for a screen reader: the dim area behind the note is not a second one.
+  await fireEvent.press(screen.getByRole("button", { name: "Close" }));
   expect(screen.queryByText(shown!.tip)).toBeNull();
   expect(screen.getByText("Tip read ✓")).toBeTruthy();
   expect(screen.getByText("Next tip: tonight")).toBeTruthy();

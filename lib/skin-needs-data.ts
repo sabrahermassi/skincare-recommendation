@@ -256,7 +256,7 @@ export type Active = {
   core?: boolean;
   /**
    * A basic step of every routine (sunscreen): it is already in, so its
-   * story's last card says so in place of "Add to my routine".
+   * story's last card says so in place of "Add <active> to my routine".
    */
   basic?: { when: string };
   /** Where "See the evidence" opens, where the scoring rule's own source is not the best one for it. */
