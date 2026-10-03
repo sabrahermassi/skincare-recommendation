@@ -277,6 +277,13 @@ export function AvoidCard({ active }: { active: StoryActive }) {
           </Hand>
         </View>
       </View>
+      {/* What to do instead, right under the pair (owner), then the signs that say it's too much. */}
+      <View style={{ marginTop: 8, marginHorizontal: 16, backgroundColor: SURFACE, borderRadius: 20, paddingVertical: 12, paddingHorizontal: 16, flexDirection: "row", alignItems: "center", gap: 12 }}>
+        <SwapIcon color={BUTTON.primary.fill} />
+        <Text style={{ flex: 1, fontSize: TYPE.body, lineHeight: 21, color: INK }}>
+          Not in the same routine. Alternate: <Text style={{ fontWeight: "600" }}>morning and evening</Text>, or <Text style={{ fontWeight: "600" }}>different days</Text>.
+        </Text>
+      </View>
       <View style={{ paddingTop: 16, paddingHorizontal: 16, flexDirection: "row", gap: 8 }}>
         {avoid.signs.map((sign) => (
           <View key={sign} style={{ flex: 1, minHeight: 108, borderRadius: 24, backgroundColor: SURFACE, alignItems: "center", justifyContent: "center", gap: 6, paddingVertical: 8 }}>
@@ -291,12 +298,6 @@ export function AvoidCard({ active }: { active: StoryActive }) {
         </Svg>
       </View>
       <Text style={{ marginHorizontal: 32, fontSize: TYPE.card, lineHeight: 24, fontWeight: "600", textAlign: "center", color: INK }}>See these? Give your skin a few days off.</Text>
-      <View style={{ marginTop: 16, marginHorizontal: 16, backgroundColor: SURFACE, borderRadius: 20, paddingVertical: 12, paddingHorizontal: 16, flexDirection: "row", alignItems: "center", gap: 12 }}>
-        <SwapIcon color={BUTTON.primary.fill} />
-        <Text style={{ flex: 1, fontSize: TYPE.body, lineHeight: 21, color: INK }}>
-          Not in the same routine. Alternate: <Text style={{ fontWeight: "600" }}>morning and evening</Text>, or <Text style={{ fontWeight: "600" }}>different days</Text>.
-        </Text>
-      </View>
     </View>
   );
 }
