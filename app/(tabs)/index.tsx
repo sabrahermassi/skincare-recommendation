@@ -6,6 +6,7 @@ import { useSafeAreaInsets } from "react-native-safe-area-context";
 
 import { BounceCard } from "@/components/BounceCard";
 import { FitScrollView } from "@/components/FitScrollView";
+import { HomeSkeleton } from "@/components/home/HomeSkeleton";
 import { StartRoutineCard, TodayRoutineCard } from "@/components/home/RoutineCard";
 import { TipEnvelope, TipNote } from "@/components/home/SkincareTip";
 import { Text } from "@/components/Text";
@@ -28,9 +29,6 @@ const ACTIVES_ART = require("@/assets/illustrations/home-skin-needs.webp");
 const PREFETCH_AFTER_MS = 600;
 // Read off the hand-off (handoff_home_and_tip).
 const TILE_RADIUS = 20;
-// The room the top card and the tip keep while the routine builds, so nothing jumps when they arrive.
-const PENDING_CARD_HEIGHT = 212;
-const PENDING_TIP_HEIGHT = 160;
 
 /**
  * Home (handoff_home_and_tip): "Hi there!" in the hand face; one top card —
@@ -70,7 +68,7 @@ export default function Home() {
   const hasRoutine = (personalized && built) || started || entries.length > 0;
   const routine = useHomeRoutine(profile, personalized && hasRoutine);
   const routineIn = hasRoutine ? (personalized ? routine : basicRoutine()) : null;
-  // Built for a skin profile but not ready yet: its card and tip hold their place rather than show the wrong ones.
+  // Built for a skin profile but not ready yet: grey placeholders where its card and tip will be, rather than the wrong ones or a blank.
   const pending = hasRoutine && routineIn === null;
   const today = routineIn ? todayIn(routineIn, timeOfDay(now), weekday(now), entries) : null;
   const tip = tipFor(now, today);
@@ -92,7 +90,7 @@ export default function Home() {
 
         {/* One top card, never both (hand-off). */}
         <View style={{ marginTop: SPACE.gutter }}>
-          {pending ? <View style={{ height: PENDING_CARD_HEIGHT }} /> : today ? <TodayRoutineCard today={today} onPress={openRoutine} /> : <StartRoutineCard onPress={openRoutine} />}
+          {pending ? <HomeSkeleton part="card" /> : today ? <TodayRoutineCard today={today} onPress={openRoutine} /> : <StartRoutineCard onPress={openRoutine} />}
         </View>
 
         <Text accessibilityRole="header" style={{ marginTop: SPACE.section, paddingHorizontal: 4, fontSize: TYPE.title, fontWeight: "600", color: INK }}>
@@ -104,7 +102,9 @@ export default function Home() {
         </View>
 
         {pending ? (
-          <View style={{ marginTop: SPACE.gutter, height: PENDING_TIP_HEIGHT }} />
+          <View style={{ marginTop: SPACE.gutter }}>
+            <HomeSkeleton part="tip" />
+          </View>
         ) : (
           <TipEnvelope
             tip={tip}

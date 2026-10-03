@@ -82,7 +82,11 @@ it("keeps Start your routine for a skin profile alone, and shows the routine onc
   await act(async () => useAppStore.setState({ routineBuilt: true }));
   // Built in the background the same way the routine screen builds it: neither card nor tip until it is ready.
   expect(screen.queryByRole("button", { name: /^Start your routine/ })).toBeNull();
+  // Grey placeholders hold the card's and the tip's place until then: never a blank.
+  expect(screen.getByRole("progressbar", { name: "Loading your skincare routine" })).toBeTruthy();
+  expect(screen.getByRole("progressbar", { name: "Loading your skincare tip" })).toBeTruthy();
   await waitFor(() => expect(screen.getByRole("button", { name: /^Your skincare routine\. This morning · \d steps\./ })).toBeTruthy());
+  expect(screen.queryByRole("progressbar")).toBeNull();
 });
 
 it("goes back to Start your routine when the routine is gone", async () => {
