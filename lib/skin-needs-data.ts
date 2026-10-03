@@ -221,7 +221,7 @@ export type Story = {
  * start, though not the exact nights); "no" where it says otherwise, kept so
  * the claim is looked at again rather than forgotten.
  */
-export type ClaimSource = { label: string; url: string; supports: "yes" | "partly" | "no" };
+type ClaimSource = { label: string; url: string; supports: "yes" | "partly" | "no" };
 
 export type Active = {
   key: ActiveKey;
