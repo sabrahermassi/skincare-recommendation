@@ -257,6 +257,19 @@ describe("scanner status panels", () => {
     expect(router.push).toHaveBeenCalledWith(expect.objectContaining({ params: expect.objectContaining({ from: "journey", need: "pimples.." }) }));
   });
 
+  // A scan started from a routine step hands that step on to the result, which offers "Add to <step>" (owner, 3 October 2026).
+  it("hands the routine step it was opened from on to the result", async () => {
+    mockParams = { step: "evening:treatment" };
+    (fetchProductByBarcode as unknown as MockFn).mockResolvedValue({ ok: true, value: foundProduct("8801234567890") });
+    await render(<Scan />);
+    await fireEvent.press(screen.getByRole("tab", { name: "Barcode" }));
+
+    await scan("8801234567890");
+    await fireEvent.press(screen.getByRole("button", { name: "See the full result" }));
+    const { router } = jest.requireMock("expo-router") as { router: { push: MockFn } };
+    expect(router.push).toHaveBeenCalledWith(expect.objectContaining({ params: expect.objectContaining({ step: "evening:treatment" }) }));
+  });
+
   // Found in review on #259 (Codex): "Scan the ingredient list" on a plain miss
   // keeps `status` as `missed` after switching to Photo mode. If the user backs
   // out of that by tapping Barcode instead, the stale sheet used to reappear
