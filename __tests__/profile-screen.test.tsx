@@ -65,6 +65,17 @@ describe("ProfileScreen", () => {
     expect(screen.getByRole("button", { name: "Skin profile" })).toBeTruthy();
   });
 
+  it("asks to answer questions only while nothing scores, not for a skin type alone (found in the simulator)", async () => {
+    const ASK = "Answer a few questions and every score will be made for your skin.";
+    await render(<ProfileScreen />);
+    expect(screen.getByText(ASK)).toBeTruthy();
+    await act(async () => screen.unmount());
+
+    useAppStore.setState({ profile: { ...EMPTY_PROFILE, baseSkinType: "oily" } }, false);
+    await render(<ProfileScreen />);
+    expect(screen.queryByText(ASK)).toBeNull();
+  });
+
   it("no longer offers deleting the profile: that lives on Account now", async () => {
     await render(<ProfileScreen />);
     expect(screen.queryByText("Delete my profile")).toBeNull();
