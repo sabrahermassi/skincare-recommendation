@@ -312,8 +312,10 @@ routine". Not both: the deck is gone.
   avoids, marked as backing the claim, partly, or not. Where a source says
   otherwise the claim is kept as it is until the owner decides: BHA and
   arbutin are hidden in pregnancy though the AAD and Putra et al. 2022 call
-  them safe (BHA for limited use); azelaic acid is used twice daily in trials,
-  not three nights a week. Peptides, PHA, zinc, ceramides, centella, oat,
+  them safe (BHA for limited use). Two starts stay as they are (owner): azelaic
+  acid at three nights a week, though trials use it twice daily, because above
+  10% it is not that gentle; retinoids at two nights a week, though the AAD
+  says every other night, because they can be strong. Peptides, PHA, zinc, ceramides, centella, oat,
   ferulic acid, copper peptides and tranexamic acid have no pregnancy source
   yet, and most gentle actives have none for their start.
 - **Skipped answers**: sensitivity counts as somewhat sensitive; pregnancy,
