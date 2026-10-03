@@ -720,7 +720,8 @@ describe("v7 -> v8 migration (#300)", () => {
 
   it("leaves a v8 install alone", () => {
     const state = v7({});
-    expect(migratePersisted(state, 8)).toEqual(state);
+    // Only the v10 flag is added: no skin profile here, so no routine built.
+    expect(migratePersisted(state, 8)).toEqual({ ...state, routineBuilt: false });
   });
 });
 
@@ -739,7 +740,23 @@ describe("v8 -> v9 migration (#189)", () => {
       shelfQueue: [],
       parkedShelf: null,
     };
-    expect(migratePersisted(state, 8)).toEqual(state);
+    expect(migratePersisted(state, 8)).toEqual({ ...state, routineBuilt: false });
+  });
+});
+
+describe("v9 -> v10 migration: a skin profile alone is not a routine (owner)", () => {
+  const base = { profile: { ...EMPTY_PROFILE, baseSkinType: "oily" as const }, routinePicks: {}, routineActives: [] };
+  it("asks someone with a skin profile and nothing in the routine to open it first", () => {
+    expect(migratePersisted(base, 9)).toMatchObject({ routineBuilt: false });
+  });
+
+  it("keeps the routine of someone who already used it, with their own products or added actives", () => {
+    expect(migratePersisted({ ...base, routinePicks: { "evening:treatment": "retinol" } }, 9)).toMatchObject({ routineBuilt: true });
+    expect(migratePersisted({ ...base, routineActives: [{ active: "bha", time: "evening", days: [0] }] }, 9)).toMatchObject({ routineBuilt: true });
+  });
+
+  it("leaves a v10 install alone", () => {
+    expect(migratePersisted({ ...base, routineBuilt: false }, 10)).toMatchObject({ routineBuilt: false });
   });
 });
 

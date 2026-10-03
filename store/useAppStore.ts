@@ -501,9 +501,21 @@ function queued(state: { shelfOwner: string | null; shelfQueue: ShelfOp[] }, ...
  */
 export function migratePersisted(persisted: unknown, version: number): PersistedState | undefined {
   const migrated = migrateProfile(persisted, version);
-  if (!migrated || version >= 8) return migrated;
+  if (!migrated) return migrated;
   const { legacyShelfMigrated, ...rest } = migrated as PersistedState & { legacyShelfMigrated?: boolean };
-  return legacyShelfMigrated && rest.shelfOwner == null ? { ...rest, savedProducts: [], savedIngredients: [] } : rest;
+  const shelf = version >= 8 ? migrated : legacyShelfMigrated && rest.shelfOwner == null ? { ...rest, savedProducts: [], savedIngredients: [] } : rest;
+  return version >= 10 ? shelf : routineBuiltFor(shelf);
+}
+
+/**
+ * v9 -> v10: a skin profile alone is no longer a routine (owner, 3 October
+ * 2026; `routineBuilt`). Someone who already had one and used it, with
+ * products or actives of their own in it, keeps it on Home; a skin profile
+ * with nothing in the routine asks to open it first, as a new one does.
+ */
+function routineBuiltFor(state: PersistedState): PersistedState {
+  const used = Object.keys(state.routinePicks ?? {}).length > 0 || (state.routineActives ?? []).length > 0;
+  return { ...state, routineBuilt: state.routineBuilt ?? used };
 }
 
 /** Up to v7: the profile's shape, and the dropped `productSuggestions`. */
@@ -1035,7 +1047,7 @@ export const useAppStore = create<AppState>()(
     }),
     {
       name: NEW_STORAGE_KEY,
-      version: 9,
+      version: 10,
       storage: createJSONStorage(() => formeStorage),
       partialize: partializeState,
       migrate: migratePersisted,

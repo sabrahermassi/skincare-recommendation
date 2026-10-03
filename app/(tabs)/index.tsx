@@ -12,7 +12,9 @@ import { Text } from "@/components/Text";
 import { EVENING_FROM_HOUR, timeOfDay, tipFor, todayIn } from "@/lib/home-today";
 import { openScanner } from "@/lib/open-scanner";
 import { isPersonalized } from "@/lib/profile";
-import { assembleRoutine, basicRoutine, recallRoutine } from "@/lib/routine-builder";
+import type { SkinProfile } from "@/data/types";
+import { prepareRoutine } from "@/lib/routine-build";
+import { basicRoutine, recallRoutine, type Routine } from "@/lib/routine-builder";
 import { today as weekday } from "@/lib/skin-needs";
 import { tabBarClearance, tabRootTop } from "@/lib/tab-bar";
 import { CANVAS, HAND_FONT_BOLD, HOME_TILE, INK, MUTED, SPACE, TYPE } from "@/lib/tokens";
@@ -26,6 +28,9 @@ const ACTIVES_ART = require("@/assets/illustrations/home-skin-needs.webp");
 const PREFETCH_AFTER_MS = 600;
 // Read off the hand-off (handoff_home_and_tip).
 const TILE_RADIUS = 20;
+// The room the top card and the tip keep while the routine builds, so nothing jumps when they arrive.
+const PENDING_CARD_HEIGHT = 212;
+const PENDING_TIP_HEIGHT = 160;
 
 /**
  * Home (handoff_home_and_tip): "Hi there!" in the hand face; one top card —
@@ -63,10 +68,11 @@ export default function Home() {
   const personalized = isPersonalized(profile);
   // A skin profile alone is not a routine (owner): only one opened from the card, or started from a Skin needs story.
   const hasRoutine = (personalized && built) || started || entries.length > 0;
-  // The routine the routine screen built last for this profile; until it has
-  // built one, the same steps with each active step's first choice.
-  const routine = hasRoutine ? (personalized ? (recallRoutine(profile) ?? assembleRoutine([], profile)) : basicRoutine()) : null;
-  const today = routine ? todayIn(routine, timeOfDay(now), weekday(now), entries) : null;
+  const routine = useHomeRoutine(profile, personalized && hasRoutine);
+  const routineIn = hasRoutine ? (personalized ? routine : basicRoutine()) : null;
+  // Built for a skin profile but not ready yet: its card and tip hold their place rather than show the wrong ones.
+  const pending = hasRoutine && routineIn === null;
+  const today = routineIn ? todayIn(routineIn, timeOfDay(now), weekday(now), entries) : null;
   const tip = tipFor(now, today);
   const read = useAppStore((s) => s.tipRead) === tip.id;
   const setTipRead = useAppStore((s) => s.setTipRead);
@@ -85,7 +91,9 @@ export default function Home() {
         </Text>
 
         {/* One top card, never both (hand-off). */}
-        <View style={{ marginTop: SPACE.gutter }}>{today ? <TodayRoutineCard today={today} onPress={openRoutine} /> : <StartRoutineCard onPress={openRoutine} />}</View>
+        <View style={{ marginTop: SPACE.gutter }}>
+          {pending ? <View style={{ height: PENDING_CARD_HEIGHT }} /> : today ? <TodayRoutineCard today={today} onPress={openRoutine} /> : <StartRoutineCard onPress={openRoutine} />}
+        </View>
 
         <Text accessibilityRole="header" style={{ marginTop: SPACE.section, paddingHorizontal: 4, fontSize: TYPE.title, fontWeight: "600", color: INK }}>
           Explore
@@ -95,18 +103,40 @@ export default function Home() {
           <Tile label="Find Your Actives" description="Ingredients that suit you" art={ACTIVES_ART} fill={HOME_TILE.actives} onPress={() => router.push("/journey")} />
         </View>
 
-        <TipEnvelope
-          tip={tip}
-          read={read}
-          onOpen={() => {
-            setTipRead(tip.id);
-            setTipOpen(true);
-          }}
-        />
+        {pending ? (
+          <View style={{ marginTop: SPACE.gutter, height: PENDING_TIP_HEIGHT }} />
+        ) : (
+          <TipEnvelope
+            tip={tip}
+            read={read}
+            onOpen={() => {
+              setTipRead(tip.id);
+              setTipOpen(true);
+            }}
+          />
+        )}
       </FitScrollView>
-      <TipNote tip={tip} visible={tipOpen} onClose={() => setTipOpen(false)} />
+      {pending ? null : <TipNote tip={tip} visible={tipOpen} onClose={() => setTipOpen(false)} />}
     </View>
   );
+}
+
+/**
+ * The routine for a skin profile, the very one the routine screen lays out
+ * (its active steps name the active of the best matching product), so Home
+ * and the routine never disagree. The one remembered for this profile at
+ * once; else built in small batches in the background, and null until it is
+ * ready, when Home keeps its first-choice stand-in out of sight.
+ */
+function useHomeRoutine(profile: SkinProfile, wanted: boolean): Routine | null {
+  const [built, setBuilt] = useState<{ profile: SkinProfile; routine: Routine } | null>(null);
+  const remembered = wanted ? recallRoutine(profile) : null;
+  const ready = built?.profile === profile ? built.routine : null;
+  useEffect(() => {
+    if (!wanted || remembered) return;
+    return prepareRoutine(profile, (routine) => setBuilt({ profile, routine }));
+  }, [wanted, remembered, profile]);
+  return remembered ?? ready;
 }
 
 /**

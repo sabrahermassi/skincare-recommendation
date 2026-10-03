@@ -434,6 +434,36 @@ check a Skin needs scan uses, and always say which actives to look for.
   itself (a step's scan) and to Skin needs. Picks already kept stay, with
   their Remove on the routine screen.
 
+### Home: the routine card and the skincare tip (3 October 2026)
+
+Built from `handoff_home_and_tip` (nothing else in the app changes). Owner
+decisions:
+
+- **One top card.** "Start your routine" until there is a routine, then
+  today's routine (butter before 3 pm, light blue after) with the active and
+  its steps as pills, folding to "+N" past three. The wide Scan card and the
+  Skincare Routine tile are gone; Explore is Scan Any Product and Find Your
+  Actives.
+- **A routine is one the person made**: built by opening "Your skincare
+  routine" with a skin profile (`routineBuilt`), or started from a Skin needs
+  story. A skin profile alone, say filled in after a scan, is not one. Home
+  builds the card from the same routine the routine screen shows
+  (`lib/routine-rows.ts`, built in the background by `prepareRoutine`), so the
+  two agree; it holds the card and tip back until that is ready. Installs from
+  before this had no flag: the v10 migration keeps the routine of anyone who
+  already had products or actives in it.
+- **Greeting in bold Kalam** (the Allura font is gone). No delete-routine
+  button: with no routine Home simply shows "Start your routine".
+- **The tip**: the SPF in the morning, tonight's active in the evening (the
+  next of two or more each night), the rest night, or a general tip without a
+  routine. "Tip read ✓" and "Next tip: …" are kept on the phone (`tipRead`).
+  Reduce Motion shows the note at once.
+- **All tip text is in `lib/skin-tips.ts`**: the owner's 31 general tips, each
+  with a reason added; the morning, evening and rest-night tips are
+  placeholder copy for the owner to review.
+- **Removed the "Add to my routine" button on a product result** (owner: too
+  many places to add from).
+
 ## SDK and platform history
 
 **iOS is the only release target for this MVP, decided 19 September 2026.**
