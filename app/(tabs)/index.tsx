@@ -126,8 +126,11 @@ export default function Home() {
  * The routine for a skin profile, the very one the routine screen lays out
  * (its active steps name the active of the best matching product), so Home
  * and the routine never disagree. The one remembered for this profile at
- * once; else built in small batches in the background, and null until it is
- * ready, when Home keeps its first-choice stand-in out of sight.
+ * once, checked against the catalogue as it is now each time Home comes into
+ * view (as the routine screen does on each visit), so a product the catalogue
+ * dropped or changed does not keep deciding the card and the tip; else built
+ * in small batches in the background, and null until it is ready, when Home
+ * keeps its first-choice stand-in out of sight.
  */
 function useHomeRoutine(profile: SkinProfile, wanted: boolean, focused: boolean): Routine | null {
   const [built, setBuilt] = useState<{ profile: SkinProfile; routine: Routine; loaded: boolean } | null>(null);
@@ -138,13 +141,18 @@ function useHomeRoutine(profile: SkinProfile, wanted: boolean, focused: boolean)
   // each time Home comes back into view until the catalogue loads.
   const retry = ready !== null && !ready.loaded;
   useEffect(() => {
-    if (!wanted || remembered || !focused) return;
+    if (!wanted || !focused) return;
     if (ready?.loaded) return;
     return prepareRoutine(profile, (routine, loaded) => setBuilt({ profile, routine, loaded }));
     // `ready` only decides whether to start: a result landing must not restart it.
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [wanted, remembered, profile, focused, retry]);
-  return remembered ?? ready?.routine ?? null;
+  }, [wanted, profile, focused, retry]);
+  // Home stays mounted behind the other tabs, so the check is dropped when it
+  // loses focus and made again the next time it is shown.
+  useEffect(() => {
+    if (!focused) setBuilt(null);
+  }, [focused]);
+  return ready?.routine ?? remembered;
 }
 
 /**

@@ -97,6 +97,20 @@ it("keeps Start your routine for a skin profile alone, and shows the routine onc
   expect(screen.queryByRole("progressbar")).toBeNull();
 });
 
+it("shows a remembered routine at once, and checks it against the catalogue again each time Home is shown", async () => {
+  useAppStore.setState({ profile: { ...EMPTY_PROFILE, baseSkinType: "oily" }, routineBuilt: true });
+  const first = await render(<Home />);
+  await waitFor(() => expect(screen.getByRole("button", { name: /^Your skincare routine\./ })).toBeTruthy());
+  const reads = jest.mocked(api.fetchProducts).mock.calls.length;
+  await act(async () => first.unmount());
+  await render(<Home />);
+  // The one remembered for this profile is there at once, with no placeholder...
+  expect(screen.getByRole("button", { name: /^Your skincare routine\./ })).toBeTruthy();
+  expect(screen.queryByRole("progressbar")).toBeNull();
+  // ...and the catalogue is read again to see whether it still holds.
+  await waitFor(() => expect(jest.mocked(api.fetchProducts).mock.calls.length).toBeGreaterThan(reads));
+});
+
 it("shows the card, not a skeleton for ever, when the catalogue can't be read", async () => {
   jest.mocked(api.fetchProducts).mockRejectedValueOnce(new Error("offline"));
   useAppStore.setState({ profile: { ...EMPTY_PROFILE, baseSkinType: "oily" }, routineBuilt: true });
