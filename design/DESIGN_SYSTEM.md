@@ -301,6 +301,9 @@ permission and not-found states.
   envelope at the foot of Home with "Skincare tip" and what it is about; it
   opens into a note (Kalam tip, one reason, ✕) coloured like the routine
   card. Text in `lib/skin-tips.ts`.
+- **Home's skeleton** (`components/home/HomeSkeleton.tsx`): grey shapes in the
+  exact room of the routine card and the tip while a routine is built, then
+  the real ones; slow pulse, still with Reduce Motion.
 - **Home's top card** is "Start your routine" (flat butter) until there is a
   routine, then today's routine on a watery wash (`HOME_TODAY`).
 - **Links out** (Read more on PubChem): a white 56pt card with a terracotta

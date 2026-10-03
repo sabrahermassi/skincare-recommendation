@@ -58,7 +58,7 @@ export default function Home() {
 
   const now = useHomeClock();
   // Read again each time Home comes back into view, so it follows a routine just built or changed.
-  useIsFocused();
+  const focused = useIsFocused();
   const profile = useAppStore((s) => s.profile);
   const entries = useAppStore((s) => s.routineActives);
   const started = useAppStore((s) => s.routineStarted);
@@ -66,7 +66,7 @@ export default function Home() {
   const personalized = isPersonalized(profile);
   // A skin profile alone is not a routine (owner): only one opened from the card, or started from a Skin needs story.
   const hasRoutine = (personalized && built) || started || entries.length > 0;
-  const routine = useHomeRoutine(profile, personalized && hasRoutine);
+  const routine = useHomeRoutine(profile, personalized && hasRoutine, focused);
   const routineIn = hasRoutine ? (personalized ? routine : basicRoutine()) : null;
   // Built for a skin profile but not ready yet: grey placeholders where its card and tip will be, rather than the wrong ones or a blank.
   const pending = hasRoutine && routineIn === null;
@@ -128,15 +128,22 @@ export default function Home() {
  * once; else built in small batches in the background, and null until it is
  * ready, when Home keeps its first-choice stand-in out of sight.
  */
-function useHomeRoutine(profile: SkinProfile, wanted: boolean): Routine | null {
-  const [built, setBuilt] = useState<{ profile: SkinProfile; routine: Routine } | null>(null);
+function useHomeRoutine(profile: SkinProfile, wanted: boolean, focused: boolean): Routine | null {
+  const [built, setBuilt] = useState<{ profile: SkinProfile; routine: Routine; loaded: boolean } | null>(null);
   const remembered = wanted ? recallRoutine(profile) : null;
-  const ready = built?.profile === profile ? built.routine : null;
+  const ready = built?.profile === profile ? built : null;
+  // When the catalogue could not be read the routine is its steps with each
+  // active step's first choice: shown, not left as a skeleton, and built again
+  // each time Home comes back into view until the catalogue loads.
+  const retry = ready !== null && !ready.loaded;
   useEffect(() => {
-    if (!wanted || remembered) return;
-    return prepareRoutine(profile, (routine) => setBuilt({ profile, routine }));
-  }, [wanted, remembered, profile]);
-  return remembered ?? ready;
+    if (!wanted || remembered || !focused) return;
+    if (ready?.loaded) return;
+    return prepareRoutine(profile, (routine, loaded) => setBuilt({ profile, routine, loaded }));
+    // `ready` only decides whether to start: a result landing must not restart it.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [wanted, remembered, profile, focused, retry]);
+  return remembered ?? ready?.routine ?? null;
 }
 
 /**

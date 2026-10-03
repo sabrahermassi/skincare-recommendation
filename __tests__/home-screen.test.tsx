@@ -2,7 +2,9 @@ import { act, fireEvent, render, screen, waitFor } from "@testing-library/react-
 import { router } from "expo-router";
 
 import Home from "@/app/(tabs)/index";
+import * as api from "@/data/api";
 import { openScanner } from "@/lib/open-scanner";
+import { forgetRoutine } from "@/lib/routine-builder";
 import { EVENING_TIPS, MORNING_TIPS } from "@/lib/skin-tips";
 import { EMPTY_PROFILE, useAppStore } from "@/store/useAppStore";
 
@@ -16,6 +18,11 @@ jest.setTimeout(30_000);
 
 jest.mock("expo-router", () => ({ router: { push: jest.fn(), navigate: jest.fn(), prefetch: jest.fn() }, useIsFocused: () => true }));
 jest.mock("@/lib/open-scanner", () => ({ openScanner: jest.fn() }));
+// The catalogue read, which one test makes fail.
+jest.mock("@/data/api", () => {
+  const actual = jest.requireActual("@/data/api");
+  return { ...actual, fetchProducts: jest.fn(actual.fetchProducts) };
+});
 jest.mock("react-native-safe-area-context", () => ({
   useSafeAreaInsets: () => ({ top: 0, bottom: 0, left: 0, right: 0 }),
 }));
@@ -31,6 +38,7 @@ beforeEach(() => {
   jest.useFakeTimers({ now: MONDAY_9AM, doNotFake: ["nextTick", "setImmediate"] });
 });
 afterEach(() => {
+  forgetRoutine();
   jest.useRealTimers();
   useAppStore.setState({ profile: EMPTY_PROFILE, routineActives: [], routineStarted: false, routineBuilt: false, tipRead: null });
   jest.mocked(router.push).mockClear();
@@ -85,6 +93,14 @@ it("keeps Start your routine for a skin profile alone, and shows the routine onc
   // Grey placeholders hold the card's and the tip's place until then: never a blank.
   expect(screen.getByRole("progressbar", { name: "Loading your skincare routine" })).toBeTruthy();
   expect(screen.getByRole("progressbar", { name: "Loading your skincare tip" })).toBeTruthy();
+  await waitFor(() => expect(screen.getByRole("button", { name: /^Your skincare routine\. This morning · \d steps\./ })).toBeTruthy());
+  expect(screen.queryByRole("progressbar")).toBeNull();
+});
+
+it("shows the card, not a skeleton for ever, when the catalogue can't be read", async () => {
+  jest.mocked(api.fetchProducts).mockRejectedValueOnce(new Error("offline"));
+  useAppStore.setState({ profile: { ...EMPTY_PROFILE, baseSkinType: "oily" }, routineBuilt: true });
+  await render(<Home />);
   await waitFor(() => expect(screen.getByRole("button", { name: /^Your skincare routine\. This morning · \d steps\./ })).toBeTruthy());
   expect(screen.queryByRole("progressbar")).toBeNull();
 });
