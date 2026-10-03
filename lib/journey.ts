@@ -471,8 +471,10 @@ export function needVerdict(ingredients: readonly Pick<Ingredient, "name">[], ne
   // What the Skin needs carousel showed for this pick (owner, 3 October
   // 2026): a product holding one of those works on the goal, whatever the
   // scoring rules say of it (a sunscreen for lines), and the line below
-  // counts against them, not against a list the person never saw.
-  const suggested = optionsFor({ goal: need.goal, sensitivity: need.sensitivity, pregnancy: need.pregnant === null ? null : need.pregnant ? "yes" : "no", uses: need.uses }).actives;
+  // counts against them, not against a list the person never saw. Not the
+  // actives they already use: the carousel passes over those for something
+  // new, but a product holding one still works on the goal.
+  const suggested = optionsFor({ goal: need.goal, sensitivity: need.sensitivity, pregnancy: need.pregnant === null ? null : need.pregnant ? "yes" : "no" }).actives;
   const covers = (active: StoryActive) => holdsActive(ingredients, active) || actives.some((finding) => finding.card?.key === active.key && !finding.trace);
   for (const active of suggested) {
     if (actives.some((finding) => finding.card?.key === active.key)) continue;

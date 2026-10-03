@@ -126,12 +126,13 @@ describe("the label result", () => {
   // design_handoff "october 3d", D and Dp: Skin needs covers over-the-counter
   // actives only, so a prescription one gets the doctor sheet, once.
   it("says to talk to a doctor first about a prescription active scanned from Skin needs", async () => {
-    mockParams = { from: "journey", need: "lines..no" };
+    // The actives they already use go into the story too, for its clash checks.
+    mockParams = { from: "journey", need: "lines..no.bha" };
     await openOnly(["water", "tretinoin", "glycerin"]);
     expect(screen.getByRole("header", { name: "Talk to a doctor first" })).toBeTruthy();
     expect(screen.getByText("This has tretinoin, a prescription-strength retinoid. A doctor should guide how you use it.")).toBeTruthy();
     await fireEvent.press(screen.getByRole("button", { name: "Learn about retinol" }));
-    expect(router.push).toHaveBeenCalledWith({ pathname: "/journey-story", params: { active: "retinoids", answers: "lines..no." } });
+    expect(router.push).toHaveBeenCalledWith({ pathname: "/journey-story", params: { active: "retinoids", answers: "lines..no.bha" } });
     await act(async () => screen.unmount());
 
     // Pregnant, breastfeeding or not said: nothing in its place.

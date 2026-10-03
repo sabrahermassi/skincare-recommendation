@@ -187,6 +187,12 @@ describe("the answer for a scan from Skin needs", () => {
     expect(withCentella).toMatchObject({ level: "none", helpful: ["centella asiatica extract"] });
   });
 
+  it("counts an active they already use: the carousel passes over it, but it still works", () => {
+    const retinolSerum = label("water", "glycerin", "retinol");
+    expect(needVerdict(retinolSerum, { ...need("lines", { pregnant: false }), uses: ["retinoids"] }).level).toBe(needVerdict(retinolSerum, need("lines", { pregnant: false })).level);
+    expect(needVerdict(retinolSerum, { ...need("lines", { pregnant: false }), uses: ["retinoids"] }).level).not.toBe("none");
+  });
+
   it("works on the goal when it has one of its strong actives", () => {
     const verdict = needVerdict(label("water", "salicylic acid", "glycerin"), need("pimples", { pregnant: false }));
     expect(verdict).toMatchObject({ level: "works", headline: "Works on pimples", line: "It has 1 of the 3 actives we suggest to clear pimples.", betterFor: [] });
