@@ -184,7 +184,8 @@ type AppState = {
    * A new key with a first-run value, so it needs no migration.
    */
   routineBuilt: boolean;
-  setRoutineBuilt: () => void;
+  /** Marks the routine as built, or, when the skin profile is reset, as not (Undo puts it back). */
+  setRoutineBuilt: (built?: boolean) => void;
   /** Sets the added actives, and the step limit and the started flag where given: every Add, Swap, Alternate and Undo. */
   setRoutineActives: (next: { entries: RoutineEntry[]; stepLimit?: StepLimit; started?: boolean }) => void;
   /** Takes an added active out of the routine. */
@@ -919,7 +920,7 @@ export const useAppStore = create<AppState>()(
         set((state) => ({ routineActives: entries, routineStepLimit: stepLimit ?? state.routineStepLimit, routineStarted: started ?? state.routineStarted })),
       removeRoutineActive: (active) => set((state) => ({ routineActives: state.routineActives.filter((entry) => entry.active !== active) })),
       setTipRead: (id) => set({ tipRead: id }),
-      setRoutineBuilt: () => set({ routineBuilt: true }),
+      setRoutineBuilt: (built = true) => set({ routineBuilt: built }),
       clearSavedProducts: () =>
         set((state) => ({
           savedProducts: [],

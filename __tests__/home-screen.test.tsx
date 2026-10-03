@@ -40,7 +40,7 @@ beforeEach(() => {
 afterEach(() => {
   forgetRoutine();
   jest.useRealTimers();
-  useAppStore.setState({ profile: EMPTY_PROFILE, routineActives: [], routineStarted: false, routineBuilt: false, tipRead: null });
+  useAppStore.setState({ profile: EMPTY_PROFILE, routineActives: [], routinePicks: {}, routineStarted: false, routineBuilt: false, tipRead: null });
   jest.mocked(router.push).mockClear();
 });
 
@@ -103,6 +103,13 @@ it("shows the card, not a skeleton for ever, when the catalogue can't be read", 
   await render(<Home />);
   await waitFor(() => expect(screen.getByRole("button", { name: /^Your skincare routine\. This morning · \d steps\./ })).toBeTruthy());
   expect(screen.queryByRole("progressbar")).toBeNull();
+});
+
+it("counts products of one's own in the routine as a routine, with no skin profile built for it", async () => {
+  useAppStore.setState({ routinePicks: { "evening:treatment": "retinol" } });
+  await render(<Home />);
+  expect(screen.queryByRole("button", { name: /^Start your routine/ })).toBeNull();
+  expect(screen.getByRole("button", { name: /^Your skincare routine\./ })).toBeTruthy();
 });
 
 it("goes back to Start your routine when the routine is gone", async () => {

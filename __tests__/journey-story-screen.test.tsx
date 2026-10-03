@@ -120,6 +120,14 @@ it("asks to start a routine when there is a skin profile but no routine built ye
   expect(useAppStore.getState().routineActives).toEqual([]);
 });
 
+it("doesn't ask to start a routine when products of one's own are in it, with no routine built (review)", async () => {
+  useAppStore.setState({ routineBuilt: false, routinePicks: { "evening:treatment": "retinol" } });
+  await open("bha");
+  await toLast(6);
+  await fireEvent.press(screen.getByRole("button", { name: "Add BHA to my routine" }));
+  expect(screen.queryByRole("header", { name: "Let's start your routine" })).toBeNull();
+});
+
 it("starts a routine when there is none, with the step count chosen (7c)", async () => {
   useAppStore.setState({ profile: EMPTY_PROFILE });
   await open("bha");

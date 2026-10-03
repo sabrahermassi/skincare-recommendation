@@ -63,9 +63,10 @@ export default function Home() {
   const entries = useAppStore((s) => s.routineActives);
   const started = useAppStore((s) => s.routineStarted);
   const built = useAppStore((s) => s.routineBuilt);
+  const hasPicks = useAppStore((s) => Object.keys(s.routinePicks).length > 0);
   const personalized = isPersonalized(profile);
   // A skin profile alone is not a routine (owner): only one opened from the card, or started from a Skin needs story.
-  const hasRoutine = (personalized && built) || started || entries.length > 0;
+  const hasRoutine = (personalized && built) || started || entries.length > 0 || hasPicks;
   const routine = useHomeRoutine(profile, personalized && hasRoutine, focused);
   const routineIn = hasRoutine ? (personalized ? routine : basicRoutine()) : null;
   // Built for a skin profile but not ready yet: grey placeholders where its card and tip will be, rather than the wrong ones or a blank.

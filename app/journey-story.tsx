@@ -137,7 +137,7 @@ function Story({ active, answers }: { active: StoryActive; answers: NeedAnswers 
 
   /** Runs the checks on Add against this routine state, and acts on the answer. `before` is what Undo puts back. */
   const add = (state: RoutineState, before: RoutineState, startedNow = false) => {
-    const plan = planAdd({ active, state, hasRoutine: isPersonalized(profile) && routineBuilt, ownProduct: ownProduct?.name ?? null, answers });
+    const plan = planAdd({ active, state, hasRoutine: (isPersonalized(profile) && routineBuilt) || Object.keys(routinePicks).length > 0, ownProduct: ownProduct?.name ?? null, answers });
     const extra = startedNow ? { stepLimit: state.stepLimit, started: true } : undefined;
     const addedTitle = startedNow ? "Routine started" : "Added to your routine";
     switch (plan.kind) {
