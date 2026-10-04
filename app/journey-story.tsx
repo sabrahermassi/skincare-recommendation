@@ -99,6 +99,8 @@ function Story({ active, answers }: { active: StoryActive; answers: NeedAnswers 
   const entries = useAppStore((s) => s.routineActives);
   const stepLimit = useAppStore((s) => s.routineStepLimit);
   const started = useAppStore((s) => s.routineStarted);
+  // A skin profile alone is not a routine (owner): "Let's start your routine" until one was built.
+  const routineBuilt = useAppStore((s) => s.routineBuilt);
   const setRoutineActives = useAppStore((s) => s.setRoutineActives);
   const saveIngredient = useAppStore((s) => s.saveIngredient);
   const toggleSavedIngredient = useAppStore((s) => s.toggleSavedIngredient);
@@ -135,7 +137,7 @@ function Story({ active, answers }: { active: StoryActive; answers: NeedAnswers 
 
   /** Runs the checks on Add against this routine state, and acts on the answer. `before` is what Undo puts back. */
   const add = (state: RoutineState, before: RoutineState, startedNow = false) => {
-    const plan = planAdd({ active, state, hasRoutine: isPersonalized(profile), ownProduct: ownProduct?.name ?? null, answers });
+    const plan = planAdd({ active, state, hasRoutine: (isPersonalized(profile) && routineBuilt) || Object.keys(routinePicks).length > 0, ownProduct: ownProduct?.name ?? null, answers });
     const extra = startedNow ? { stepLimit: state.stepLimit, started: true } : undefined;
     const addedTitle = startedNow ? "Routine started" : "Added to your routine";
     switch (plan.kind) {

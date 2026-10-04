@@ -156,16 +156,16 @@ type AppState = {
 
   /**
    * The products someone put in their own routine (owner, 2 October 2026), by
-   * the step each stands in: `"evening:treatment"` to a catalogue product id
-   * (`lib/routine-builder.ts`, `routinePlacesFor`). One product per step. On
+   * the step each stands in: `"evening:treatment"` to a catalogue product id.
+   * One product per step. On
    * this device only: it is not part of the shelf and is not sent to the
    * account. A new key with a first-run value, so it needs no migration.
    */
   routinePicks: Record<string, string>;
-  /** Puts a product in these steps, in place of whatever was there. */
-  addToRoutine: (places: string[], id: string) => void;
-  /** Takes a product out of every step it is in. */
-  removeFromRoutine: (id: string) => void;
+  /** Puts a product in a step, in place of whatever was there (one product a step). */
+  addToStep: (step: string, id: string) => void;
+  /** Takes whatever product stands in a step out of it; the same product in another step stays. */
+  removeFromStep: (step: string) => void;
 
   /**
    * Actives added to the routine from a Skin needs story (owner, 3 October
@@ -179,10 +179,28 @@ type AppState = {
   routineStepLimit: StepLimit;
   /** A routine begun from a story with no skin profile behind it. */
   routineStarted: boolean;
+  /**
+   * The person opened their skincare routine with a skin profile, so it was
+   * built for them (owner, 3 October 2026). A skin profile alone is not a
+   * routine: filling it in from a scan must not make one appear on Home.
+   * A new key with a first-run value, so it needs no migration.
+   */
+  routineBuilt: boolean;
+  /** Marks the routine as built, or, when the skin profile is reset, as not (Undo puts it back). */
+  setRoutineBuilt: (built?: boolean) => void;
   /** Sets the added actives, and the step limit and the started flag where given: every Add, Swap, Alternate and Undo. */
   setRoutineActives: (next: { entries: RoutineEntry[]; stepLimit?: StepLimit; started?: boolean }) => void;
   /** Takes an added active out of the routine. */
   removeRoutineActive: (active: ActiveKey) => void;
+
+  /**
+   * The skincare tip last opened on Home (handoff_home_and_tip): its place in
+   * the day (`HomeTip.id` in lib/home-today.ts), so the envelope says "Tip
+   * read" until the next one. On this device only; a new key with a first-run
+   * value, so it needs no migration.
+   */
+  tipRead: string | null;
+  setTipRead: (id: string) => void;
 
   /**
    * Whether this install has already cleared whatever an earlier install left
@@ -356,6 +374,8 @@ export const PERSISTED_KEYS = [
   "routineActives",
   "routineStepLimit",
   "routineStarted",
+  "routineBuilt",
+  "tipRead",
   "secureStoreClaimed",
   "shelfOwner",
   "shelfQueue",
@@ -377,6 +397,8 @@ export function partializeState(state: AppState): PersistedState {
     routineActives: state.routineActives,
     routineStepLimit: state.routineStepLimit,
     routineStarted: state.routineStarted,
+    routineBuilt: state.routineBuilt,
+    tipRead: state.tipRead,
     secureStoreClaimed: state.secureStoreClaimed,
     shelfOwner: state.shelfOwner,
     shelfQueue: state.shelfQueue,
@@ -397,6 +419,8 @@ const INITIAL_STATE = {
   routineActives: [] as RoutineEntry[],
   routineStepLimit: DEFAULT_STEP_LIMIT as StepLimit,
   routineStarted: false,
+  routineBuilt: false,
+  tipRead: null as string | null,
   secureStoreClaimed: false,
   shelfOwner: null as string | null,
   shelfQueue: [] as ShelfOp[],
@@ -480,9 +504,21 @@ function queued(state: { shelfOwner: string | null; shelfQueue: ShelfOp[] }, ...
  */
 export function migratePersisted(persisted: unknown, version: number): PersistedState | undefined {
   const migrated = migrateProfile(persisted, version);
-  if (!migrated || version >= 8) return migrated;
+  if (!migrated) return migrated;
   const { legacyShelfMigrated, ...rest } = migrated as PersistedState & { legacyShelfMigrated?: boolean };
-  return legacyShelfMigrated && rest.shelfOwner == null ? { ...rest, savedProducts: [], savedIngredients: [] } : rest;
+  const shelf = version >= 8 ? migrated : legacyShelfMigrated && rest.shelfOwner == null ? { ...rest, savedProducts: [], savedIngredients: [] } : rest;
+  return version >= 10 ? shelf : routineBuiltFor(shelf);
+}
+
+/**
+ * v9 -> v10: a skin profile alone is no longer a routine (owner, 3 October
+ * 2026; `routineBuilt`). Someone who already had one and used it, with
+ * products or actives of their own in it, keeps it on Home; a skin profile
+ * with nothing in the routine asks to open it first, as a new one does.
+ */
+function routineBuiltFor(state: PersistedState): PersistedState {
+  const used = Object.keys(state.routinePicks ?? {}).length > 0 || (state.routineActives ?? []).length > 0;
+  return { ...state, routineBuilt: state.routineBuilt ?? used };
 }
 
 /** Up to v7: the profile's shape, and the dropped `productSuggestions`. */
@@ -881,11 +917,13 @@ export const useAppStore = create<AppState>()(
 
       clearHistory: () => set({ history: [] }),
 
-      addToRoutine: (places, id) => set((state) => ({ routinePicks: { ...state.routinePicks, ...Object.fromEntries(places.map((place) => [place, id])) } })),
-      removeFromRoutine: (id) => set((state) => ({ routinePicks: Object.fromEntries(Object.entries(state.routinePicks).filter(([, picked]) => picked !== id)) })),
+      addToStep: (step, id) => set((state) => ({ routinePicks: { ...state.routinePicks, [step]: id } })),
+      removeFromStep: (step) => set((state) => ({ routinePicks: Object.fromEntries(Object.entries(state.routinePicks).filter(([key]) => key !== step)) })),
       setRoutineActives: ({ entries, stepLimit, started }) =>
         set((state) => ({ routineActives: entries, routineStepLimit: stepLimit ?? state.routineStepLimit, routineStarted: started ?? state.routineStarted })),
       removeRoutineActive: (active) => set((state) => ({ routineActives: state.routineActives.filter((entry) => entry.active !== active) })),
+      setTipRead: (id) => set({ tipRead: id }),
+      setRoutineBuilt: (built = true) => set({ routineBuilt: built }),
       clearSavedProducts: () =>
         set((state) => ({
           savedProducts: [],
@@ -1013,7 +1051,7 @@ export const useAppStore = create<AppState>()(
     }),
     {
       name: NEW_STORAGE_KEY,
-      version: 9,
+      version: 10,
       storage: createJSONStorage(() => formeStorage),
       partialize: partializeState,
       migrate: migratePersisted,

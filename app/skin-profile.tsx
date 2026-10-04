@@ -37,6 +37,8 @@ const ORDER: Question[] = ["concerns", "skinType", "sensitivity", "pregnancy"];
 export default function SkinProfileScreen() {
   const profile = useAppStore((s) => s.profile);
   const setProfile = useAppStore((s) => s.setProfile);
+  const routineBuilt = useAppStore((s) => s.routineBuilt);
+  const setRoutineBuilt = useAppStore((s) => s.setRoutineBuilt);
   const [open, setOpen] = useState<Question | null>(null);
   // "I don't know" and "no concerns" store the same value as a question never
   // asked, so the stored profile can't tell them apart. Which questions were
@@ -63,8 +65,12 @@ export default function SkinProfileScreen() {
   const hasAnswers = profile.concerns.length > 0 || profile.baseSkinType !== null || profile.sensitivity !== null || profile.pregnancyStatus !== null;
   const reset = () => {
     const before = profile;
+    const builtBefore = routineBuilt;
     const answeredBefore = answered;
     setProfile(EMPTY_PROFILE);
+    // A routine built for these answers goes with them: filling the profile in
+    // again, from a scan or the quiz, must not bring a routine back that nobody opened.
+    setRoutineBuilt(false);
     setAnswered(new Set());
     setOpen(null);
     haptic.select();
@@ -73,6 +79,7 @@ export default function SkinProfileScreen() {
       message: "Skin profile reset",
       undo: () => {
         setProfile(before);
+        setRoutineBuilt(builtBefore);
         setAnswered(answeredBefore);
       },
     });

@@ -39,11 +39,13 @@ values are in `lib/tokens.ts`.
 | `VERDICT.medium` | ring `#E78B30`, word `#C26E1E`, tint `#FBF1E6` | Fair, Watch |
 | `VERDICT.low` | ring `#E56B65`, word `#CC4F49`, tint `#FFECE9` | Poor, Avoid |
 | `DESTRUCTIVE_OUTLINE` | fill `#FFECE9`, words `#CC4F49` | every delete, remove and report button: soft, never a solid red |
-| `HOME_SCAN_FILL` / `HOME_TILE` | `#F8EEE6` / `#EFEBF1`, `#F6F0E2` | Home's scan card and its two tiles |
+| `HOME_TILE` | `#EEF1E7`, `#EFEBF1`, `#F6F0E2` | Home's Scan and Find Your Actives tiles, and the Start your routine card |
+| `HOME_TODAY` | evening `#EBEEF7` wash, `#4A5272` pill; morning `#FAF3E6` wash, `#D9A24A` pill | Home's routine card and the skincare tip's note |
 
 **Type.** `DISPLAY_FONT` is PT Serif Bold, upright: titles, ingredient names,
-the score. Everything else is the system font. `SCRIPT_FONT` (Allura) is only
-for Home's "Hi there!" (46/48) and the tip sentence on the opened tip (40/46).
+the score. Everything else is the system font. Kalam is the handwriting:
+bold for Home's "Hi there!" (34), regular for the skincare tip and Skin
+needs' notes.
 Sizes are the `TYPE` scale, unchanged.
 
 **Elements that changed.**
@@ -102,7 +104,7 @@ no drop shadow. Only things that float get a shade: sheets and pop-ups, menus
 
 **Colour means something.** Terracotta is for actions and the brand only. Green
 is good, orange is watch or fair, red is avoid or poor, brown-grey is unknown.
-Home is the one place with decorative tints (`HOME_SCAN_FILL`, `HOME_TILE`),
+Home is the one place with decorative tints (`HOME_TILE`, `HOME_TODAY`),
 plus `HOME_CARD_FILL` on the product result's no-profile card; elsewhere a tint
 is a verdict.
 
@@ -295,13 +297,15 @@ permission and not-found states.
   for today", 72pt step cards with a numbered badge in the time's colours and
   the step's bottle faded on the right, dotted connectors between them.
 
-- **Tip of the day** (`TipCard`): a white paper note (radius 4, a three-layer
-  soft shade, `TIP_NOTE`) under Home's tiles, a zigzag-cut strip of tape on
-  top, "TIP OF THE DAY" and "Tap for another", the tip in Caveat 22. It opens
-  on the day's tip; a tap shuffles to another with a wiggle from the tape, a
-  spin of the shuffle icon, ochre sparkles and the new tip written in from the
-  left. Reduce Motion just swaps the text.
-- **Home's scan card** is a pale apricot, `HOME_SCAN_FILL` (`#F9EFE5`).
+- **Skincare tip** (`components/home/SkincareTip.tsx`): a watercolour
+  envelope at the foot of Home with "Skincare tip" and what it is about; it
+  opens into a note (Kalam tip, one reason, ✕) coloured like the routine
+  card. Text in `lib/skin-tips.ts`.
+- **Home's skeleton** (`components/home/HomeSkeleton.tsx`): grey shapes in the
+  exact room of the routine card and the tip while a routine is built, then
+  the real ones; slow pulse, still with Reduce Motion.
+- **Home's top card** is "Start your routine" (flat butter) until there is a
+  routine, then today's routine on a watery wash (`HOME_TODAY`).
 - **Links out** (Read more on PubChem): a white 56pt card with a terracotta
   line icon, a 17pt name over a 13pt "Opens in your browser" and an
   external-link icon; it opens in the in-app browser (`expo-web-browser`).
