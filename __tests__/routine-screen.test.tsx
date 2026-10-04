@@ -347,6 +347,19 @@ describe("by day, with actives added from Skin needs (design_handoff october 3d,
     expect(screen.getByRole("button", { name: /BHA serum/ })).toBeTruthy();
   });
 
+  it("scans from an added active's row to check a product only, with no step to add it to", async () => {
+    useAppStore.setState({ profile: ACNE, routineActives: [BHA_NIGHTS] });
+    fetched.mockResolvedValue(CATALOGUE);
+    await open();
+    await act(async () => fireEvent.press(screen.getByRole("tab", { name: "Evening" })));
+    mockOpenScanner.mockClear();
+    await fireEvent.press(screen.getByRole("button", { name: "Scan one to check, for tonight’s active" }));
+    expect(mockOpenScanner).toHaveBeenCalledWith(undefined);
+    // The steps around it still carry theirs.
+    await fireEvent.press(screen.getByRole("button", { name: "Scan one to check, for moisturiser" }));
+    expect(mockOpenScanner).toHaveBeenLastCalledWith({ step: "evening:moisturise" });
+  });
+
   it("calls a night without one a rest night, and says when the next is", async () => {
     useAppStore.setState({ profile: ACNE, routineActives: [BHA_NIGHTS] });
     await open();

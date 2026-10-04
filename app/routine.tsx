@@ -228,6 +228,9 @@ function Steps({ personalized }: { personalized: boolean }) {
               rest={row.rest}
               own={row.rest ? null : ownFor(row.slot.key)}
               step={placeId(time, row.slot.key)}
+              // A row for an active added from Skin needs only checks a product: a step keeps one pick, and several
+              // actives share it, so a product added there would stand under every one of them.
+              addable={!row.added}
               onRemove={removeFromStep}
               onRemoveActive={row.added ? () => removeRoutineActive(row.added!.key) : undefined}
               last={i === steps.length - 1}
@@ -304,6 +307,7 @@ function StepCard({
   rest = false,
   own: ownPick,
   step,
+  addable,
   onRemove,
   onRemoveActive,
   last,
@@ -315,8 +319,10 @@ function StepCard({
   /** A rest night: no active, nothing to pick or scan. */
   rest?: boolean;
   own: OwnPick | null;
-  /** This step's id: a scan from it carries it, so the result can offer to add the product here. */
+  /** This step's id: a scan from it carries it (when `addable`), so the result can offer to add the product here. */
   step: string;
+  /** False for an added active's row: a scan from it only checks a product, and carries no step. */
+  addable: boolean;
   onRemove: (step: string) => void;
   /** For an active added from Skin needs: takes it out of the routine. */
   onRemoveActive?: () => void;
@@ -377,7 +383,7 @@ function StepCard({
               </Pressable>
             ) : null}
             <Pressable
-              onPress={() => openScanner({ step })}
+              onPress={() => openScanner(addable ? { step } : undefined)}
               accessibilityRole="button"
               accessibilityLabel={`Scan one to check, for ${label.toLowerCase()}`}
               // 28pt tall like the design; the slop takes the target to 44.
