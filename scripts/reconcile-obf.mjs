@@ -37,9 +37,14 @@
  *   node scripts/reconcile-obf.mjs --dry-run --limit 20
  *   node scripts/reconcile-obf.mjs --barcode 3600541144019,7798130373882
  *
- * `--barcode` re-reads only the listed products (obf rows) instead of the oldest ones: for a
- * parser fix, which should reach the products it was wrong about without waiting for the
- * nightly rotation to come round to them. Same read, same parser, same write, same pacing.
+ * `--barcode` re-reads only the listed products (obf rows), once, instead of the oldest ones: a
+ * REPAIR for a parser fix, which should reach the products it was wrong about without waiting for
+ * the nightly rotation. Same read, same parser, same pacing, but whatever differs is written as a
+ * parser refresh and never stamps `formula_changed_at`: the label did not move, and a repaired
+ * name must not tell people who saved the product that it was reformulated. (`parserOnlyChange`
+ * can't see that for a repair: it re-parses the stored names, and the old parser had already lost
+ * what the new one reads, such as `acrylamide` standing for a whole polymer name.) A real
+ * reformulation is the nightly run's to find.
  *
  * Slow by design, same reason as reclassify-from-tags.mjs: Open Beauty Facts
  * documents 15 product reads per minute per IP (import-obf.mjs's own
@@ -272,8 +277,9 @@ async function main() {
   const dryRun = process.argv.includes("--dry-run");
   // `--limit` can only lower the per-run cap, never raise it — see BATCH_SIZE.
   const limit = Math.min(parseLimit(process.argv), BATCH_SIZE);
-  // Only the products named, when asked (see the header).
+  // Only the products named, when asked, as a repair (see the header).
   const barcodes = parseBarcodes(process.argv);
+  const repair = barcodes !== null;
   // Credentials are required for --dry-run too — it reads the live rows it
   // reports on.
   const { db } = connect({ write: !dryRun });
@@ -382,8 +388,13 @@ async function main() {
       // but through the RPC's refresh flag and with no explicit timestamp, so
       // `formula_changed_at` is not stamped (migration 0021; see
       // `parserOnlyChange`). Counted as unchanged, since that is what it is.
-      if (parserOnlyChange(row.product_ingredients, fresh, known, aliases)) {
-        unchanged += 1;
+      if (repair || parserOnlyChange(row.product_ingredients, fresh, known, aliases)) {
+        if (repair) {
+          changed += 1;
+          if (changedSamples.length < 5) changedSamples.push(`${row.brand} — ${row.name}`);
+        } else {
+          unchanged += 1;
+        }
         touched += 1;
         if (!dryRun) {
           const { id, barcode, brand, name, type, area, description, image_url, volume, in_stock, suitable_for, targets, source, attribution, expires_at } =
@@ -422,6 +433,9 @@ async function main() {
         if (rpcError) throw new Error(`replace_product_with_ingredients failed for ${id}: ${rpcError.message}`);
       }
     }
+    // The listed products are one page, once: each write moves its row's `fetched_at` past the
+    // cursor, so another pass would only read the same rows again.
+    if (barcodes) break;
   }
 
   if (!sawAnyCandidate) {
