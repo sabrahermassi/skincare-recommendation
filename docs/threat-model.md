@@ -11,7 +11,7 @@ this document is the source of truth behind it.
 
 When this was first written, the backend held a database but no user data (the account work since — #218 onward — is noted inline):
 
-- Eleven tables today (counted from `supabase/migrations/`, 26 September
+- Ten tables today (counted from `supabase/migrations/`, 6 October
   2026), every one with RLS enabled:
   - **Catalogue, public read** (`anon`/`authenticated` select, no write
     policy): `ingredients`, `products`, `product_ingredients` (migration

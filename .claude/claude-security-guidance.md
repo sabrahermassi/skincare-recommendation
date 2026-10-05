@@ -25,7 +25,7 @@ The per-item detail is in `docs/device-storage-policy.md` (on the phone) and
    script says. `scripts/lib/db.mjs` refuses a production write that isn't
    declared twice; the rule behind it is in `CLAUDE.md`. Reading production is
    fine.
-2. **RLS on every table, owner-only on every user table.** All 11 tables have
+2. **RLS on every table, owner-only on every user table.** All 10 tables have
    RLS on. User rows are readable and writable only where
    `user_id = auth.uid()` (`saved_products`, `saved_ingredients`; `product_authors`
    is read-own only). A new table ships with RLS and its policies in the same
