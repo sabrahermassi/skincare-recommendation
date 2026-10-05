@@ -1,4 +1,4 @@
-import { parseIngredientBlock } from "@/lib/inci";
+import { parseIngredientBlock, rejoinSplitNames, splitBlend } from "@/lib/inci";
 import { parseInci } from "../scripts/lib/inci-parse.mjs";
 
 /**
@@ -82,5 +82,43 @@ describe.each(parsers)("%s", (_file: string, parse: (text: string) => string[]) 
   it("leaves a blend alone when one part is not a known name", () => {
     const names = parse("Aqua, Glycerin, Dimethicone, Enzoate & Potassium Sorbate");
     expect(names).not.toContain("potassium sorbate");
+  });
+});
+
+describe("rejoinSplitNames", () => {
+  it("joins a slash token to the next one when together they are a known name", () => {
+    expect(rejoinSplitNames(["aqua", "acrylamide/sodium", "acryloyldimethyltaurate copolymer", "glycerin"], DICTIONARY)).toEqual([
+      "aqua",
+      "acrylamide/sodium acryloyldimethyltaurate copolymer",
+      "glycerin",
+    ]);
+  });
+
+  it("joins a slash token to a lone polymer word, known or not", () => {
+    for (const word of ["copolymer", "crosspolymer", "polymer"]) {
+      expect(rejoinSplitNames(["x/y chloride", word], DICTIONARY)).toEqual([`x/y chloride ${word}`]);
+    }
+  });
+
+  it("leaves tokens alone otherwise", () => {
+    // No slash in the first token.
+    expect(rejoinSplitNames(["silica", "copolymer"], DICTIONARY)).toEqual(["silica", "copolymer"]);
+    // The slash token is already a name the dictionary holds.
+    expect(rejoinSplitNames(["acrylamide/sodium acrylate copolymer", "copolymer"], DICTIONARY)).toEqual(["acrylamide/sodium acrylate copolymer", "copolymer"]);
+    // What follows is not the end of a polymer name and the two together are not a known name.
+    expect(rejoinSplitNames(["aqua/water", "glycerin"], DICTIONARY)).toEqual(["aqua/water", "glycerin"]);
+    expect(rejoinSplitNames([], DICTIONARY)).toEqual([]);
+  });
+});
+
+describe("splitBlend", () => {
+  it("splits an ampersand blend when every part is a known name", () => {
+    expect(splitBlend("acrylamide/sodium acrylate copolymer & trideceth-6", DICTIONARY)).toEqual(["acrylamide/sodium acrylate copolymer", "trideceth-6"]);
+  });
+
+  it("returns the token whole when a part is unknown, or there is no blend", () => {
+    expect(splitBlend("enzoate & potassium sorbate", DICTIONARY)).toEqual(["enzoate & potassium sorbate"]);
+    expect(splitBlend("glycerin", DICTIONARY)).toEqual(["glycerin"]);
+    expect(splitBlend("glycerin & ", DICTIONARY)).toEqual(["glycerin & "]);
   });
 });
