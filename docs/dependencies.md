@@ -76,7 +76,8 @@ through because no fix exists yet. `scripts/check-audit.mjs` reads it.
   the advisory is about, as `npm audit` names it), `reason` (why it is safe
   to wait: how the package is reached and why it doesn't ship) and `expires`
   (`YYYY-MM-DD`, a real day). A missing field or a bad date fails the run.
-- **30 days at most.** Set `expires` 30 days from the day the entry is added.
+- **30 days at most.** Set `expires` 30 days from the day the entry is added;
+  the script fails an entry that expires more than 30 days from the day CI runs.
   The entry covers the advisory through that day; after it, the advisory fails
   CI again. To extend, re-check that there is still no fix, then change the
   date in a PR the owner approves.

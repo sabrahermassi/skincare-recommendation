@@ -16,6 +16,10 @@ import { fileURLToPath } from "node:url";
 
 const FAILING_SEVERITIES = ["high", "critical"];
 
+// How far ahead an entry may expire. A longer exception is a decision to
+// re-make, not one to write down once.
+const MAX_ALLOWANCE_DAYS = 30;
+
 const ISO_DATE = /^\d{4}-\d{2}-\d{2}$/;
 
 // `Date.parse` rolls 2026-02-30 over to 2 March, so the date has to print back
@@ -25,11 +29,17 @@ function isRealDate(text) {
   return ISO_DATE.test(text) && !Number.isNaN(time) && new Date(time).toISOString().slice(0, 10) === text;
 }
 
+function addDays(day, days) {
+  return new Date(Date.parse(day) + days * 86_400_000).toISOString().slice(0, 10);
+}
+
 /**
  * The allowlist, checked. Returns the entries and a list of problems; any
  * problem fails the run, so a typo can never turn into a silent allowance.
+ * With `today` (YYYY-MM-DD, UTC) it also rejects an expiry more than
+ * MAX_ALLOWANCE_DAYS away.
  */
-export function parseAllowlist(raw) {
+export function parseAllowlist(raw, today) {
   const problems = [];
   if (!Array.isArray(raw)) return { entries: [], problems: ["audit-allowlist.json must be a JSON array of entries"] };
 
@@ -49,6 +59,10 @@ export function parseAllowlist(raw) {
     }
     if (!isRealDate(entry.expires)) {
       problems.push(`${where} (${entry.id}) has an expiry that is not a YYYY-MM-DD date: ${entry.expires}`);
+      return;
+    }
+    if (today && entry.expires > addDays(today, MAX_ALLOWANCE_DAYS)) {
+      problems.push(`${where} (${entry.id}) expires ${entry.expires}, more than ${MAX_ALLOWANCE_DAYS} days from today (${today})`);
       return;
     }
     entries.push({ id: entry.id, package: entry.package, reason: entry.reason, expires: entry.expires });
@@ -125,7 +139,7 @@ export function evaluateAudit(audit, allowlist, today) {
     return { allowed: [], failed: [], expired: [], unused: [], problems: [`npm audit did not produce a report: ${detail}`] };
   }
 
-  const parsed = parseAllowlist(allowlist);
+  const parsed = parseAllowlist(allowlist, today);
   problems.push(...parsed.problems);
 
   const failing = advisoriesFrom(audit).filter((a) => FAILING_SEVERITIES.includes(a.severity));

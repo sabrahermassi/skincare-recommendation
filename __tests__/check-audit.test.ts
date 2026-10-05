@@ -134,6 +134,17 @@ describe("parseAllowlist", () => {
     expect(parseAllowlist([entry({ expires: "2028-02-29" })]).problems).toEqual([]);
   });
 
+  it("rejects an expiry more than 30 days away, and accepts exactly 30", () => {
+    expect(parseAllowlist([entry({ expires: "2026-11-04" })], TODAY).problems).toEqual([]);
+    expect(parseAllowlist([entry({ expires: "2026-11-05" })], TODAY).problems[0]).toContain("more than 30 days");
+  });
+
+  it("fails the audit on such an entry instead of allowing on it", () => {
+    const out = evaluateAudit(auditOf(forge), [entry({ expires: "2027-10-05" })], TODAY);
+    expect(out.problems[0]).toContain("more than 30 days");
+    expect(out.failed).toHaveLength(1);
+  });
+
   it("rejects a file that is not an array", () => {
     expect(parseAllowlist({}).problems).toHaveLength(1);
   });
