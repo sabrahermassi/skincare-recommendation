@@ -43,6 +43,9 @@ export const REFINED_GRADE_NOTE_START = "Allowed when fully refined.";
 export const NATURAL_ESSENCE_NOTE_START = "Natural essence.";
 export const ORIGIN_DEPENDENT_NOTE_START = "EU rules depend on how it's made.";
 
+/** What an origin-dependent ingredient is called wherever another ingredient would read "No known concerns". */
+export const ORIGIN_DEPENDENT_HEADLINE = "Depends on how it's made";
+
 /**
  * An ingredient whose EU status depends on how it is made (cannabidiol). Stored `safe` so
  * nothing is charged, but never to be shown as cleared: no "No known concerns", "Nothing
@@ -65,7 +68,7 @@ export function regulatoryStatus(ingredient: Ingredient): string {
   if (ingredient.safety === "caution") return "Restricted";
   if (ingredient.note?.startsWith(REFINED_GRADE_NOTE_START)) return "Allowed when refined";
   if (ingredient.note?.startsWith(NATURAL_ESSENCE_NOTE_START)) return "Allowed, with a limit on furocoumarins";
-  if (isOriginDependent(ingredient)) return "Depends on how it's made";
+  if (isOriginDependent(ingredient)) return ORIGIN_DEPENDENT_HEADLINE;
   return "No restriction";
 }
 

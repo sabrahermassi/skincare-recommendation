@@ -90,6 +90,14 @@ describe("natural essences under Annex II/358 (citrus, rue)", () => {
     }
   });
 
+  it("read a citation written with the Annex prefix the same way", () => {
+    for (const restriction of ["Annex II/358", "Annex II/358 R1", "annex ii/358 r"]) {
+      const written = rating("citrus limon fruit extract", restriction);
+      expect(written.safety).toBe("safe");
+      expect(written.note?.startsWith(NATURAL_ESSENCE_NOTE_START)).toBe(true);
+    }
+  });
+
   it("name the plants in SQL the way the import does", () => {
     for (const name of ["citrus limon fruit extract", "ascorbic acid orange citrus limon polypeptides", "ruta graveolens herb oil", "cuminum cyminum fruit extract"]) {
       expect(NATURAL_ESSENCE_SOURCE.test(name)).toBe(true);
@@ -109,6 +117,9 @@ describe("alkanes under Annex II/764", () => {
       const written = rating(name, "II/764");
       expect(written.safety).toBe("safe");
       expect(written.note).toMatch(/^Allowed when fully refined\. .*\(EU Annex II\/764\)$/);
+      // The condition in entry 764 is the DMSO extract, not petrolatum's refining history.
+      expect(written.note).toContain("more than 3 % DMSO extract");
+      expect(written.note).not.toContain("refining history");
       expect(regulatoryStatus(writtenRow(name, "II/764"))).toBe("Allowed when refined");
       expect(written.note?.startsWith(REFINED_GRADE_NOTE_START)).toBe(true);
     }
@@ -221,6 +232,6 @@ describe("the migration says what the import says", () => {
     inSql(rating("cuminum cyminum fruit extract", "II/358 R1 III/156").note as string);
     inSql(rating("cannabidiol", "II/306").note as string);
     inSql(rating("hydroxyisohexyl 3 cyclohexene carboxaldehyde", "II/1380 …").note as string);
-    inSql("Allowed when fully refined. The EU bans it only when its refining history isn't known ");
+    inSql(rating("c15 19 alkane", "II/764").note?.replace(/ \(EU Annex II\/764\)$/, " ") as string);
   });
 });

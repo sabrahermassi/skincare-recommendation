@@ -37,14 +37,15 @@ where safety = 'avoid'
   and note = 'Prohibited in cosmetics (EU Annex II/358 R1 III/156)';
 
 -- 2. Alkanes under Annex II/764: banned only "if they contain > 3 % w/w DMSO extract",
---    which a refined cosmetic grade does not. Same wording as petrolatum (0028, 0029).
+--    which a refined cosmetic grade does not. The note names that condition, not petrolatum's
+--    refining history (0028, 0029).
 update ingredients
 set
   safety = 'safe',
   note = regexp_replace(
     note,
     '^Prohibited in cosmetics ',
-    'Allowed when fully refined. The EU bans it only when its refining history isn''t known '
+    'Allowed when fully refined. The EU bans it only when it contains more than 3 % DMSO extract '
   )
 where inci_name in ('c14 19 alkane', 'c14-19 alkane', 'c15 19 alkane', 'c15-19 alkane', 'c18 21 alkane', 'c18-21 alkane')
   and safety = 'avoid'

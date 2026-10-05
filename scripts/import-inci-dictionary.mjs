@@ -196,17 +196,18 @@ function safetyFrom(restriction) {
  * 0029_petrolatum_safe.sql, which fix the row already written: keep the
  * note's wording the same in all three.
  */
-const REFINED_GRADE_EXEMPT = new Set([
-  "petrolatum",
-  // Entry 764 bans heavy hydrocracked distillates only "if they contain > 3 % w/w DMSO
-  // extract", which a cosmetic-grade alkane does not (checked against the regulation's
-  // text, 5 October 2026). All three taxonomy names cite that one entry.
-  "c14 19 alkane",
-  "c15 19 alkane",
-  "c18 21 alkane",
-]);
+const REFINED_GRADE_EXEMPT = new Set(["petrolatum"]);
 const REFINED_GRADE_NOTE =
   "Allowed when fully refined. The EU bans it only when its refining history isn't known";
+
+/**
+ * Entry 764 bans heavy hydrocracked distillates only "if they contain > 3 % w/w DMSO
+ * extract", which a cosmetic-grade alkane does not (checked against the regulation's text,
+ * 5 October 2026). All three taxonomy names cite that one entry. The condition is the DMSO
+ * content, not petrolatum's refining history, so the note says that. Mirrored by 0030.
+ */
+const DMSO_EXEMPT = new Set(["c14 19 alkane", "c15 19 alkane", "c18 21 alkane"]);
+const DMSO_NOTE = "Allowed when fully refined. The EU bans it only when it contains more than 3 % DMSO extract";
 
 /**
  * Annex II/358 is the entry for furocoumarins (trioxysalen, 8-methoxypsoralen,
@@ -267,7 +268,7 @@ function safetyFor(canonical, restriction) {
   const text = ref ? String(ref).trim() : "";
   const entries = annexTwoEntries(text);
   if (entries.length > 0 && entries.every((entry) => entry === "358") && NATURAL_ESSENCE_SOURCE.test(canonical)) {
-    const rest = text.replace(/\bII\/358\b(\s+R1?\b)?/i, "").trim();
+    const rest = text.replace(/(?:\bannex\s+)?\bII\/358\b(\s+R1?\b)?/i, "").trim();
     return rest ? safetyFrom(rest) : { safety: "safe", note: NATURAL_ESSENCE_NOTE };
   }
   const rating = safetyFrom(restriction);
@@ -276,6 +277,9 @@ function safetyFor(canonical, restriction) {
   }
   if (rating.safety === "avoid" && DATED_PROHIBITION.has(canonical)) {
     return { safety: "avoid", note: DATED_PROHIBITION.get(canonical) };
+  }
+  if (rating.safety === "avoid" && DMSO_EXEMPT.has(canonical)) {
+    return { safety: "safe", note: `${DMSO_NOTE} (EU Annex ${text})` };
   }
   if (rating.safety !== "avoid" || !REFINED_GRADE_EXEMPT.has(canonical)) return rating;
   return { safety: "safe", note: `${REFINED_GRADE_NOTE} (EU Annex ${text})` };

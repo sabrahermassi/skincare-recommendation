@@ -21,7 +21,7 @@ import { matchProduct, positionNote, positionWeightLabel, ruleFor, type Contrain
 import { openQuiz } from "@/lib/open-quiz";
 import { CONCERN_TITLE, isPersonalized } from "@/lib/profile";
 import type { IngredientRule } from "@/lib/rules";
-import { contraindications, isOriginDependent, isVerified, regulatoryStatus } from "@/lib/safety";
+import { contraindications, isOriginDependent, isVerified, ORIGIN_DEPENDENT_HEADLINE, regulatoryStatus } from "@/lib/safety";
 import { saveFromTap } from "@/lib/saving";
 import { useAppStore } from "@/store/useAppStore";
 import { BUTTON, CARD_RADIUS, CHOSEN, DISPLAY_FONT, HAIRLINE, INK, LINE, MUTED, SPACE, STONE, TOUCH_TARGET, TYPE, VERDICT, VERDICT_NEUTRAL } from "@/lib/tokens";
@@ -213,7 +213,7 @@ function IngredientDetail({
               {displayIngredientName(primary)}
             </Text>
             {kind ? <Text style={{ fontSize: TYPE.label, color: MUTED }}>{kind}</Text> : null}
-            {fit === "none" ? <Text style={{ fontSize: TYPE.label, color: MUTED }}>{undecided ? DEPENDS_HEADLINE : "No known concerns"}</Text> : <VerdictMarker label={fit} />}
+            {fit === "none" ? <Text style={{ fontSize: TYPE.label, color: MUTED }}>{undecided ? ORIGIN_DEPENDENT_HEADLINE : "No known concerns"}</Text> : <VerdictMarker label={fit} />}
           </View>
           <View style={{ flexDirection: "row", gap: 12 }}>
             {verified ? (
@@ -255,7 +255,7 @@ function IngredientDetail({
             {forProfile ? (
               <View style={{ borderRadius: CARD_RADIUS, backgroundColor: tone.wash, padding: 16, gap: 4 }}>
                 <CardHeading>For your skin</CardHeading>
-                <Text style={{ fontSize: TYPE.body, fontWeight: "600", color: tone.deep }}>{undecided ? DEPENDS_HEADLINE : fitHeadline(fit, helps, hurts, warning, rule, profile)}</Text>
+                <Text style={{ fontSize: TYPE.body, fontWeight: "600", color: tone.deep }}>{undecided ? ORIGIN_DEPENDENT_HEADLINE : fitHeadline(fit, helps, hurts, warning, rule, profile)}</Text>
                 {/* A warning's own sentence is the most specific thing we hold (#347). */}
                 {fit !== "unknown" && warningLines.length > 0 ? (
                   warningLines.map((w) => (
@@ -454,7 +454,6 @@ function whatItDoes(ingredient: Ingredient, ruleReason: string | undefined): str
   return "We hold no declared function for this one yet.";
 }
 
-const DEPENDS_HEADLINE = "Depends on how it's made";
 const DEPENDS_BODY = "EU rules for this ingredient depend on how it is made, which a label can't show. It doesn't change your score.";
 
 /*

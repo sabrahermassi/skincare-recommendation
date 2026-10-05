@@ -23,9 +23,12 @@ the regulation's text, four groups were wrong, and one needs the owner's call:
   normal content in natural essences used", and below 1 mg/kg in sun protection and
   bronzing products. The taxonomy cites it on 44 essences (citrus, rue, cumin). Now
   `safe`, with a note saying what the entry limits; cumin keeps its Annex III citation
-  as a restriction.
+  as a restriction. The entry also prohibits the furocoumarins themselves, so the
+  correction applies only to a name with citrus, ruta or cuminum in it; any other
+  name keeps the ban until it is reviewed.
 - **Entry 764 (alkanes).** Prohibited only "if they contain > 3 % w/w DMSO extract". The
-  three taxonomy names (C14-19, C15-19, C18-21 alkane) are written like petrolatum.
+  three taxonomy names (C14-19, C15-19, C18-21 alkane) are written `safe`, with a note that
+  names the DMSO condition (not petrolatum's refining history).
 - **Entry 306 (cannabidiol only).** CBD as such is outside it; CBD from cannabis extract,
   tincture or resin is inside it. Neither banned nor cleared: `safe` (no charge), with
   the note "EU rules depend on how it's made." Nine other taxonomy entries cite 306
