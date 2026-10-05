@@ -35,6 +35,11 @@
  *   node scripts/reconcile-obf.mjs --dry-run
  *   node scripts/reconcile-obf.mjs
  *   node scripts/reconcile-obf.mjs --dry-run --limit 20
+ *   node scripts/reconcile-obf.mjs --barcode 3600541144019,7798130373882
+ *
+ * `--barcode` re-reads only the listed products (obf rows) instead of the oldest ones: for a
+ * parser fix, which should reach the products it was wrong about without waiting for the
+ * nightly rotation to come round to them. Same read, same parser, same write, same pacing.
  *
  * Slow by design, same reason as reclassify-from-tags.mjs: Open Beauty Facts
  * documents 15 product reads per minute per IP (import-obf.mjs's own
@@ -111,6 +116,23 @@ export function parseLimit(argv) {
     throw new Error(`--limit needs a positive whole number, got ${JSON.stringify(argv[at + 1] ?? null)}`);
   }
   return value;
+}
+
+/**
+ * The barcodes after `--barcode` (comma-separated), or `null` for the ordinary run. A barcode is
+ * 8 to 14 digits; anything else is refused, so a typo can't quietly re-read nothing.
+ */
+export function parseBarcodes(argv) {
+  const at = argv.indexOf("--barcode");
+  if (at === -1) return null;
+  const codes = String(argv[at + 1] ?? "")
+    .split(",")
+    .map((code) => code.trim())
+    .filter(Boolean);
+  if (codes.length === 0 || codes.some((code) => !/^\d{8,14}$/.test(code))) {
+    throw new Error(`--barcode needs one or more 8 to 14 digit barcodes, comma-separated, got ${JSON.stringify(argv[at + 1] ?? null)}`);
+  }
+  return [...new Set(codes)];
 }
 
 /** Mirrors reclassify-from-tags.mjs's own `capDelay` — see that file for the reasoning. */
@@ -224,7 +246,7 @@ async function fetchKnownIngredients(db) {
  * comment: the RPC leaves it untouched on write, so it plays no part in
  * `p_product`).
  */
-async function fetchCandidatePage(db, pageSize, cursor) {
+async function fetchCandidatePage(db, pageSize, cursor, barcodes = null) {
   let q = db
     .from("products")
     .select(`${PRODUCT_COLUMNS}, fetched_at, product_ingredients ( inci_name, position )`)
@@ -237,6 +259,7 @@ async function fetchCandidatePage(db, pageSize, cursor) {
     .order("fetched_at", { ascending: true })
     .order("id", { ascending: true })
     .limit(pageSize);
+  if (barcodes) q = q.in("barcode", barcodes);
   if (cursor) {
     q = q.or(`fetched_at.gt.${cursor.fetchedAt},and(fetched_at.eq.${cursor.fetchedAt},id.gt.${cursor.id})`);
   }
@@ -249,6 +272,8 @@ async function main() {
   const dryRun = process.argv.includes("--dry-run");
   // `--limit` can only lower the per-run cap, never raise it — see BATCH_SIZE.
   const limit = Math.min(parseLimit(process.argv), BATCH_SIZE);
+  // Only the products named, when asked (see the header).
+  const barcodes = parseBarcodes(process.argv);
   // Credentials are required for --dry-run too — it reads the live rows it
   // reports on.
   const { db } = connect({ write: !dryRun });
@@ -274,7 +299,7 @@ async function main() {
 
   pages: for (;;) {
     if (touched >= limit || read >= MAX_REQUESTS_PER_RUN) break;
-    const page = await fetchCandidatePage(db, Math.min(BATCH_SIZE, MAX_REQUESTS_PER_RUN - read), cursor);
+    const page = await fetchCandidatePage(db, Math.min(BATCH_SIZE, MAX_REQUESTS_PER_RUN - read), cursor, barcodes);
     if (page.length === 0) break; // the whole obf catalogue has been paged through
 
     for (const row of page) {

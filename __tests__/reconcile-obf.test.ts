@@ -1,6 +1,6 @@
 import { fetchStoredFormulas, isParserRefresh, parserOnlyChange } from "../scripts/lib/formula-diff.mjs";
 import { parseInci } from "../scripts/lib/inci-parse.mjs";
-import { fetchIngredients, formulaChanged, parseLimit } from "../scripts/reconcile-obf.mjs";
+import { fetchIngredients, formulaChanged, parseBarcodes, parseLimit } from "../scripts/reconcile-obf.mjs";
 
 /**
  * The parser got better than the one that stored these rows. A rewrite would
@@ -113,6 +113,20 @@ describe("fetchStoredFormulas", () => {
       },
     };
     await expect(fetchStoredFormulas(failing, ["a"])).rejects.toThrow(/boom/);
+  });
+});
+
+describe("parseBarcodes", () => {
+  it("is null for an ordinary run", () => {
+    expect(parseBarcodes(["node", "script.mjs", "--dry-run"])).toBeNull();
+  });
+
+  it("reads a comma-separated list, once each", () => {
+    expect(parseBarcodes(["node", "script.mjs", "--barcode", "3600541144019, 7798130373882,3600541144019"])).toEqual(["3600541144019", "7798130373882"]);
+  });
+
+  it.each([[undefined], [""], ["abc"], ["123"], ["3600541144019,xyz"]])("refuses %p, so a typo can't quietly re-read nothing", (value: string | undefined) => {
+    expect(() => parseBarcodes(["node", "script.mjs", "--barcode", ...(value === undefined ? [] : [value])])).toThrow("--barcode needs");
   });
 });
 

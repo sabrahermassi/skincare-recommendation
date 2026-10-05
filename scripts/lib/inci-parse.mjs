@@ -416,7 +416,7 @@ export function resolveKnownName(name, dictionary, aliases) {
     // "aqua / petroleum jelly" would fold into aqua and lose the petrolatum.
     const isKnown = (part) => dictionary.has(part) || (aliases?.has(part) ?? false) || dictionary.has(commonNameFor(part) ?? "");
     const anchor = parts.find(isKnown);
-    const strict = /(?:polymer|resin|esters?)$/.test(parts[parts.length - 1]);
+    const strict = /(?:polymer|resin|esters?)$/.test(parts[parts.length - 1]) || parts.some((part) => /polymere?\b/.test(part));
     // A known part folds into the anchor only when it names the same ingredient
     // ("aqua/water"); "aqua / glycerin" is two ingredients and stays as it is.
     const canonical = (part) => aliases?.get(part) ?? commonNameFor(part) ?? part;
@@ -447,6 +447,55 @@ function splitSlashList(name, dictionary, aliases) {
     const target = dictionary.has(part) ? part : (aliases?.get(part) ?? commonNameFor(part));
     if (target === undefined || !dictionary.has(target)) return [name];
     resolved.push(target);
+  }
+  return resolved;
+}
+
+/**
+ * A copolymer's name cut in two by a stray comma, put back together.
+ *
+ * Some labels print "Acrylamide/Sodium, Acryloyldimethyltaurate Copolymer" with a comma
+ * where there is none in the INCI name, and a few split a name before its last word
+ * ("Acrylonitrile/Methyl Ethacrylate/Vinylidene Chloride, Copolymer"). Read as two items
+ * the first half folds into its first word, `acrylamide` or `acrylonitrile`, and an
+ * Annex II ingredient is written into the product that it does not contain. A
+ * slash-joined token is joined to the one after it when the two together are a name the
+ * dictionary holds, or when what follows is only the word that ends such a name
+ * ("copolymer", "crosspolymer", "polymer").
+ */
+function rejoinSplitNames(tokens, dictionary) {
+  const out = [];
+  for (let i = 0; i < tokens.length; i++) {
+    const next = tokens[i + 1];
+    const mends =
+      next !== undefined &&
+      tokens[i].includes("/") &&
+      !dictionary.has(tokens[i]) &&
+      (/^(?:co|cross)?polymer$/.test(next) || dictionary.has(`${tokens[i]} ${next}`));
+    if (mends) {
+      out.push(`${tokens[i]} ${next}`);
+      i++;
+    } else {
+      out.push(tokens[i]);
+    }
+  }
+  return out;
+}
+
+/**
+ * A blend printed as one token with an ampersand: "acrylamide/sodium acrylate copolymer &
+ * trideceth-6". Returned as its separate names when every part is a known name, and the
+ * token as it was otherwise, so a half-read "enzoate & potassium sorbate" is still left whole.
+ */
+function splitBlend(name, dictionary, aliases) {
+  if (!name.includes(" & ")) return [name];
+  const parts = name.split(" & ").map(normalise).filter((part) => part.length > 1);
+  if (parts.length < 2) return [name];
+  const resolved = [];
+  for (const part of parts) {
+    const known = resolveKnownName(part, dictionary, aliases);
+    if (!dictionary.has(known)) return [name];
+    resolved.push(known);
   }
   return resolved;
 }
@@ -564,9 +613,10 @@ export function parseInci(text, dictionary, rejected, aliases) {
   // is a quantity or a code, and a fragment that cannot be a name (a label
   // section, a file name) is reported rather than written into the dictionary.
   const fuzzyAttempts = { remaining: MAX_FUZZY_ATTEMPTS_PER_BLOCK };
-  const delimited = splitOnSeparators(block)
+  const tokens = splitOnSeparators(block)
     .map(normalise)
-    .filter((p) => p.length > 1 && p.length < 120 && /[a-z]|\p{Script=Hangul}|\p{Script=Hiragana}|\p{Script=Katakana}|\p{Script=Han}/u.test(p))
+    .filter((p) => p.length > 1 && p.length < 120 && /[a-z]|\p{Script=Hangul}|\p{Script=Hiragana}|\p{Script=Katakana}|\p{Script=Han}/u.test(p));
+  const delimited = (dictionary ? rejoinSplitNames(tokens, dictionary) : tokens)
     .flatMap((name) => {
       if (!dictionary) {
         // Without a dictionary a long real name cannot be recognised as known, so it is
@@ -577,6 +627,8 @@ export function parseInci(text, dictionary, rejected, aliases) {
       }
       const known = resolveKnownName(aliases?.get(name) ?? name, dictionary, aliases);
       if (dictionary.has(known)) return [known];
+      const blend = splitBlend(known, dictionary, aliases);
+      if (blend.length > 1) return blend;
       const listed = splitSlashList(known, dictionary, aliases);
       if (listed.length > 1) return listed;
       const salvaged = salvageKnownNames(known, dictionary, aliases);
