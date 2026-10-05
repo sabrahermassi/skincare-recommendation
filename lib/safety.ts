@@ -33,6 +33,17 @@ export function isVerified(ingredient: Ingredient): boolean {
 export const REFINED_GRADE_NOTE_START = "Allowed when fully refined.";
 
 /**
+ * The other two notes the import writes on a corrected Annex II citation, both
+ * `safe` so nothing is charged (`NATURAL_ESSENCE_NOTE` and `ORIGIN_DEPENDENT_NOTE` in
+ * scripts/import-inci-dictionary.mjs, mirrored by migration 0030):
+ * a natural essence cited under Annex II/358, which limits the furocoumarins in a
+ * product and not the essence; and cannabidiol, whose EU status depends on how it
+ * is made. `__tests__/annex-ii-corrections.test.ts` keeps the wording in step.
+ */
+export const NATURAL_ESSENCE_NOTE_START = "Natural essence.";
+export const ORIGIN_DEPENDENT_NOTE_START = "EU rules depend on how it's made.";
+
+/**
  * The ingredient page's "EU regulatory status", the honest replacement for the
  * design's EWG hazard score. It comes from the EU Annex lists via CosIng, a
  * regulator rather than an advocacy group's rating, and is one of the few
@@ -44,6 +55,8 @@ export function regulatoryStatus(ingredient: Ingredient): string {
   if (ingredient.safety === "avoid") return "Prohibited";
   if (ingredient.safety === "caution") return "Restricted";
   if (ingredient.note?.startsWith(REFINED_GRADE_NOTE_START)) return "Allowed when refined";
+  if (ingredient.note?.startsWith(NATURAL_ESSENCE_NOTE_START)) return "Allowed, with a limit on furocoumarins";
+  if (ingredient.note?.startsWith(ORIGIN_DEPENDENT_NOTE_START)) return "Depends on how it's made";
   return "No restriction";
 }
 

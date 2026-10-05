@@ -196,15 +196,81 @@ function safetyFrom(restriction) {
  * 0029_petrolatum_safe.sql, which fix the row already written: keep the
  * note's wording the same in all three.
  */
-const REFINED_GRADE_EXEMPT = new Set(["petrolatum"]);
+const REFINED_GRADE_EXEMPT = new Set([
+  "petrolatum",
+  // Entry 764 bans heavy hydrocracked distillates only "if they contain > 3 % w/w DMSO
+  // extract", which a cosmetic-grade alkane does not (checked against the regulation's
+  // text, 5 October 2026). All three taxonomy names cite that one entry.
+  "c14 19 alkane",
+  "c15 19 alkane",
+  "c18 21 alkane",
+]);
 const REFINED_GRADE_NOTE =
   "Allowed when fully refined. The EU bans it only when its refining history isn't known";
 
-/** `safetyFrom`, with the refined-grade exemptions above applied by name. */
+/**
+ * Annex II/358 is the entry for furocoumarins (trioxysalen, 8-methoxypsoralen,
+ * 5-methoxypsoralen), "except for normal content in natural essences used", and below
+ * 1 mg/kg in sun protection and bronzing products. The taxonomy cites it on the
+ * essences themselves (44 entries: citrus, rue, cumin), which the import read as a flat
+ * ban, so a lemon extract led 18 staging products with "flagged as best avoided".
+ *
+ * An entry whose only Annex II citation is 358 is written `safe` with a note that says
+ * what the entry limits. One that cites something else as well keeps that citation and
+ * is rated on it alone (cumin: "II/358 R1 III/156" is a restriction, not a ban).
+ * The note doesn't take one of `safetyFrom`'s shapes, so the audit leaves it alone.
+ *
+ * Mirrored by supabase/migrations/0030_annex_ii_corrections.sql: keep the wording the same.
+ */
+const NATURAL_ESSENCE_NOTE =
+  "Natural essence. EU Annex II/358 limits furocoumarins in the finished product (under 1 mg/kg in sun protection and bronzing products), not the ingredient itself";
+
+/**
+ * Cannabidiol is not listed as such in the narcotics convention entry 306 points to, so
+ * the Commission treats it as outside that entry, while CBD made from cannabis extract,
+ * tincture or resin is inside it (and the EU's safety committee gave a final opinion on
+ * CBD in 2025). So it is neither banned nor cleared: `safe`, which charges nothing, with
+ * a note that says the rules depend on how it is made (owner, 5 October 2026).
+ * Mirrored by 0030_annex_ii_corrections.sql.
+ */
+const ORIGIN_DEPENDENT = new Set(["cannabidiol"]);
+const ORIGIN_DEPENDENT_NOTE = "EU rules depend on how it's made.";
+
+/**
+ * HICC (Annex II/1380, Regulation (EU) 2017/1410) is genuinely prohibited. The taxonomy
+ * carries the regulation's dates as running text; the sheet says them plainly instead,
+ * because old stock may still be around. Rating unchanged. Mirrored by 0030.
+ */
+const DATED_PROHIBITION = new Map([
+  [
+    "hydroxyisohexyl 3 cyclohexene carboxaldehyde",
+    "Prohibited in cosmetics (EU Annex II/1380: not allowed on the EU market since 23 August 2019 and not to be sold there since 23 August 2021; older stock may still be around)",
+  ],
+]);
+
+/** The Annex II entry numbers a citation names, e.g. "II/358 R1 III/156" gives ["358"]. */
+function annexTwoEntries(text) {
+  return [...String(text).matchAll(/(?:^|[\s[(,;])\s*(?:annex\s+)?II\/(\d+)/gi)].map((m) => m[1]);
+}
+
+/** `safetyFrom`, with the exemptions and corrections above applied by name or by citation. */
 function safetyFor(canonical, restriction) {
+  const ref = pickEn(restriction);
+  const text = ref ? String(ref).trim() : "";
+  const entries = annexTwoEntries(text);
+  if (entries.length > 0 && entries.every((entry) => entry === "358")) {
+    const rest = text.replace(/\bII\/358\b(\s+R1?\b)?/i, "").trim();
+    return rest ? safetyFrom(rest) : { safety: "safe", note: NATURAL_ESSENCE_NOTE };
+  }
   const rating = safetyFrom(restriction);
+  if (rating.safety === "avoid" && ORIGIN_DEPENDENT.has(canonical)) {
+    return { safety: "safe", note: ORIGIN_DEPENDENT_NOTE };
+  }
+  if (rating.safety === "avoid" && DATED_PROHIBITION.has(canonical)) {
+    return { safety: "avoid", note: DATED_PROHIBITION.get(canonical) };
+  }
   if (rating.safety !== "avoid" || !REFINED_GRADE_EXEMPT.has(canonical)) return rating;
-  return { safety: "safe", note: `${REFINED_GRADE_NOTE} (EU Annex ${String(pickEn(restriction)).trim()})` };
+  return { safety: "safe", note: `${REFINED_GRADE_NOTE} (EU Annex ${text})` };
 }
 
 /**
