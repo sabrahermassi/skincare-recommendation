@@ -272,13 +272,16 @@ function safetyFor(canonical, restriction) {
     return rest ? safetyFrom(rest) : { safety: "safe", note: NATURAL_ESSENCE_NOTE };
   }
   const rating = safetyFrom(restriction);
-  if (rating.safety === "avoid" && ORIGIN_DEPENDENT.has(canonical)) {
+  // A named exemption holds only for the entry it was reviewed against: a taxonomy that
+  // adds or swaps a citation (cannabidiol under II/1339) keeps the ban.
+  const citesOnly = (entry) => entries.length > 0 && entries.every((e) => e === entry);
+  if (rating.safety === "avoid" && ORIGIN_DEPENDENT.has(canonical) && citesOnly("306")) {
     return { safety: "safe", note: ORIGIN_DEPENDENT_NOTE };
   }
-  if (rating.safety === "avoid" && DATED_PROHIBITION.has(canonical)) {
+  if (rating.safety === "avoid" && DATED_PROHIBITION.has(canonical) && citesOnly("1380")) {
     return { safety: "avoid", note: DATED_PROHIBITION.get(canonical) };
   }
-  if (rating.safety === "avoid" && DMSO_EXEMPT.has(canonical)) {
+  if (rating.safety === "avoid" && DMSO_EXEMPT.has(canonical) && citesOnly("764")) {
     return { safety: "safe", note: `${DMSO_NOTE} (EU Annex ${text})` };
   }
   if (rating.safety !== "avoid" || !REFINED_GRADE_EXEMPT.has(canonical)) return rating;
@@ -385,6 +388,22 @@ function toRows(taxonomy, conflicts = []) {
 const STRICTNESS = { safe: 0, caution: 1, avoid: 2 };
 
 /**
+ * A row `safetyFor` wrote as one of its reviewed corrections, told by its note: these are
+ * never "stricter", so without this a CosIng-owned row (no rating, no note of its own)
+ * would keep neither the rating nor the explanation the correction exists to give.
+ */
+function isReviewedCorrection(row) {
+  const note = row.note ?? "";
+  return (
+    note === NATURAL_ESSENCE_NOTE ||
+    note === ORIGIN_DEPENDENT_NOTE ||
+    note.startsWith(`${DMSO_NOTE} (`) ||
+    note.startsWith(`${REFINED_GRADE_NOTE} (`) ||
+    [...DATED_PROHIBITION.values()].includes(note)
+  );
+}
+
+/**
  * Preserve data another verified source owns. OBF may promote an unverified
  * label stub and refresh rows it imported previously, but it must not replace
  * curated or CosIng values merely because the same name is present.
@@ -410,7 +429,8 @@ function planWrites(rows, existing) {
     else if (current.source === "obf") refreshed.push(row);
     else {
       untouched += 1;
-      if (STRICTNESS[row.safety] > (STRICTNESS[current.safety] ?? 0)) {
+      const corrected = current.source === "cosing" && isReviewedCorrection(row) && (current.safety !== row.safety || current.note !== row.note);
+      if (corrected || STRICTNESS[row.safety] > (STRICTNESS[current.safety] ?? 0)) {
         const stricter = { inci_name: row.inci_name, safety: row.safety, note: row.note, owner: current.source };
         (current.source === "cosing" ? safetyOnly : reviewByHand).push(stricter);
       }
@@ -460,7 +480,7 @@ async function main() {
   const { db } = connect({ write: !DRY_RUN });
   const existing = new Map();
   const currentRows = await paginateOrdered(db, "ingredients", {
-    select: "inci_name, verified, source, safety",
+    select: "inci_name, verified, source, safety, note",
     cursorColumn: "inci_name",
   });
   for (const row of currentRows) existing.set(row.inci_name, row);
@@ -471,7 +491,7 @@ async function main() {
       `${plan.refreshed.length} OBF rows refreshed, ${plan.untouched} other verified rows left alone`
   );
   if (plan.safetyOnly.length > 0) {
-    console.log(`  ${plan.safetyOnly.length} CosIng row(s) take the stricter annex rating (nothing else changes):`);
+    console.log(`  ${plan.safetyOnly.length} CosIng row(s) take the annex rating or its reviewed correction (nothing else changes):`);
     for (const r of plan.safetyOnly.slice(0, 20)) console.log(`    [${r.safety}] ${r.inci_name}`);
   }
   if (plan.reviewByHand.length > 0) {

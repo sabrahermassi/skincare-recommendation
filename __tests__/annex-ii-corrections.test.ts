@@ -11,7 +11,7 @@ import {
   regulatoryStatus,
 } from "@/lib/safety";
 import { annexCited } from "../scripts/audit-safety-labels.mjs";
-import { NATURAL_ESSENCE_SOURCE, safetyFor, safetyFrom, toRows } from "../scripts/import-inci-dictionary.mjs";
+import { NATURAL_ESSENCE_SOURCE, planWrites, safetyFor, safetyFrom, toRows } from "../scripts/import-inci-dictionary.mjs";
 
 /**
  * Issue 1 of the regulatory-safety work: Annex II rows the import read as flat bans.
@@ -152,6 +152,48 @@ describe("cannabidiol (entry 306)", () => {
 
   it("only cannabidiol itself: other entries citing 306 are untouched", () => {
     expect(rating("cannabis sativa flower extract", "II/306 = Narcotics").safety).toBe("avoid");
+  });
+});
+
+describe("a named exemption holds only for the entry it was reviewed against", () => {
+  it.each([
+    ["cannabidiol", "II/1339"],
+    ["cannabidiol", "II/306 II/1339"],
+    ["c15 19 alkane", "II/1339"],
+    ["c15 19 alkane", "II/764 II/12"],
+    ["hydroxyisohexyl 3 cyclohexene carboxaldehyde", "II/1339"],
+  ])("%s cited as %s keeps the ban, and the plain note", (name: string, restriction: string) => {
+    const written = rating(name, restriction);
+    expect(written.safety).toBe("avoid");
+    expect(written.note).not.toContain("depend on how it's made");
+    expect(written.note).not.toContain("DMSO");
+    expect(written.note).not.toContain("older stock");
+  });
+});
+
+describe("the corrections reach CosIng-owned rows", () => {
+  const corrected = (name: string, restriction: string) => ({ inci_name: name, source: "obf", verified: true, ...rating(name, restriction) });
+
+  it("writes the rating and note onto a CosIng row that has neither", () => {
+    const rows = [corrected("cannabidiol", "II/306"), corrected("c15 19 alkane", "II/764"), corrected("citrus limon fruit extract", "II/358 R1")];
+    const existing = new Map(rows.map((r) => [r.inci_name, { verified: true, source: "cosing", safety: "safe", note: null }]));
+    const plan = planWrites(rows, existing);
+    expect(plan.safetyOnly.map((r: { inci_name: string }) => r.inci_name).sort()).toEqual(["c15 19 alkane", "cannabidiol", "citrus limon fruit extract"]);
+    expect(plan.safetyOnly.find((r: { inci_name: string }) => r.inci_name === "cannabidiol")?.note).toBe("EU rules depend on how it's made.");
+  });
+
+  it("replaces the old flat ban on a CosIng row, and leaves a row that already says it", () => {
+    const row = corrected("cannabidiol", "II/306");
+    const banned = planWrites([row], new Map([["cannabidiol", { verified: true, source: "cosing", safety: "avoid", note: "Prohibited in cosmetics (EU Annex II/306)" }]]));
+    expect(banned.safetyOnly).toHaveLength(1);
+    const done = planWrites([row], new Map([["cannabidiol", { verified: true, source: "cosing", safety: row.safety, note: row.note }]]));
+    expect(done.safetyOnly).toEqual([]);
+  });
+
+  it("leaves a hand-curated row to its owner", () => {
+    const plan = planWrites([corrected("cannabidiol", "II/306")], new Map([["cannabidiol", { verified: true, source: "curated", safety: "safe", note: null }]]));
+    expect(plan.safetyOnly).toEqual([]);
+    expect(plan.reviewByHand).toEqual([]);
   });
 });
 
