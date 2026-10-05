@@ -139,6 +139,31 @@ describe("parseAllowlist", () => {
   });
 });
 
+describe("an advisory that names two packages", () => {
+  const sameIdOtherPackage = { ...forge, name: "node-forge-fork", source: 1240913 };
+  const both = {
+    vulnerabilities: {
+      "node-forge": { name: "node-forge", severity: "high", via: [forge] },
+      "node-forge-fork": { name: "node-forge-fork", severity: "high", via: [sameIdOtherPackage] },
+    },
+  };
+
+  it("is reported once per package", () => {
+    expect(advisoriesFrom(both).map((a) => a.package).sort()).toEqual(["node-forge", "node-forge-fork"]);
+  });
+
+  it("fails for the package that is not allowlisted, even when the other one is", () => {
+    const out = evaluateAudit(both, [entry()], TODAY);
+    expect(out.allowed.map((x) => x.advisory.package)).toEqual(["node-forge"]);
+    expect(out.failed.map((a) => a.package)).toEqual(["node-forge-fork"]);
+  });
+
+  it("fails for the package that is not allowlisted, whichever order npm lists them in", () => {
+    const reversed = { vulnerabilities: { "node-forge-fork": both.vulnerabilities["node-forge-fork"], "node-forge": both.vulnerabilities["node-forge"] } };
+    expect(evaluateAudit(reversed, [entry()], TODAY).failed.map((a) => a.package)).toEqual(["node-forge-fork"]);
+  });
+});
+
 describe("advisoriesFrom", () => {
   it("counts each advisory once", () => {
     const list = advisoriesFrom(auditOf(forge, braces));

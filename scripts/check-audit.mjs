@@ -60,8 +60,8 @@ export function parseAllowlist(raw) {
  * The advisories in `npm audit --json`. The `vulnerabilities` map lists every
  * package an advisory touches, so a package that only depends on a vulnerable
  * one appears too, with plain package names in `via`. The advisories
- * themselves are the objects in `via`; counting those once each is what the
- * list should say.
+ * themselves are the objects in `via`; counting those once each, per package,
+ * is what the list should say.
  *
  * `reachedThrough` names the project's own direct dependencies that pull an
  * advisory in (expo, tailwindcss): the plain-name `via` links are followed
@@ -95,9 +95,12 @@ export function advisoriesFrom(audit) {
     for (const via of vuln.via ?? []) {
       if (typeof via !== "object" || via === null) continue;
       const id = via.url?.match(/GHSA-[a-z0-9-]+/i)?.[0] ?? `npm:${via.source}`;
-      if (found.has(id)) continue;
       const name = via.name ?? pkg;
-      found.set(id, {
+      // One GHSA can name several packages; each is its own finding, because an
+      // allowlist entry covers an id for one package only.
+      const key = `${id}|${name}`;
+      if (found.has(key)) continue;
+      found.set(key, {
         id,
         package: name,
         severity: via.severity,
