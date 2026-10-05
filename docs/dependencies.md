@@ -4,10 +4,11 @@ Issue #33. How dependency updates and security advisories are handled.
 
 ## What's checked
 
-- **CI (`ci.yml`)** runs `npm audit --omit=dev --audit-level=high` on every
-  PR and push to `main`: a high or critical advisory in a runtime dependency
-  fails the build. A second step runs the full audit, dev tooling included,
-  and only prints it.
+- **CI (`ci.yml`)** runs `node scripts/check-audit.mjs` on every PR and push
+  to `main`: a high or critical advisory in a runtime dependency fails the
+  build, unless it is in the allowlist (below). It runs after typecheck, lint
+  and tests, so a failing audit never hides them. A further step runs the full
+  audit, dev tooling included, and only prints it.
 - **Dependabot (`.github/dependabot.yml`)** opens update PRs: npm weekly,
   in at most two groups (Expo packages, everything else), five open at most;
   GitHub Actions monthly. Security-update PRs are a repository setting
@@ -60,7 +61,29 @@ agrees with the new version (Expo Go only runs the versions its SDK ships).
   failed the typecheck. Each is a planned upgrade on its own branch; their
   minors and patches still come through Dependabot.
 - **An advisory that can't be fixed yet.** Fix it with a patch or minor
-  bump, or an `overrides` pin in `package.json` if that fixes it. npm has no
-  way to ignore a single advisory. If the only fix is an SDK upgrade, open an
-  issue with the advisory ID; whether to upgrade or accept the risk until
-  then is the owner's call. Never lower the audit threshold to make CI pass.
+  bump, or an `overrides` pin in `package.json` if that fixes it. If the only
+  fix is an SDK upgrade or a major we can't take, open an issue with the
+  advisory ID; whether to upgrade or accept the risk until then is the owner's
+  call. If the owner accepts it, add it to the allowlist below. Never lower the
+  audit threshold to make CI pass.
+
+## The audit allowlist
+
+`audit-allowlist.json` is a list of high or critical advisories CI lets
+through because no fix exists yet. `scripts/check-audit.mjs` reads it.
+
+- **Each entry has four fields:** `id` (the GHSA ID), `package` (the package
+  the advisory is about, as `npm audit` names it), `reason` (why it is safe
+  to wait: how the package is reached and why it doesn't ship) and `expires`
+  (`YYYY-MM-DD`). A missing field or a bad date fails the run.
+- **30 days at most.** Set `expires` 30 days from the day the entry is added.
+  The entry covers the advisory through that day; after it, the advisory fails
+  CI again. To extend, re-check that there is still no fix, then change the
+  date in a PR the owner approves.
+- **Remove an entry as soon as a fixed version exists.** Dependabot brings the
+  fix; delete the entry in the same PR. The script's output lists an entry that
+  matches no current advisory, so a stale one is visible.
+- **Only high and critical need an entry.** Lower severities never fail the
+  build. Moderate and low are for the monthly review.
+- **The output says what happened:** each allowed advisory with its reason and
+  expiry, each failing one with its path, and an expired entry by name.
