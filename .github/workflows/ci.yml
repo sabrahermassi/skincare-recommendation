@@ -37,17 +37,6 @@ jobs:
 
       - run: npm ci
 
-      # Issue #33 (policy: docs/dependencies.md). A high or critical advisory
-      # in a runtime dependency — what ships inside the app — fails the build.
-      # Don't lower the threshold to get past one: fix it, or follow the
-      # policy's exception rule.
-      - name: Audit runtime dependencies
-        run: npm audit --omit=dev --audit-level=high
-
-      # Everything, dev tooling included: printed so it's seen, never fails.
-      - name: Audit all dependencies (report only)
-        run: npm audit || true
-
       - name: Typecheck
         run: npm run typecheck
 
@@ -56,6 +45,24 @@ jobs:
 
       - name: Test
         run: npm test
+
+      # Everything, dev tooling included: printed so it's seen, never fails. Before
+      # the gate below, which stops the job when it fails.
+      - name: Audit all dependencies (report only)
+        run: npm audit || true
+
+      # Last on purpose (#393): an advisory with no fix yet must never hide a
+      # type error, a lint failure or a failing test, which it did for days
+      # when this ran first. Still a required check, so a failure still blocks
+      # the merge.
+      #
+      # Issue #33 (policy: docs/dependencies.md). A high or critical advisory
+      # in a runtime dependency — what ships inside the app — fails the build,
+      # unless audit-allowlist.json names it with a reason and an expiry date.
+      # Don't lower the threshold to get past one: fix it, or add an entry
+      # under the policy's exception rule.
+      - name: Audit runtime dependencies
+        run: node scripts/check-audit.mjs
 
   # A throwaway Postgres, every migration applied in order, then assertions
   # against the behaviour they are supposed to produce. No Supabase CLI and no

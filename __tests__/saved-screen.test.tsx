@@ -162,6 +162,20 @@ describe("Ingredients", () => {
     await act(async () => fireEvent.press(screen.getByRole("button", { name: "Undo" })));
     expect(useAppStore.getState().savedIngredients).toEqual(["niacinamide"]);
   });
+
+  // Cannabidiol is stored safe (nothing charged), but never shown as cleared (owner, 5 October 2026).
+  it("says a starred cannabidiol depends on how it's made, never 'No known concerns'", async () => {
+    const api = require("@/data/api") as typeof import("@/data/api");
+    const resolve = jest.spyOn(api, "resolveIngredientNames").mockResolvedValue([
+      { id: "cbd", name: "cannabidiol", comedogenic: 0, safety: "safe", verified: true, note: "EU rules depend on how it's made." },
+    ]);
+    useAppStore.setState({ savedIngredients: ["cannabidiol"] });
+    await render(<Saved />);
+    await act(async () => fireEvent.press(screen.getByRole("tab", { name: /Ingredients/ })));
+    expect(await screen.findByRole("button", { name: /^Cannabidiol, Depends on how it's made$/ })).toBeTruthy();
+    expect(screen.queryByText("No known concerns")).toBeNull();
+    resolve.mockRestore();
+  });
 });
 
 // Every tab stays mounted so a change only fades (owner: no hard cut), but

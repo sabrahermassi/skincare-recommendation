@@ -268,6 +268,21 @@ describe("the product screen's result tabs", () => {
     expect(row("plain 9")).toBeTruthy();
   });
 
+  // Cannabidiol is stored safe (nothing charged) but its EU status depends on how it is made (owner, 5 October 2026).
+  it("doesn't fold an ingredient whose EU status depends on how it's made into 'no concerns'", async () => {
+    const withCbd = {
+      ...PRODUCT,
+      ingredients: Array.from({ length: 10 }, (_, i) => (i === 7 ? ingredient("cannabidiol", { note: "EU rules depend on how it's made." }) : ingredient(`plain ${i}`))),
+    };
+    await openSafety(withCbd);
+    expect(screen.queryByRole("button", { name: "5 more, no concerns" })).toBeNull();
+    await fireEvent.press(screen.getByRole("button", { name: "5 more ingredients" }));
+    expect(row("cannabidiol")).toBeTruthy();
+    // Its page says why, so the row opens it.
+    await fireEvent.press(row("cannabidiol")!);
+    expect(router.push).toHaveBeenCalledWith(expect.objectContaining({ pathname: "/ingredient/[inci]" }));
+  });
+
   it("doesn't say 'Nothing restricted' on the irritation card beside a fragrance to watch", async () => {
     const scented = { ...PRODUCT, ingredients: PRODUCT.ingredients.filter((i) => i.safety === "safe") };
     useAppStore.setState({

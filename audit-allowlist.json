@@ -1,0 +1,14 @@
+[
+  {
+    "id": "GHSA-86w9-cpqp-85rv",
+    "package": "node-forge",
+    "reason": "Reached through expo → @expo/cli. Developer tooling (code signing for dev builds on the developer's machine), not bundled into the app. No fixed version exists (#393).",
+    "expires": "2026-11-04"
+  },
+  {
+    "id": "GHSA-vfj7-8cjw-p6xm",
+    "package": "braces",
+    "reason": "Reached through tailwindcss 3 → chokidar / micromatch. Build tooling only. The fix needs Tailwind 4, which NativeWind can't use (#393).",
+    "expires": "2026-11-04"
+  }
+]

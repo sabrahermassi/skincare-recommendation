@@ -14,6 +14,40 @@ continues to mean matched to a checked source. The complete 21 September 2026
 decision and per-name ledger are in `docs/ingredient-coverage.md` and
 `docs/ingredient-stub-review.json`.
 
+**An Annex II citation is not always a ban (5 October 2026, owner).** The dictionary
+import read every Annex II citation as a flat prohibition, so 83 of 2,846 staging
+products carried "flagged as best avoided" and a score capped at 45. Checked against
+the regulation's text, four groups were wrong, and one needs the owner's call:
+
+- **Entry 358 (natural essences).** It is the entry for furocoumarins, "except for
+  normal content in natural essences used", and below 1 mg/kg in sun protection and
+  bronzing products. The taxonomy cites it on 44 essences (citrus, rue, cumin). Now
+  `safe`, with a note saying what the entry limits; cumin keeps its Annex III citation
+  as a restriction. The entry also prohibits the furocoumarins themselves, so the
+  correction applies only to a name with citrus, ruta or cuminum in it; any other
+  name keeps the ban until it is reviewed.
+- **Entry 764 (alkanes).** Prohibited only "if they contain > 3 % w/w DMSO extract". The
+  three taxonomy names (C14-19, C15-19, C18-21 alkane) are written `safe`, with a note that
+  names the DMSO condition (not petrolatum's refining history).
+- **Entry 306 (cannabidiol only).** CBD as such is outside it; CBD from cannabis extract,
+  tincture or resin is inside it. Neither banned nor cleared: `safe` (no charge), with
+  the note "EU rules depend on how it's made." Nine other taxonomy entries cite 306
+  (cannabis flower extract, seed cake, hydrolysed hemp seed extract) and were not
+  reviewed: none is in the staging catalogue.
+- **Entries 1339, 1375, 1380** (hydroquinone, isobutylparaben, HICC) are genuine and
+  unchanged. HICC's note now says its dates plainly: not on the EU market since
+  23 August 2019, not to be sold since 23 August 2021, older stock may still be around.
+- **Acrylamide and acrylonitrile are not dictionary errors.** All four staging hits are a
+  polymer name split by the label parser (`Acrylamide/Sodium Acryloyldimethyltaurate
+  Copolymer`). That is a parser fix, tracked apart from this one.
+
+`safetyFor` in `scripts/import-inci-dictionary.mjs` makes the exemptions, and
+`supabase/migrations/0030_annex_ii_corrections.sql` fixes the rows already written;
+keep their notes' wording the same (`__tests__/annex-ii-corrections.test.ts` checks it).
+Evidence for 358, 764 and 306 came from the regulation as copied on legislation.gov.uk,
+which stops at the end of 2020; the owner confirms 1339, 1375, 1380, 358, 764 and 875 on the
+current consolidated EUR-Lex text before the safety notice is switched on.
+
 ## Routing
 
 **Never navigate from a layout file.** This is not theoretical caution —
