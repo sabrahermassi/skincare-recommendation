@@ -22,7 +22,7 @@
 
 import type { RoutineStep } from "@/lib/routine-step";
 
-export type ShelfProduct = {
+type ShelfProduct = {
   id: string;
   savedAt: number;
   formulaFetchedAt?: string;

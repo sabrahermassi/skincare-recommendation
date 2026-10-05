@@ -140,9 +140,6 @@ export const ICON_MUTED = "#ADA7A1"; // v9
 /** A text field's placeholder (v9, read off the hand-off): 4.13:1 on SURFACE (computed) — a hint, not content. */
 export const PLACEHOLDER = "#7A746E";
 
-/** Quiet helper text and its icon: "Tap for another", an info "i" glyph (v9, read off the hand-off). Same grey as a placeholder. */
-export const HINT = PLACEHOLDER;
-
 /** The track behind a segmented control's sliding thumb (v7). */
 export const SEGMENT_TRACK = "#E8EBDF"; // v9: on the sage page
 
