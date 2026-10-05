@@ -13,7 +13,7 @@ import { ingredientSubtitle } from "@/lib/ingredient-subtitle";
 import { ruleFor, type MatchResult } from "@/lib/matching";
 import { cloggerConfidence, isPoreClogging } from "@/lib/pore-clogging";
 import { isActiveRule } from "@/lib/rules";
-import { isVerified } from "@/lib/safety";
+import { isOriginDependent, isVerified } from "@/lib/safety";
 import { BUTTON, INK, MUTED, MUTED_FAINT, SPACE, TYPE, WHITE } from "@/lib/tokens";
 import { BUTTON_HEIGHT } from "@/components/PrimaryButton";
 import { useAppStore } from "@/store/useAppStore";
@@ -52,11 +52,12 @@ const SEVERITY: Record<IngredientLabel | "none", number> = { avoid: 0, watch: 1,
 /**
  * Whether a row has something worth opening (v9): a verdict other than Good,
  * a curated rule (an active, a named humectant), or a place on the
- * pore-clogging lists. Only those rows carry a chevron and open the
- * ingredient; plain filler like water just sits in the list.
+ * pore-clogging lists, or an EU status that depends on how it is made
+ * (cannabidiol, whose page says so). Only those rows carry a chevron and open
+ * the ingredient; plain filler like water just sits in the list.
  */
 function hasDetails(ingredient: Ingredient, label: IngredientLabel | null): boolean {
-  return (label !== null && label !== "good") || ruleFor(ingredient) !== undefined || isPoreClogging(ingredient);
+  return (label !== null && label !== "good") || ruleFor(ingredient) !== undefined || isPoreClogging(ingredient) || isOriginDependent(ingredient);
 }
 
 /**
@@ -119,7 +120,8 @@ export function IngredientsCard({
   const truncated = filter === "all" && !showAll && list.length > FIRST_ROWS;
   const rows = truncated ? list.slice(0, FIRST_ROWS) : list;
   const rest = list.slice(FIRST_ROWS);
-  const restIsFine = rest.every((i) => SEVERITY[labelOf(i) ?? "none"] === SEVERITY.good);
+  // An ingredient whose EU status depends on how it is made is not "fine": the fold must not say so.
+  const restIsFine = rest.every((i) => SEVERITY[labelOf(i) ?? "none"] === SEVERITY.good && !isOriginDependent(i));
   const moreLabel = `${rest.length} more${restIsFine ? ", no concerns" : rest.length === 1 ? " ingredient" : " ingredients"}`;
 
   return (

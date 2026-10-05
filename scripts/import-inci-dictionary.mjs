@@ -200,11 +200,92 @@ const REFINED_GRADE_EXEMPT = new Set(["petrolatum"]);
 const REFINED_GRADE_NOTE =
   "Allowed when fully refined. The EU bans it only when its refining history isn't known";
 
-/** `safetyFrom`, with the refined-grade exemptions above applied by name. */
+/**
+ * Entry 764 bans heavy hydrocracked distillates only "if they contain > 3 % w/w DMSO
+ * extract", which a cosmetic-grade alkane does not (checked against the regulation's text,
+ * 5 October 2026). All three taxonomy names cite that one entry. The condition is the DMSO
+ * content, not petrolatum's refining history, so the note says that. Mirrored by 0030.
+ */
+const DMSO_EXEMPT = new Set(["c14 19 alkane", "c15 19 alkane", "c18 21 alkane"]);
+const DMSO_NOTE = "Allowed when fully refined. The EU bans it only when it contains more than 3 % DMSO extract";
+
+/**
+ * Annex II/358 is the entry for furocoumarins (trioxysalen, 8-methoxypsoralen,
+ * 5-methoxypsoralen), "except for normal content in natural essences used", and below
+ * 1 mg/kg in sun protection and bronzing products. The taxonomy cites it on the
+ * essences themselves (44 entries: citrus, rue, cumin), which the import read as a flat
+ * ban, so a lemon extract led 18 staging products with "flagged as best avoided".
+ *
+ * An entry whose only Annex II citation is 358, and whose name is one of the plants in
+ * `NATURAL_ESSENCE_SOURCE`, is written `safe` with a note that says what the entry limits. One that cites something else as well keeps that citation and
+ * is rated on it alone (cumin: "II/358 R1 III/156" is a restriction, not a ban).
+ * The note doesn't take one of `safetyFrom`'s shapes, so the audit leaves it alone.
+ *
+ * Mirrored by supabase/migrations/0030_annex_ii_corrections.sql: keep the wording the same.
+ */
+const NATURAL_ESSENCE_NOTE =
+  "Natural essence. EU Annex II/358 limits furocoumarins in the finished product (under 1 mg/kg in sun protection and bronzing products), not the ingredient itself";
+
+/**
+ * Cannabidiol is not listed as such in the narcotics convention entry 306 points to, so
+ * the Commission treats it as outside that entry, while CBD made from cannabis extract,
+ * tincture or resin is inside it (and the EU's safety committee gave a final opinion on
+ * CBD in 2025). So it is neither banned nor cleared: `safe`, which charges nothing, with
+ * a note that says the rules depend on how it is made (owner, 5 October 2026).
+ * Mirrored by 0030_annex_ii_corrections.sql.
+ */
+const ORIGIN_DEPENDENT = new Set(["cannabidiol"]);
+const ORIGIN_DEPENDENT_NOTE = "EU rules depend on how it's made.";
+
+/**
+ * HICC (Annex II/1380, Regulation (EU) 2017/1410) is genuinely prohibited. The taxonomy
+ * carries the regulation's dates as running text; the sheet says them plainly instead,
+ * because old stock may still be around. Rating unchanged. Mirrored by 0030.
+ */
+const DATED_PROHIBITION = new Map([
+  [
+    "hydroxyisohexyl 3 cyclohexene carboxaldehyde",
+    "Prohibited in cosmetics (EU Annex II/1380: not allowed on the EU market since 23 August 2019 and not to be sold there since 23 August 2021; older stock may still be around)",
+  ],
+]);
+
+/**
+ * The plants whose essences the 358 correction was checked for (citrus, rue, cumin). Entry 358
+ * also prohibits the furocoumarins themselves (methoxsalen, trioxsalen), so the correction
+ * needs a name from this list as well as the citation: any other name keeps the ban until
+ * it is reviewed. Mirrored by 0030, which tests the same pattern in SQL.
+ */
+const NATURAL_ESSENCE_SOURCE = /(^|[^a-z])(citrus|ruta|cuminum)([^a-z]|$)/;
+
+/** The Annex II entry numbers a citation names, e.g. "II/358 R1 III/156" gives ["358"]. */
+function annexTwoEntries(text) {
+  return [...String(text).matchAll(/(?:^|[\s[(,;])\s*(?:annex\s+)?II\/(\d+)/gi)].map((m) => m[1]);
+}
+
+/** `safetyFrom`, with the exemptions and corrections above applied by name or by citation. */
 function safetyFor(canonical, restriction) {
+  const ref = pickEn(restriction);
+  const text = ref ? String(ref).trim() : "";
+  const entries = annexTwoEntries(text);
+  if (entries.length > 0 && entries.every((entry) => entry === "358") && NATURAL_ESSENCE_SOURCE.test(canonical)) {
+    const rest = text.replace(/(?:\bannex\s+)?\bII\/358\b(\s+R1?\b)?/i, "").trim();
+    return rest ? safetyFrom(rest) : { safety: "safe", note: NATURAL_ESSENCE_NOTE };
+  }
   const rating = safetyFrom(restriction);
+  // A named exemption holds only for the entry it was reviewed against: a taxonomy that
+  // adds or swaps a citation (cannabidiol under II/1339) keeps the ban.
+  const citesOnly = (entry) => entries.length > 0 && entries.every((e) => e === entry);
+  if (rating.safety === "avoid" && ORIGIN_DEPENDENT.has(canonical) && citesOnly("306")) {
+    return { safety: "safe", note: ORIGIN_DEPENDENT_NOTE };
+  }
+  if (rating.safety === "avoid" && DATED_PROHIBITION.has(canonical) && citesOnly("1380")) {
+    return { safety: "avoid", note: DATED_PROHIBITION.get(canonical) };
+  }
+  if (rating.safety === "avoid" && DMSO_EXEMPT.has(canonical) && citesOnly("764")) {
+    return { safety: "safe", note: `${DMSO_NOTE} (EU Annex ${text})` };
+  }
   if (rating.safety !== "avoid" || !REFINED_GRADE_EXEMPT.has(canonical)) return rating;
-  return { safety: "safe", note: `${REFINED_GRADE_NOTE} (EU Annex ${String(pickEn(restriction)).trim()})` };
+  return { safety: "safe", note: `${REFINED_GRADE_NOTE} (EU Annex ${text})` };
 }
 
 /**
@@ -307,6 +388,22 @@ function toRows(taxonomy, conflicts = []) {
 const STRICTNESS = { safe: 0, caution: 1, avoid: 2 };
 
 /**
+ * A row `safetyFor` wrote as one of its reviewed corrections, told by its note: these are
+ * never "stricter", so without this a CosIng-owned row (no rating, no note of its own)
+ * would keep neither the rating nor the explanation the correction exists to give.
+ */
+function isReviewedCorrection(row) {
+  const note = row.note ?? "";
+  return (
+    note === NATURAL_ESSENCE_NOTE ||
+    note === ORIGIN_DEPENDENT_NOTE ||
+    note.startsWith(`${DMSO_NOTE} (`) ||
+    note.startsWith(`${REFINED_GRADE_NOTE} (`) ||
+    [...DATED_PROHIBITION.values()].includes(note)
+  );
+}
+
+/**
  * Preserve data another verified source owns. OBF may promote an unverified
  * label stub and refresh rows it imported previously, but it must not replace
  * curated or CosIng values merely because the same name is present.
@@ -332,7 +429,8 @@ function planWrites(rows, existing) {
     else if (current.source === "obf") refreshed.push(row);
     else {
       untouched += 1;
-      if (STRICTNESS[row.safety] > (STRICTNESS[current.safety] ?? 0)) {
+      const corrected = current.source === "cosing" && isReviewedCorrection(row) && (current.safety !== row.safety || current.note !== row.note);
+      if (corrected || STRICTNESS[row.safety] > (STRICTNESS[current.safety] ?? 0)) {
         const stricter = { inci_name: row.inci_name, safety: row.safety, note: row.note, owner: current.source };
         (current.source === "cosing" ? safetyOnly : reviewByHand).push(stricter);
       }
@@ -382,7 +480,7 @@ async function main() {
   const { db } = connect({ write: !DRY_RUN });
   const existing = new Map();
   const currentRows = await paginateOrdered(db, "ingredients", {
-    select: "inci_name, verified, source, safety",
+    select: "inci_name, verified, source, safety, note",
     cursorColumn: "inci_name",
   });
   for (const row of currentRows) existing.set(row.inci_name, row);
@@ -393,7 +491,7 @@ async function main() {
       `${plan.refreshed.length} OBF rows refreshed, ${plan.untouched} other verified rows left alone`
   );
   if (plan.safetyOnly.length > 0) {
-    console.log(`  ${plan.safetyOnly.length} CosIng row(s) take the stricter annex rating (nothing else changes):`);
+    console.log(`  ${plan.safetyOnly.length} CosIng row(s) take the annex rating or its reviewed correction (nothing else changes):`);
     for (const r of plan.safetyOnly.slice(0, 20)) console.log(`    [${r.safety}] ${r.inci_name}`);
   }
   if (plan.reviewByHand.length > 0) {
@@ -458,7 +556,7 @@ function invokedDirectly() {
   }
 }
 
-export { fetchTaxonomy, normaliseDictionaryName, planWrites, safetyFor, safetyFrom, sharedLabelForms, toRows };
+export { fetchTaxonomy, NATURAL_ESSENCE_SOURCE, normaliseDictionaryName, planWrites, safetyFor, safetyFrom, sharedLabelForms, toRows };
 
 if (invokedDirectly()) {
   main().catch((err) => {

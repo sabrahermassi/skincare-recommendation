@@ -80,10 +80,10 @@ const PRODUCT: ProductWithIngredients = {
   ingredients: INGREDIENTS,
 };
 
-async function open(inci: string, profile: Partial<SkinProfile>) {
+async function open(inci: string, profile: Partial<SkinProfile>, product: ProductWithIngredients = PRODUCT) {
   useAppStore.setState({ profile: { ...EMPTY_PROFILE, ...profile } });
   mockParams = { inci, product: "p" };
-  (fetchProduct as unknown as { mockResolvedValue(value: unknown): void }).mockResolvedValue({ ok: true, value: PRODUCT });
+  (fetchProduct as unknown as { mockResolvedValue(value: unknown): void }).mockResolvedValue({ ok: true, value: product });
   await render(<IngredientRoute />);
   await act(async () => {});
 }
@@ -95,6 +95,22 @@ describe("the ingredient page, opened from a product", () => {
     expect(screen.getByText("EU status")).toBeTruthy();
     expect(screen.getByText("Allowed when refined")).toBeTruthy();
     expect(screen.queryByText("No restriction")).toBeNull();
+  });
+
+  it.each([
+    ["no skin profile", {}],
+    ["a skin profile", { baseSkinType: "dry" as const }],
+  ])("shows cannabidiol as depending on how it's made, never as cleared, with %s", async (_label: string, profile: Partial<SkinProfile>) => {
+    // As the dictionary import writes it (0030): safe, so nothing is charged, but not cleared.
+    const cbd = ingredient("cannabidiol", { note: "EU rules depend on how it's made." });
+    await open("cannabidiol", profile, { ...PRODUCT, ingredientIds: [...PRODUCT.ingredientIds, cbd.id], ingredients: [...INGREDIENTS, cbd] });
+    // Under the name, in "For your skin", and as its EU status.
+    expect(screen.getAllByText("Depends on how it's made").length).toBeGreaterThanOrEqual(3);
+    expect(screen.getByText("Not in your score")).toBeTruthy();
+    expect(screen.getByText(/depend on how it is made, which a label can't show/)).toBeTruthy();
+    for (const allClear of ["No known concerns", "Nothing against it", "Neutral for you", "Safe", "No restriction", /no concerns/i]) {
+      expect(screen.queryByText(allClear)).toBeNull();
+    }
   });
 
   it("with no skin profile, doesn't call a plain ingredient Good, as the list gives it no word", async () => {

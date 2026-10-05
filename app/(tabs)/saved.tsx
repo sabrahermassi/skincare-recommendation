@@ -25,6 +25,7 @@ import { displayIngredientName } from "@/lib/ingredient-name";
 import { shelfPairingNotes, type PairingNote } from "@/lib/active-pairings";
 import { relativeTime } from "@/lib/format";
 import { LABEL_META, labelWithoutProduct, type IngredientLabel } from "@/lib/ingredient-labels";
+import { isOriginDependent, ORIGIN_DEPENDENT_HEADLINE } from "@/lib/safety";
 import { labelName, labelTitle } from "@/lib/label-title";
 import { openScanner } from "@/lib/open-scanner";
 import { matchProduct } from "@/lib/matching";
@@ -842,19 +843,21 @@ function IngredientsTab({
  */
 function IngredientRow({ ingredient, label, onUnstar }: { ingredient: Ingredient; label: IngredientLabel | null; onUnstar: () => void }) {
   const name = displayIngredientName(ingredient.name);
+  // Cannabidiol is stored safe, but never shown as cleared.
+  const clear = isOriginDependent(ingredient) ? ORIGIN_DEPENDENT_HEADLINE : "No known concerns";
   return (
     <View style={{ minHeight: ROW_MIN_HEIGHT, flexDirection: "row", alignItems: "center", borderRadius: CARD_RADIUS, backgroundColor: SURFACE }}>
       <Link href={{ pathname: "/ingredient/[inci]", params: { inci: ingredient.name } }} asChild>
         <Pressable
           accessibilityRole="button"
-          accessibilityLabel={`${name}, ${label ? LABEL_META[label].label : "No known concerns"}`}
+          accessibilityLabel={`${name}, ${label ? LABEL_META[label].label : clear}`}
           style={{ flex: 1, gap: 3, paddingVertical: SPACE.block, paddingLeft: SPACE.gutter, paddingRight: 4 }}
           className="active:opacity-70"
         >
           <Text numberOfLines={2} style={{ fontSize: TYPE.label, fontWeight: "600", lineHeight: 19, color: INK }}>
             {name}
           </Text>
-          {label ? <VerdictMarker label={label} /> : <Text style={{ fontSize: TYPE.caption, color: MUTED }}>No known concerns</Text>}
+          {label ? <VerdictMarker label={label} /> : <Text style={{ fontSize: TYPE.caption, color: MUTED }}>{clear}</Text>}
         </Pressable>
       </Link>
       <Pressable
