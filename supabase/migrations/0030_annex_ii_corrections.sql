@@ -15,12 +15,16 @@
 -- cached the dictionary fetch the new label.
 
 -- 1. Natural essences cited under Annex II/358 (citrus, rue). Entry 358 limits furocoumarins
---    "except for normal content in natural essences used"; it does not ban the essence.
+--    "except for normal content in natural essences used"; it does not ban the essence. The
+--    same entry prohibits the furocoumarins themselves (methoxsalen, trioxsalen), so a row
+--    must also be named for one of the reviewed plants, as in the importer's
+--    `NATURAL_ESSENCE_SOURCE`.
 update ingredients
 set
   safety = 'safe',
   note = 'Natural essence. EU Annex II/358 limits furocoumarins in the finished product (under 1 mg/kg in sun protection and bronzing products), not the ingredient itself'
 where safety = 'avoid'
+  and inci_name ~ '(^|[^a-z])(citrus|ruta|cuminum)([^a-z]|$)'
   and note ~ '^Prohibited in cosmetics \(EU Annex II/358( R1?)?\)$';
 
 -- 1b. The same entry beside an Annex III restriction (cumin): rated on the restriction alone.
@@ -29,6 +33,7 @@ set
   safety = 'caution',
   note = 'Restricted use (EU Annex III/156)'
 where safety = 'avoid'
+  and inci_name ~ '(^|[^a-z])(citrus|ruta|cuminum)([^a-z]|$)'
   and note = 'Prohibited in cosmetics (EU Annex II/358 R1 III/156)';
 
 -- 2. Alkanes under Annex II/764: banned only "if they contain > 3 % w/w DMSO extract",

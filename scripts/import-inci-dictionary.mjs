@@ -215,8 +215,8 @@ const REFINED_GRADE_NOTE =
  * essences themselves (44 entries: citrus, rue, cumin), which the import read as a flat
  * ban, so a lemon extract led 18 staging products with "flagged as best avoided".
  *
- * An entry whose only Annex II citation is 358 is written `safe` with a note that says
- * what the entry limits. One that cites something else as well keeps that citation and
+ * An entry whose only Annex II citation is 358, and whose name is one of the plants in
+ * `NATURAL_ESSENCE_SOURCE`, is written `safe` with a note that says what the entry limits. One that cites something else as well keeps that citation and
  * is rated on it alone (cumin: "II/358 R1 III/156" is a restriction, not a ban).
  * The note doesn't take one of `safetyFrom`'s shapes, so the audit leaves it alone.
  *
@@ -248,6 +248,14 @@ const DATED_PROHIBITION = new Map([
   ],
 ]);
 
+/**
+ * The plants whose essences the 358 correction was checked for (citrus, rue, cumin). Entry 358
+ * also prohibits the furocoumarins themselves (methoxsalen, trioxsalen), so the correction
+ * needs a name from this list as well as the citation: any other name keeps the ban until
+ * it is reviewed. Mirrored by 0030, which tests the same pattern in SQL.
+ */
+const NATURAL_ESSENCE_SOURCE = /(^|[^a-z])(citrus|ruta|cuminum)([^a-z]|$)/;
+
 /** The Annex II entry numbers a citation names, e.g. "II/358 R1 III/156" gives ["358"]. */
 function annexTwoEntries(text) {
   return [...String(text).matchAll(/(?:^|[\s[(,;])\s*(?:annex\s+)?II\/(\d+)/gi)].map((m) => m[1]);
@@ -258,7 +266,7 @@ function safetyFor(canonical, restriction) {
   const ref = pickEn(restriction);
   const text = ref ? String(ref).trim() : "";
   const entries = annexTwoEntries(text);
-  if (entries.length > 0 && entries.every((entry) => entry === "358")) {
+  if (entries.length > 0 && entries.every((entry) => entry === "358") && NATURAL_ESSENCE_SOURCE.test(canonical)) {
     const rest = text.replace(/\bII\/358\b(\s+R1?\b)?/i, "").trim();
     return rest ? safetyFrom(rest) : { safety: "safe", note: NATURAL_ESSENCE_NOTE };
   }
@@ -524,7 +532,7 @@ function invokedDirectly() {
   }
 }
 
-export { fetchTaxonomy, normaliseDictionaryName, planWrites, safetyFor, safetyFrom, sharedLabelForms, toRows };
+export { fetchTaxonomy, NATURAL_ESSENCE_SOURCE, normaliseDictionaryName, planWrites, safetyFor, safetyFrom, sharedLabelForms, toRows };
 
 if (invokedDirectly()) {
   main().catch((err) => {

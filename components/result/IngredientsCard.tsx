@@ -52,11 +52,12 @@ const SEVERITY: Record<IngredientLabel | "none", number> = { avoid: 0, watch: 1,
 /**
  * Whether a row has something worth opening (v9): a verdict other than Good,
  * a curated rule (an active, a named humectant), or a place on the
- * pore-clogging lists. Only those rows carry a chevron and open the
- * ingredient; plain filler like water just sits in the list.
+ * pore-clogging lists, or an EU status that depends on how it is made
+ * (cannabidiol, whose page says so). Only those rows carry a chevron and open
+ * the ingredient; plain filler like water just sits in the list.
  */
 function hasDetails(ingredient: Ingredient, label: IngredientLabel | null): boolean {
-  return (label !== null && label !== "good") || ruleFor(ingredient) !== undefined || isPoreClogging(ingredient);
+  return (label !== null && label !== "good") || ruleFor(ingredient) !== undefined || isPoreClogging(ingredient) || isOriginDependent(ingredient);
 }
 
 /**

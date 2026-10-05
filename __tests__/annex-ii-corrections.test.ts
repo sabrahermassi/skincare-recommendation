@@ -11,7 +11,7 @@ import {
   regulatoryStatus,
 } from "@/lib/safety";
 import { annexCited } from "../scripts/audit-safety-labels.mjs";
-import { safetyFor, safetyFrom, toRows } from "../scripts/import-inci-dictionary.mjs";
+import { NATURAL_ESSENCE_SOURCE, safetyFor, safetyFrom, toRows } from "../scripts/import-inci-dictionary.mjs";
 
 /**
  * Issue 1 of the regulatory-safety work: Annex II rows the import read as flat bans.
@@ -81,6 +81,21 @@ describe("natural essences under Annex II/358 (citrus, rue)", () => {
 
   it("keep a second citation: cumin's II/358 R1 III/156 is a restriction, not a ban", () => {
     expect(rating("cuminum cyminum fruit extract", "II/358 R1 III/156")).toEqual({ safety: "caution", note: "Restricted use (EU Annex III/156)" });
+  });
+
+  it("leave the furocoumarins themselves banned: entry 358 prohibits them, only their content in essences is allowed", () => {
+    for (const name of ["methoxsalen", "trioxsalen", "bergapten", "angelica archangelica root oil"]) {
+      expect(rating(name, "II/358").safety).toBe("avoid");
+      expect(rating(name, "II/358 R1").safety).toBe("avoid");
+    }
+  });
+
+  it("name the plants in SQL the way the import does", () => {
+    for (const name of ["citrus limon fruit extract", "ascorbic acid orange citrus limon polypeptides", "ruta graveolens herb oil", "cuminum cyminum fruit extract"]) {
+      expect(NATURAL_ESSENCE_SOURCE.test(name)).toBe(true);
+    }
+    expect(NATURAL_ESSENCE_SOURCE.test("methoxsalen")).toBe(false);
+    expect(NATURAL_ESSENCE_SOURCE.test("citrusy blend")).toBe(false);
   });
 
   it("leave an entry that also cites another Annex II number as the ban it was", () => {
@@ -195,6 +210,11 @@ describe("through the whole import", () => {
 describe("the migration says what the import says", () => {
   const sql = readFileSync(join(__dirname, "..", "supabase", "migrations", "0030_annex_ii_corrections.sql"), "utf8");
   const inSql = (text: string) => expect(sql).toContain(text.replace(/'/g, "''"));
+
+  it("limits the essence corrections to the same plants", () => {
+    // Once for the natural essences, once for cumin's second citation.
+    expect(sql.split(`inci_name ~ '${NATURAL_ESSENCE_SOURCE.source}'`)).toHaveLength(3);
+  });
 
   it("uses the same notes", () => {
     inSql(rating("citrus limon fruit extract", "II/358 R1").note as string);

@@ -278,6 +278,9 @@ describe("the product screen's result tabs", () => {
     expect(screen.queryByRole("button", { name: "5 more, no concerns" })).toBeNull();
     await fireEvent.press(screen.getByRole("button", { name: "5 more ingredients" }));
     expect(row("cannabidiol")).toBeTruthy();
+    // Its page says why, so the row opens it.
+    await fireEvent.press(row("cannabidiol")!);
+    expect(router.push).toHaveBeenCalledWith(expect.objectContaining({ pathname: "/ingredient/[inci]" }));
   });
 
   it("doesn't say 'Nothing restricted' on the irritation card beside a fragrance to watch", async () => {
