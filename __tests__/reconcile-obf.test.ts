@@ -1,6 +1,6 @@
 import { fetchStoredFormulas, isParserRefresh, parserOnlyChange } from "../scripts/lib/formula-diff.mjs";
 import { parseInci } from "../scripts/lib/inci-parse.mjs";
-import { fetchIngredients, formulaChanged, parseBarcodes, parseLimit } from "../scripts/reconcile-obf.mjs";
+import { decideWrite, fetchBarcodeRows, fetchIngredients, formulaChanged, parseBarcodes, parseLimit, unreadBarcodes } from "../scripts/reconcile-obf.mjs";
 
 /**
  * The parser got better than the one that stored these rows. A rewrite would
@@ -123,6 +123,12 @@ describe("parseBarcodes", () => {
 
   it("reads a comma-separated list, once each", () => {
     expect(parseBarcodes(["node", "script.mjs", "--barcode", "3600541144019, 7798130373882,3600541144019"])).toEqual(["3600541144019", "7798130373882"]);
+  });
+
+  it("refuses more barcodes than one run reconciles, rather than leaving the rest unread", () => {
+    const many = Array.from({ length: 301 }, (_, i) => String(10_000_000 + i)).join(",");
+    expect(() => parseBarcodes(["node", "script.mjs", "--barcode", many])).toThrow("at most 300");
+    expect(parseBarcodes(["node", "script.mjs", "--barcode", many.split(",").slice(0, 300).join(",")])).toHaveLength(300);
   });
 
   it.each([[undefined], [""], ["abc"], ["123"], ["3600541144019,xyz"]])("refuses %p, so a typo can't quietly re-read nothing", (value: string | undefined) => {
@@ -303,5 +309,76 @@ describe("fetchIngredients", () => {
   it("keeps status 1 with no product retryable", async () => {
     respond({ body: { status: 1 } });
     expect(await fetchIngredients("123")).toMatchObject({ ok: false, permanent: false });
+  });
+});
+
+describe("fetchBarcodeRows", () => {
+  /** A stand-in for the query builder: records each `.in()` and answers with a row per barcode asked for. */
+  function fakeDb(rowFor: (code: string) => object | null) {
+    const calls: { filters: string[]; codes: string[] }[] = [];
+    const db = {
+      from: () => {
+        const call = { filters: [] as string[], codes: [] as string[] };
+        const query: Record<string, unknown> = {};
+        query.select = () => query;
+        query.eq = (column: string, value: unknown) => (call.filters.push(`eq ${column}=${value}`), query);
+        query.is = (column: string, value: unknown) => (call.filters.push(`is ${column}=${value}`), query);
+        query.in = (_column: string, codes: string[]) => {
+          call.codes = codes;
+          calls.push(call);
+          return Promise.resolve({ data: codes.flatMap((code) => rowFor(code) ?? []), error: null });
+        };
+        return query;
+      },
+    };
+    return { db, calls };
+  }
+
+  it("reads obf rows only, once, a hundred barcodes to a query", async () => {
+    const codes = Array.from({ length: 250 }, (_, i) => String(10_000_000 + i));
+    const { db, calls } = fakeDb((barcode) => ({ barcode }));
+    const rows = await fetchBarcodeRows(db, codes);
+    expect(calls.map((call) => call.codes.length)).toEqual([100, 100, 50]);
+    expect(calls.every((call) => call.filters.join() === "eq source=obf,is expires_at=null")).toBe(true);
+    expect(rows).toHaveLength(250);
+  });
+
+  it("says which listed barcodes no row came back for", async () => {
+    const { db } = fakeDb((barcode) => (barcode === "11111111" ? null : { barcode }));
+    const rows = await fetchBarcodeRows(db, ["11111111", "22222222"]);
+    expect(unreadBarcodes(["11111111", "22222222"], rows)).toEqual(["11111111"]);
+    expect(unreadBarcodes(["22222222"], rows)).toEqual([]);
+  });
+
+  it("surfaces a database error instead of reading nothing", async () => {
+    const db = { from: () => ({ select: () => ({ eq: () => ({ is: () => ({ in: () => Promise.resolve({ data: null, error: { message: "boom" } }) }) }) }) }) };
+    await expect(fetchBarcodeRows(db, ["11111111"])).rejects.toThrow("products by barcode: boom");
+  });
+});
+
+describe("decideWrite", () => {
+  const known = new Set(["aqua", "water", "glycerin", "acrylamide", "acrylamide/sodium acryloyldimethyltaurate copolymer"]);
+  const stored = (...names: string[]) => names.map((inci_name, position) => ({ inci_name, position }));
+
+  it("leaves a formula that reads the same alone", () => {
+    expect(decideWrite(stored("aqua", "glycerin"), stored("aqua", "glycerin"), false, known, undefined)).toBe("unchanged");
+    expect(decideWrite(stored("aqua", "glycerin"), stored("aqua", "glycerin"), true, known, undefined)).toBe("unchanged");
+  });
+
+  it("stamps a reformulation when the label moved and today's parser doesn't explain it", () => {
+    expect(decideWrite(stored("aqua", "glycerin"), stored("aqua", "acrylamide"), false, known, undefined)).toBe("reformulated");
+  });
+
+  it("refreshes, with no stamp, a difference today's parser explains", () => {
+    // Stored by an older parser as "aqua/water"; today's reads it as aqua.
+    expect(decideWrite(stored("aqua/water", "glycerin"), stored("aqua", "glycerin"), false, known, undefined)).toBe("refresh");
+  });
+
+  it("refreshes every difference in a repair, even one the stored names can't explain", () => {
+    // `acrylamide` is all the old parser kept of a whole polymer name, so re-parsing it can't give the name back.
+    const before = stored("aqua", "acrylamide", "glycerin");
+    const after = stored("aqua", "acrylamide/sodium acryloyldimethyltaurate copolymer", "glycerin");
+    expect(decideWrite(before, after, false, known, undefined)).toBe("reformulated");
+    expect(decideWrite(before, after, true, known, undefined)).toBe("refresh");
   });
 });
