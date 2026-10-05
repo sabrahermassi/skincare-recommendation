@@ -35,6 +35,19 @@
  *   node scripts/reconcile-obf.mjs --dry-run
  *   node scripts/reconcile-obf.mjs
  *   node scripts/reconcile-obf.mjs --dry-run --limit 20
+ *   node scripts/reconcile-obf.mjs --barcode 3600541144019,7798130373882
+ *
+ * `--barcode` re-reads only the listed products (obf rows), once, instead of the oldest ones: a
+ * REPAIR for a parser fix, which should reach the products it was wrong about without waiting for
+ * the nightly rotation. Same read, same parser, same pacing. A difference is written as a parser
+ * refresh, with no `formula_changed_at`, when it only REFINES names (`isRefinement`): every name
+ * the product held survives inside a new one, which is all a repair does (it joins a split name,
+ * or splits a joined one). `parserOnlyChange` can't see that for a repair: it re-parses the stored
+ * names, and the old parser had already lost what the new one reads (`acrylamide` standing for a
+ * whole polymer name). Any other difference (an ingredient gone, one added, the order moved) is a
+ * reformulation and is stamped, as the nightly run would, so a real change since the product was
+ * stored is not hidden by the repair: once a formula is overwritten, no later run can compare
+ * against it. Up to 300 barcodes; any that is not a stored obf product is reported as not read.
  *
  * Slow by design, same reason as reclassify-from-tags.mjs: Open Beauty Facts
  * documents 15 product reads per minute per IP (import-obf.mjs's own
@@ -111,6 +124,26 @@ export function parseLimit(argv) {
     throw new Error(`--limit needs a positive whole number, got ${JSON.stringify(argv[at + 1] ?? null)}`);
   }
   return value;
+}
+
+/**
+ * The barcodes after `--barcode` (comma-separated), or `null` for the ordinary run. A barcode is
+ * 8 to 14 digits; anything else is refused, so a typo can't quietly re-read nothing.
+ */
+export function parseBarcodes(argv) {
+  const at = argv.indexOf("--barcode");
+  if (at === -1) return null;
+  const codes = String(argv[at + 1] ?? "")
+    .split(",")
+    .map((code) => code.trim())
+    .filter(Boolean);
+  if (codes.length === 0 || codes.some((code) => !/^\d{8,14}$/.test(code))) {
+    throw new Error(`--barcode needs one or more 8 to 14 digit barcodes, comma-separated, got ${JSON.stringify(argv[at + 1] ?? null)}`);
+  }
+  const unique = [...new Set(codes)];
+  // One run reconciles at most BATCH_SIZE rows; a longer list would quietly leave the rest unread.
+  if (unique.length > BATCH_SIZE) throw new Error(`--barcode takes at most ${BATCH_SIZE} barcodes per run, got ${unique.length}`);
+  return unique;
 }
 
 /** Mirrors reclassify-from-tags.mjs's own `capDelay` — see that file for the reasoning. */
@@ -245,16 +278,120 @@ async function fetchCandidatePage(db, pageSize, cursor) {
   return data ?? [];
 }
 
+/** A hundred barcodes to a query keeps a long list a short URL; each product is one row (barcode is unique). */
+const BARCODES_PER_QUERY = 100;
+
+/**
+ * The listed products, read once: obf rows only, the same columns a candidate page reads. Not a
+ * cursor walk: each write moves a row's `fetched_at` past any cursor, so walking would read the
+ * same few rows again until the run's cap.
+ */
+export async function fetchBarcodeRows(db, barcodes) {
+  const rows = [];
+  for (let i = 0; i < barcodes.length; i += BARCODES_PER_QUERY) {
+    const { data, error } = await db
+      .from("products")
+      .select(`${PRODUCT_COLUMNS}, fetched_at, product_ingredients ( inci_name, position )`)
+      .eq("source", "obf")
+      .is("expires_at", null)
+      .in("barcode", barcodes.slice(i, i + BARCODES_PER_QUERY));
+    if (error) throw new Error(`products by barcode: ${error.message}`);
+    rows.push(...(data ?? []));
+  }
+  return rows;
+}
+
+/** The listed barcodes no row came back for: not stored here, or not an obf product. */
+export function unreadBarcodes(barcodes, rows) {
+  const found = new Set(rows.map((row) => row.barcode));
+  return barcodes.filter((code) => !found.has(code));
+}
+
+/**
+ * What to do with a product whose formula was just read again.
+ *
+ *  - "unchanged": same names in the same order; only `fetched_at` moves.
+ *  - "refresh": different, but not a reformulation: write the new names with the parser-refresh
+ *    flag and no timestamp, so nobody who saved the product is told it was reformulated. That is
+ *    every difference in a repair (`--barcode`), and, in the nightly run, a difference today's
+ *    parser explains (`parserOnlyChange`).
+ *  - "reformulated": the label moved; write the names and stamp `formula_changed_at`.
+ */
+export function decideWrite(current, fresh, repair, known, aliases) {
+  if (!formulaChanged(current, fresh)) return "unchanged";
+  if (parserOnlyChange(current, fresh, known, aliases) || (repair && isRefinement(current, fresh))) return "refresh";
+  return "reformulated";
+}
+
+/**
+ * Whether a difference only REFINES names, which is all a parser repair can do: some stored name is
+ * gone, every one that is gone survives inside a new name (`acrylamide` and `sodium` inside
+ * `acrylamide/sodium acryloyldimethyltaurate copolymer`), and no more new names appear than
+ * absorbed old ones (a split can put one more name out, such as `trideceth-6` beside the polymer).
+ * An ingredient that is simply gone, one that is simply added, or a reordering is not a refinement:
+ * those are what a reformulation looks like, and must not be written as if the label had not moved.
+ * A name is inside another when its words are a whole run of the other's, slash and ampersand
+ * counting as spaces.
+ */
+export function isRefinement(current, fresh) {
+  const before = [...current].sort((a, b) => a.position - b.position).map((i) => i.inci_name);
+  const after = fresh.map((i) => i.inci_name);
+  const kept = new Set(after);
+  const had = new Set(before);
+  const removed = before.filter((name) => !kept.has(name));
+  const added = after.filter((name) => !had.has(name));
+  if (removed.length === 0) return false;
+  const words = (name) => ` ${name.replace(/[/&,]/g, " ").replace(/\s+/g, " ").trim()} `;
+  const inside = (inner, outer) => words(outer).includes(words(inner));
+  if (!removed.every((name) => added.some((bigger) => inside(name, bigger)))) return false;
+  const absorbing = added.filter((bigger) => removed.some((name) => inside(name, bigger))).length;
+  return added.length - absorbing <= absorbing;
+}
+
+/**
+ * The arguments for `replace_product_with_ingredients` for a product that is being written
+ * ("refresh" or "reformulated", from `decideWrite`).
+ *
+ * `formula_changed_at` travels in the same call as the formula replacement (migration 0018), not
+ * as a follow-up UPDATE. Two separate statements meant a failure between them (the formula
+ * replaced, the change never recorded) would permanently lose the event: a later run compares
+ * against the already-replaced formula, finds no difference, and has no way to know anything
+ * happened (found by Codex on PR #122). A refresh carries the parser-refresh flag and NO
+ * timestamp instead (migration 0021): the label did not move, so nobody who saved the product is
+ * told it was reformulated. This is the one place that difference is made, and it is tested.
+ */
+export function replaceArgs(row, fresh, action) {
+  const { id, barcode, brand, name, type, area, description, image_url, volume, in_stock, suitable_for, targets, source, attribution, expires_at } = row;
+  const base = {
+    p_product: { id, barcode, brand, name, type, area, description, image_url, volume, in_stock, suitable_for, targets, source, attribution, expires_at },
+    p_ingredients: fresh,
+    // Same note import-obf.mjs itself passes for an OBF-sourced stub.
+    p_stub_note: "No published rating for this ingredient yet.",
+  };
+  if (action === "refresh") return { ...base, p_parser_refresh: true };
+  if (action === "reformulated") return { ...base, p_formula_changed_at: new Date().toISOString() };
+  throw new Error(`replaceArgs: nothing to write for ${JSON.stringify(action)}`);
+}
+
 async function main() {
   const dryRun = process.argv.includes("--dry-run");
   // `--limit` can only lower the per-run cap, never raise it — see BATCH_SIZE.
   const limit = Math.min(parseLimit(process.argv), BATCH_SIZE);
+  // Only the products named, when asked, as a repair (see the header).
+  const barcodes = parseBarcodes(process.argv);
+  const repair = barcodes !== null;
   // Credentials are required for --dry-run too — it reads the live rows it
   // reports on.
   const { db } = connect({ write: !dryRun });
 
   const known = await fetchKnownIngredients(db);
   const aliases = await fetchAliases(db);
+
+  // The listed products are read once, up front, as the one and only page.
+  const barcodeRows = barcodes ? await fetchBarcodeRows(db, barcodes) : null;
+  const unread = barcodes ? unreadBarcodes(barcodes, barcodeRows) : [];
+  if (unread.length > 0) console.log(`Not read, no obf product with that barcode here: ${unread.join(", ")}\n`);
+  const barcodePages = barcodeRows ? [barcodeRows] : null;
 
   console.log(
     `Aiming for ${limit} reconciled row(s) this run, paging past any that can't ` +
@@ -274,7 +411,7 @@ async function main() {
 
   pages: for (;;) {
     if (touched >= limit || read >= MAX_REQUESTS_PER_RUN) break;
-    const page = await fetchCandidatePage(db, Math.min(BATCH_SIZE, MAX_REQUESTS_PER_RUN - read), cursor);
+    const page = barcodePages ? (barcodePages.shift() ?? []) : await fetchCandidatePage(db, Math.min(BATCH_SIZE, MAX_REQUESTS_PER_RUN - read), cursor);
     if (page.length === 0) break; // the whole obf catalogue has been paged through
 
     for (const row of page) {
@@ -338,7 +475,8 @@ async function main() {
         continue;
       }
 
-      if (!formulaChanged(row.product_ingredients, fresh)) {
+      const action = decideWrite(row.product_ingredients, fresh, repair, known, aliases);
+      if (action === "unchanged") {
         // Confirmed current as of today, nothing to change — still worth the
         // touch, or this row would look just as stale next run despite having
         // just been checked.
@@ -357,44 +495,27 @@ async function main() {
       // but through the RPC's refresh flag and with no explicit timestamp, so
       // `formula_changed_at` is not stamped (migration 0021; see
       // `parserOnlyChange`). Counted as unchanged, since that is what it is.
-      if (parserOnlyChange(row.product_ingredients, fresh, known, aliases)) {
-        unchanged += 1;
+      if (action === "refresh") {
+        if (repair) {
+          changed += 1;
+          if (changedSamples.length < 5) changedSamples.push(`${row.brand} — ${row.name} (parser repair, not stamped)`);
+        } else {
+          unchanged += 1;
+        }
         touched += 1;
         if (!dryRun) {
-          const { id, barcode, brand, name, type, area, description, image_url, volume, in_stock, suitable_for, targets, source, attribution, expires_at } =
-            row;
-          const { error: rpcError } = await db.rpc("replace_product_with_ingredients", {
-            p_product: { id, barcode, brand, name, type, area, description, image_url, volume, in_stock, suitable_for, targets, source, attribution, expires_at },
-            p_ingredients: fresh,
-            p_stub_note: "No published rating for this ingredient yet.",
-            p_parser_refresh: true,
-          });
-          if (rpcError) throw new Error(`replace_product_with_ingredients failed for ${id} (parser refresh): ${rpcError.message}`);
+          const { error: rpcError } = await db.rpc("replace_product_with_ingredients", replaceArgs(row, fresh, action));
+          if (rpcError) throw new Error(`replace_product_with_ingredients failed for ${row.id} (parser refresh): ${rpcError.message}`);
         }
         continue;
       }
 
       changed += 1;
       touched += 1;
-      if (changedSamples.length < 5) changedSamples.push(`${row.brand} — ${row.name}`);
+      if (changedSamples.length < 5) changedSamples.push(`${row.brand} — ${row.name}${repair ? " (reformulated: stamped)" : ""}`);
       if (!dryRun) {
-        const { id, barcode, brand, name, type, area, description, image_url, volume, in_stock, suitable_for, targets, source, attribution, expires_at } =
-          row;
-        // `formula_changed_at` travels in the same call as the formula
-        // replacement (migration 0018), not as a follow-up UPDATE. Two
-        // separate statements meant a failure between them — the formula
-        // replaced, the change never recorded — would permanently lose the
-        // event: a later run compares against the already-replaced formula,
-        // finds no difference, and has no way to know anything happened.
-        // Found by Codex on PR #122.
-        const { error: rpcError } = await db.rpc("replace_product_with_ingredients", {
-          p_product: { id, barcode, brand, name, type, area, description, image_url, volume, in_stock, suitable_for, targets, source, attribution, expires_at },
-          p_ingredients: fresh,
-          // Same note import-obf.mjs itself passes for an OBF-sourced stub.
-          p_stub_note: "No published rating for this ingredient yet.",
-          p_formula_changed_at: new Date().toISOString(),
-        });
-        if (rpcError) throw new Error(`replace_product_with_ingredients failed for ${id}: ${rpcError.message}`);
+        const { error: rpcError } = await db.rpc("replace_product_with_ingredients", replaceArgs(row, fresh, action));
+        if (rpcError) throw new Error(`replace_product_with_ingredients failed for ${row.id}: ${rpcError.message}`);
       }
     }
   }
@@ -408,6 +529,7 @@ async function main() {
     `\n\n${unchanged} unchanged, ${changed} changed, ${gone} gone from OBF, ` +
       `${retryable} unread (will retry next run).\n`
   );
+  if (unread.length > 0) console.log(`Not read, no obf product with that barcode here: ${unread.join(", ")}\n`);
   if (changedSamples.length > 0) {
     console.log("Changed:");
     for (const s of changedSamples) console.log(`  ${s}`);
