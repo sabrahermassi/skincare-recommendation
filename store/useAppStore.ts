@@ -13,7 +13,7 @@ import { applyOps, shelfAsSaves, type Shelf, type ShelfOp } from "@/lib/shelf";
 
 import type { Concern, SkinProfile } from "@/data/types";
 
-export type SavedProduct = {
+type SavedProduct = {
   /** Product id, or a raw barcode for something scanned but not in the catalog. */
   id: string;
   savedAt: number;
