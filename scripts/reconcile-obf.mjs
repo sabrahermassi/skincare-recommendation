@@ -321,6 +321,31 @@ export function decideWrite(current, fresh, repair, known, aliases) {
   return "reformulated";
 }
 
+/**
+ * The arguments for `replace_product_with_ingredients` for a product that is being written
+ * ("refresh" or "reformulated", from `decideWrite`).
+ *
+ * `formula_changed_at` travels in the same call as the formula replacement (migration 0018), not
+ * as a follow-up UPDATE. Two separate statements meant a failure between them (the formula
+ * replaced, the change never recorded) would permanently lose the event: a later run compares
+ * against the already-replaced formula, finds no difference, and has no way to know anything
+ * happened (found by Codex on PR #122). A refresh carries the parser-refresh flag and NO
+ * timestamp instead (migration 0021): the label did not move, so nobody who saved the product is
+ * told it was reformulated. This is the one place that difference is made, and it is tested.
+ */
+export function replaceArgs(row, fresh, action) {
+  const { id, barcode, brand, name, type, area, description, image_url, volume, in_stock, suitable_for, targets, source, attribution, expires_at } = row;
+  const base = {
+    p_product: { id, barcode, brand, name, type, area, description, image_url, volume, in_stock, suitable_for, targets, source, attribution, expires_at },
+    p_ingredients: fresh,
+    // Same note import-obf.mjs itself passes for an OBF-sourced stub.
+    p_stub_note: "No published rating for this ingredient yet.",
+  };
+  if (action === "refresh") return { ...base, p_parser_refresh: true };
+  if (action === "reformulated") return { ...base, p_formula_changed_at: new Date().toISOString() };
+  throw new Error(`replaceArgs: nothing to write for ${JSON.stringify(action)}`);
+}
+
 async function main() {
   const dryRun = process.argv.includes("--dry-run");
   // `--limit` can only lower the per-run cap, never raise it — see BATCH_SIZE.
@@ -452,15 +477,8 @@ async function main() {
         }
         touched += 1;
         if (!dryRun) {
-          const { id, barcode, brand, name, type, area, description, image_url, volume, in_stock, suitable_for, targets, source, attribution, expires_at } =
-            row;
-          const { error: rpcError } = await db.rpc("replace_product_with_ingredients", {
-            p_product: { id, barcode, brand, name, type, area, description, image_url, volume, in_stock, suitable_for, targets, source, attribution, expires_at },
-            p_ingredients: fresh,
-            p_stub_note: "No published rating for this ingredient yet.",
-            p_parser_refresh: true,
-          });
-          if (rpcError) throw new Error(`replace_product_with_ingredients failed for ${id} (parser refresh): ${rpcError.message}`);
+          const { error: rpcError } = await db.rpc("replace_product_with_ingredients", replaceArgs(row, fresh, action));
+          if (rpcError) throw new Error(`replace_product_with_ingredients failed for ${row.id} (parser refresh): ${rpcError.message}`);
         }
         continue;
       }
@@ -469,23 +487,8 @@ async function main() {
       touched += 1;
       if (changedSamples.length < 5) changedSamples.push(`${row.brand} — ${row.name}`);
       if (!dryRun) {
-        const { id, barcode, brand, name, type, area, description, image_url, volume, in_stock, suitable_for, targets, source, attribution, expires_at } =
-          row;
-        // `formula_changed_at` travels in the same call as the formula
-        // replacement (migration 0018), not as a follow-up UPDATE. Two
-        // separate statements meant a failure between them — the formula
-        // replaced, the change never recorded — would permanently lose the
-        // event: a later run compares against the already-replaced formula,
-        // finds no difference, and has no way to know anything happened.
-        // Found by Codex on PR #122.
-        const { error: rpcError } = await db.rpc("replace_product_with_ingredients", {
-          p_product: { id, barcode, brand, name, type, area, description, image_url, volume, in_stock, suitable_for, targets, source, attribution, expires_at },
-          p_ingredients: fresh,
-          // Same note import-obf.mjs itself passes for an OBF-sourced stub.
-          p_stub_note: "No published rating for this ingredient yet.",
-          p_formula_changed_at: new Date().toISOString(),
-        });
-        if (rpcError) throw new Error(`replace_product_with_ingredients failed for ${id}: ${rpcError.message}`);
+        const { error: rpcError } = await db.rpc("replace_product_with_ingredients", replaceArgs(row, fresh, action));
+        if (rpcError) throw new Error(`replace_product_with_ingredients failed for ${row.id}: ${rpcError.message}`);
       }
     }
   }

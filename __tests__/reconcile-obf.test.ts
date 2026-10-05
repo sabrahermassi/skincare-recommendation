@@ -1,6 +1,6 @@
 import { fetchStoredFormulas, isParserRefresh, parserOnlyChange } from "../scripts/lib/formula-diff.mjs";
 import { parseInci } from "../scripts/lib/inci-parse.mjs";
-import { decideWrite, fetchBarcodeRows, fetchIngredients, formulaChanged, parseBarcodes, parseLimit, unreadBarcodes } from "../scripts/reconcile-obf.mjs";
+import { decideWrite, fetchBarcodeRows, fetchIngredients, formulaChanged, parseBarcodes, parseLimit, replaceArgs, unreadBarcodes } from "../scripts/reconcile-obf.mjs";
 
 /**
  * The parser got better than the one that stored these rows. A rewrite would
@@ -380,5 +380,56 @@ describe("decideWrite", () => {
     const after = stored("aqua", "acrylamide/sodium acryloyldimethyltaurate copolymer", "glycerin");
     expect(decideWrite(before, after, false, known, undefined)).toBe("reformulated");
     expect(decideWrite(before, after, true, known, undefined)).toBe("refresh");
+  });
+});
+
+describe("replaceArgs", () => {
+  const row = {
+    id: "p1",
+    barcode: "3600541144019",
+    brand: "B",
+    name: "N",
+    type: "serum",
+    area: null,
+    description: null,
+    image_url: null,
+    volume: null,
+    in_stock: true,
+    suitable_for: [],
+    targets: [],
+    source: "obf",
+    attribution: null,
+    expires_at: null,
+    // Read alongside the row, but not columns `replace_product_with_ingredients` takes.
+    fetched_at: "2026-10-01T00:00:00Z",
+    product_ingredients: [{ inci_name: "aqua", position: 0 }],
+  };
+  const fresh = [{ inci_name: "aqua", position: 0 }, { inci_name: "glycerin", position: 1 }];
+
+  it("never stamps formula_changed_at on a refresh", () => {
+    const args: Record<string, unknown> = replaceArgs(row, fresh, "refresh");
+    expect(args.p_parser_refresh).toBe(true);
+    expect("p_formula_changed_at" in args).toBe(false);
+  });
+
+  it("stamps formula_changed_at, in the same call, on a reformulation", () => {
+    const args: Record<string, unknown> = replaceArgs(row, fresh, "reformulated");
+    expect(typeof args.p_formula_changed_at).toBe("string");
+    expect(Number.isNaN(Date.parse(String(args.p_formula_changed_at)))).toBe(false);
+    expect("p_parser_refresh" in args).toBe(false);
+  });
+
+  it("passes the new formula and only the product's own columns", () => {
+    for (const action of ["refresh", "reformulated"]) {
+      const args: Record<string, unknown> = replaceArgs(row, fresh, action);
+      expect(args.p_ingredients).toBe(fresh);
+      expect(Object.keys(args.p_product as object).sort()).toEqual(
+        ["id", "barcode", "brand", "name", "type", "area", "description", "image_url", "volume", "in_stock", "suitable_for", "targets", "source", "attribution", "expires_at"].sort()
+      );
+    }
+  });
+
+  it("refuses to build a write for an unchanged formula", () => {
+    expect(() => replaceArgs(row, fresh, "unchanged")).toThrow("nothing to write");
   });
 });
