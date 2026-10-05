@@ -39,13 +39,15 @@
  *
  * `--barcode` re-reads only the listed products (obf rows), once, instead of the oldest ones: a
  * REPAIR for a parser fix, which should reach the products it was wrong about without waiting for
- * the nightly rotation. Same read, same parser, same pacing, but whatever differs is written as a
- * parser refresh and never stamps `formula_changed_at`: the label did not move, and a repaired
- * name must not tell people who saved the product that it was reformulated. (`parserOnlyChange`
- * can't see that for a repair: it re-parses the stored names, and the old parser had already lost
- * what the new one reads, such as `acrylamide` standing for a whole polymer name.) A real
- * reformulation is the nightly run's to find. Up to 300 barcodes; any that is not a stored obf
- * product is reported as not read.
+ * the nightly rotation. Same read, same parser, same pacing. A difference is written as a parser
+ * refresh, with no `formula_changed_at`, when it only REFINES names (`isRefinement`): every name
+ * the product held survives inside a new one, which is all a repair does (it joins a split name,
+ * or splits a joined one). `parserOnlyChange` can't see that for a repair: it re-parses the stored
+ * names, and the old parser had already lost what the new one reads (`acrylamide` standing for a
+ * whole polymer name). Any other difference (an ingredient gone, one added, the order moved) is a
+ * reformulation and is stamped, as the nightly run would, so a real change since the product was
+ * stored is not hidden by the repair: once a formula is overwritten, no later run can compare
+ * against it. Up to 300 barcodes; any that is not a stored obf product is reported as not read.
  *
  * Slow by design, same reason as reclassify-from-tags.mjs: Open Beauty Facts
  * documents 15 product reads per minute per IP (import-obf.mjs's own
@@ -317,8 +319,33 @@ export function unreadBarcodes(barcodes, rows) {
  */
 export function decideWrite(current, fresh, repair, known, aliases) {
   if (!formulaChanged(current, fresh)) return "unchanged";
-  if (repair || parserOnlyChange(current, fresh, known, aliases)) return "refresh";
+  if (parserOnlyChange(current, fresh, known, aliases) || (repair && isRefinement(current, fresh))) return "refresh";
   return "reformulated";
+}
+
+/**
+ * Whether a difference only REFINES names, which is all a parser repair can do: some stored name is
+ * gone, every one that is gone survives inside a new name (`acrylamide` and `sodium` inside
+ * `acrylamide/sodium acryloyldimethyltaurate copolymer`), and no more new names appear than
+ * absorbed old ones (a split can put one more name out, such as `trideceth-6` beside the polymer).
+ * An ingredient that is simply gone, one that is simply added, or a reordering is not a refinement:
+ * those are what a reformulation looks like, and must not be written as if the label had not moved.
+ * A name is inside another when its words are a whole run of the other's, slash and ampersand
+ * counting as spaces.
+ */
+export function isRefinement(current, fresh) {
+  const before = [...current].sort((a, b) => a.position - b.position).map((i) => i.inci_name);
+  const after = fresh.map((i) => i.inci_name);
+  const kept = new Set(after);
+  const had = new Set(before);
+  const removed = before.filter((name) => !kept.has(name));
+  const added = after.filter((name) => !had.has(name));
+  if (removed.length === 0) return false;
+  const words = (name) => ` ${name.replace(/[/&,]/g, " ").replace(/\s+/g, " ").trim()} `;
+  const inside = (inner, outer) => words(outer).includes(words(inner));
+  if (!removed.every((name) => added.some((bigger) => inside(name, bigger)))) return false;
+  const absorbing = added.filter((bigger) => removed.some((name) => inside(name, bigger))).length;
+  return added.length - absorbing <= absorbing;
 }
 
 /**
@@ -471,7 +498,7 @@ async function main() {
       if (action === "refresh") {
         if (repair) {
           changed += 1;
-          if (changedSamples.length < 5) changedSamples.push(`${row.brand} — ${row.name}`);
+          if (changedSamples.length < 5) changedSamples.push(`${row.brand} — ${row.name} (parser repair, not stamped)`);
         } else {
           unchanged += 1;
         }
@@ -485,7 +512,7 @@ async function main() {
 
       changed += 1;
       touched += 1;
-      if (changedSamples.length < 5) changedSamples.push(`${row.brand} — ${row.name}`);
+      if (changedSamples.length < 5) changedSamples.push(`${row.brand} — ${row.name}${repair ? " (reformulated: stamped)" : ""}`);
       if (!dryRun) {
         const { error: rpcError } = await db.rpc("replace_product_with_ingredients", replaceArgs(row, fresh, action));
         if (rpcError) throw new Error(`replace_product_with_ingredients failed for ${row.id}: ${rpcError.message}`);

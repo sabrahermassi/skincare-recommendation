@@ -461,9 +461,10 @@ function splitSlashList(name, dictionary, aliases) {
  * Annex II ingredient is written into the product that it does not contain. A
  * slash-joined token is joined to the one after it when the two together are a name the
  * dictionary holds, or when what follows is only the word that ends such a name
- * ("copolymer", "crosspolymer", "polymer").
+ * ("copolymer", "crosspolymer", "polymer") and the slash token is not already a list of
+ * known names: "aqua / glycerin, polymer" keeps both of its recognised ingredients.
  */
-function rejoinSplitNames(tokens, dictionary) {
+function rejoinSplitNames(tokens, dictionary, aliases) {
   const out = [];
   for (let i = 0; i < tokens.length; i++) {
     const next = tokens[i + 1];
@@ -471,7 +472,7 @@ function rejoinSplitNames(tokens, dictionary) {
       next !== undefined &&
       tokens[i].includes("/") &&
       !dictionary.has(tokens[i]) &&
-      (/^(?:co|cross)?polymer$/.test(next) || dictionary.has(`${tokens[i]} ${next}`));
+      (dictionary.has(`${tokens[i]} ${next}`) || (/^(?:co|cross)?polymer$/.test(next) && splitSlashList(tokens[i], dictionary, aliases).length === 1));
     if (mends) {
       out.push(`${tokens[i]} ${next}`);
       i++;
@@ -616,7 +617,7 @@ export function parseInci(text, dictionary, rejected, aliases) {
   const tokens = splitOnSeparators(block)
     .map(normalise)
     .filter((p) => p.length > 1 && p.length < 120 && /[a-z]|\p{Script=Hangul}|\p{Script=Hiragana}|\p{Script=Katakana}|\p{Script=Han}/u.test(p));
-  const delimited = (dictionary ? rejoinSplitNames(tokens, dictionary) : tokens)
+  const delimited = (dictionary ? rejoinSplitNames(tokens, dictionary, aliases) : tokens)
     .flatMap((name) => {
       if (!dictionary) {
         // Without a dictionary a long real name cannot be recognised as known, so it is

@@ -74,6 +74,13 @@ describe.each(parsers)("%s", (_file: string, parse: (text: string) => string[]) 
     expect(parse("Aqua / Glycerin, Dimethicone, Silica, Cetyl Alcohol")).toEqual(["aqua", "glycerin", "dimethicone", "silica", "cetyl alcohol"]);
   });
 
+  it("keeps a slash list of known names whole of a following lone 'polymer'", () => {
+    // Joining it would write the unknown "aqua / glycerin polymer" and lose both recognised names.
+    const names = parse("Aqua / Glycerin, Polymer, Dimethicone, Silica");
+    expect(names).toEqual(expect.arrayContaining(["aqua", "glycerin", "dimethicone", "silica"]));
+    expect(names).not.toContain("aqua / glycerin polymer");
+  });
+
   it("doesn't join a lone 'copolymer' to a token with no slash in it", () => {
     const names = parse("Aqua, Glycerin, Dimethicone, Silica, Copolymer");
     expect(names).not.toContain("silica copolymer");
@@ -98,6 +105,11 @@ describe("rejoinSplitNames", () => {
     for (const word of ["copolymer", "crosspolymer", "polymer"]) {
       expect(rejoinSplitNames(["x/y chloride", word], DICTIONARY)).toEqual([`x/y chloride ${word}`]);
     }
+  });
+
+  it("leaves a slash list of known names alone, even before a lone polymer word", () => {
+    expect(rejoinSplitNames(["aqua / glycerin", "polymer"], DICTIONARY)).toEqual(["aqua / glycerin", "polymer"]);
+    expect(rejoinSplitNames(["aqua/water", "copolymer"], DICTIONARY)).toEqual(["aqua/water", "copolymer"]);
   });
 
   it("leaves tokens alone otherwise", () => {

@@ -1,6 +1,6 @@
 import { fetchStoredFormulas, isParserRefresh, parserOnlyChange } from "../scripts/lib/formula-diff.mjs";
 import { parseInci } from "../scripts/lib/inci-parse.mjs";
-import { decideWrite, fetchBarcodeRows, fetchIngredients, formulaChanged, parseBarcodes, parseLimit, replaceArgs, unreadBarcodes } from "../scripts/reconcile-obf.mjs";
+import { decideWrite, fetchBarcodeRows, fetchIngredients, formulaChanged, isRefinement, parseBarcodes, parseLimit, replaceArgs, unreadBarcodes } from "../scripts/reconcile-obf.mjs";
 
 /**
  * The parser got better than the one that stored these rows. A rewrite would
@@ -374,12 +374,21 @@ describe("decideWrite", () => {
     expect(decideWrite(stored("aqua/water", "glycerin"), stored("aqua", "glycerin"), false, known, undefined)).toBe("refresh");
   });
 
-  it("refreshes every difference in a repair, even one the stored names can't explain", () => {
+  it("refreshes, with no stamp, a repair that only refines names, even one the stored names can't explain", () => {
     // `acrylamide` is all the old parser kept of a whole polymer name, so re-parsing it can't give the name back.
     const before = stored("aqua", "acrylamide", "glycerin");
     const after = stored("aqua", "acrylamide/sodium acryloyldimethyltaurate copolymer", "glycerin");
     expect(decideWrite(before, after, false, known, undefined)).toBe("reformulated");
     expect(decideWrite(before, after, true, known, undefined)).toBe("refresh");
+  });
+
+  it("stamps a reformulation found in a repair, so the repair can't hide it", () => {
+    const before = stored("aqua", "glycerin");
+    expect(decideWrite(before, stored("aqua", "glycerin", "acrylamide"), true, known, undefined)).toBe("reformulated");
+    expect(decideWrite(before, stored("aqua"), true, known, undefined)).toBe("reformulated");
+    expect(decideWrite(before, stored("glycerin", "aqua"), true, known, undefined)).toBe("reformulated");
+    // A refined name beside an ingredient that really changed.
+    expect(decideWrite(stored("aqua", "acrylamide", "glycerin"), stored("aqua", "acrylamide/sodium acryloyldimethyltaurate copolymer", "water"), true, known, undefined)).toBe("reformulated");
   });
 });
 
@@ -431,5 +440,29 @@ describe("replaceArgs", () => {
 
   it("refuses to build a write for an unchanged formula", () => {
     expect(() => replaceArgs(row, fresh, "unchanged")).toThrow("nothing to write");
+  });
+});
+
+describe("isRefinement", () => {
+  const names = (...list: string[]) => list.map((inci_name, position) => ({ inci_name, position }));
+
+  it.each([
+    ["a name split by a stray comma, joined again", ["aqua", "acrylamide", "sodium", "acryloyldimethyltaurate copolymer", "cetyl alcohol"], ["aqua", "acrylamide/sodium acryloyldimethyltaurate copolymer", "cetyl alcohol"]],
+    ["a name folded to its first word, restored", ["aqua", "acrylamide", "glycerin"], ["aqua", "acrylamide/ammonium acrylate copolymer", "glycerin"]],
+    ["a comma before the last word", ["polysorbate 80", "acrylonitrile", "copolymer", "cetyl alcohol"], ["polysorbate 80", "acrylonitrile/methyl methacrylate/vinylidene chloride copolymer", "cetyl alcohol"]],
+    ["a blend split in two", ["phenyl trimethicone", "acrylamide", "soybean oil peg-8 esters"], ["phenyl trimethicone", "acrylamide/sodium acrylate copolymer", "trideceth-6", "soybean oil peg-8 esters"]],
+  ])("is true for %s", (_label: string, before: string[], after: string[]) => {
+    expect(isRefinement(names(...before), names(...after))).toBe(true);
+  });
+
+  it.each([
+    ["an ingredient added", ["aqua", "glycerin"], ["aqua", "glycerin", "dimethicone"]],
+    ["an ingredient removed", ["aqua", "glycerin", "dimethicone"], ["aqua", "glycerin"]],
+    ["an ingredient swapped", ["aqua", "glycerin"], ["aqua", "dimethicone"]],
+    ["only the order moved", ["aqua", "glycerin"], ["glycerin", "aqua"]],
+    ["a repaired name beside a real change", ["aqua", "acrylamide", "glycerin"], ["aqua", "acrylamide/sodium acryloyldimethyltaurate copolymer", "silica", "dimethicone"]],
+    ["nothing changed", ["aqua", "glycerin"], ["aqua", "glycerin"]],
+  ])("is false for %s", (_label: string, before: string[], after: string[]) => {
+    expect(isRefinement(names(...before), names(...after))).toBe(false);
   });
 });
