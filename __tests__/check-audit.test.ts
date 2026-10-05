@@ -44,7 +44,8 @@ const auditOf = (...advisories: (typeof forge)[]) => ({
   auditReportVersion: 2,
   vulnerabilities: Object.fromEntries([
     ...advisories.map((a) => [a.name, { name: a.name, severity: a.severity, via: [a] }]),
-    ["@expo/cli", { name: "@expo/cli", severity: "high", via: advisories.map((a) => a.name) }],
+    ["@expo/cli", { name: "@expo/cli", severity: "high", isDirect: false, via: advisories.map((a) => a.name) }],
+    ["expo", { name: "expo", severity: "high", isDirect: true, via: ["@expo/cli"] }],
   ]),
 });
 
@@ -129,6 +130,8 @@ describe("parseAllowlist", () => {
   it("rejects an entry with no valid expiry date", () => {
     expect(parseAllowlist([entry({ expires: "soon" })]).problems[0]).toContain("YYYY-MM-DD");
     expect(parseAllowlist([entry({ expires: "2026-13-45" })]).problems[0]).toContain("YYYY-MM-DD");
+    expect(parseAllowlist([entry({ expires: "2026-02-30" })]).problems[0]).toContain("YYYY-MM-DD");
+    expect(parseAllowlist([entry({ expires: "2028-02-29" })]).problems).toEqual([]);
   });
 
   it("rejects a file that is not an array", () => {
@@ -137,10 +140,19 @@ describe("parseAllowlist", () => {
 });
 
 describe("advisoriesFrom", () => {
-  it("counts each advisory once, with the packages that reach it", () => {
+  it("counts each advisory once", () => {
     const list = advisoriesFrom(auditOf(forge, braces));
     expect(list.map((a) => a.id).sort()).toEqual(["GHSA-86w9-cpqp-85rv", "GHSA-vfj7-8cjw-p6xm"]);
-    expect(list[0].reachedThrough).toEqual([]);
+  });
+
+  it("names the direct dependency that pulls an advisory in, not every package between", () => {
+    const [forgeAdvisory] = advisoriesFrom(auditOf(forge));
+    expect(forgeAdvisory.reachedThrough).toEqual(["expo"]);
+  });
+
+  it("prints that dependency when the advisory fails", () => {
+    const report = formatReport(evaluateAudit(auditOf(fresh), [], TODAY), TODAY);
+    expect(report).toContain("pulled in by expo");
   });
 });
 

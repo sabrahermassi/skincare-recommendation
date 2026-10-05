@@ -18,6 +18,13 @@ const FAILING_SEVERITIES = ["high", "critical"];
 
 const ISO_DATE = /^\d{4}-\d{2}-\d{2}$/;
 
+// `Date.parse` rolls 2026-02-30 over to 2 March, so the date has to print back
+// as the same string to be a real day.
+function isRealDate(text) {
+  const time = Date.parse(text);
+  return ISO_DATE.test(text) && !Number.isNaN(time) && new Date(time).toISOString().slice(0, 10) === text;
+}
+
 /**
  * The allowlist, checked. Returns the entries and a list of problems; any
  * problem fails the run, so a typo can never turn into a silent allowance.
@@ -40,7 +47,7 @@ export function parseAllowlist(raw) {
       problems.push(`${where} (${entry.id ?? "no id"}) is missing ${missing.join(", ")}`);
       return;
     }
-    if (!ISO_DATE.test(entry.expires) || Number.isNaN(Date.parse(entry.expires))) {
+    if (!isRealDate(entry.expires)) {
       problems.push(`${where} (${entry.id}) has an expiry that is not a YYYY-MM-DD date: ${entry.expires}`);
       return;
     }
@@ -55,26 +62,52 @@ export function parseAllowlist(raw) {
  * one appears too, with plain package names in `via`. The advisories
  * themselves are the objects in `via`; counting those once each is what the
  * list should say.
+ *
+ * `reachedThrough` names the project's own direct dependencies that pull an
+ * advisory in (expo, tailwindcss): the plain-name `via` links are followed
+ * from the vulnerable package up to the packages `npm audit` marks `isDirect`.
  */
 export function advisoriesFrom(audit) {
+  const vulnerabilities = audit.vulnerabilities ?? {};
+
+  const dependents = new Map();
+  for (const [pkg, vuln] of Object.entries(vulnerabilities)) {
+    for (const via of vuln.via ?? []) {
+      if (typeof via === "string") dependents.set(via, [...(dependents.get(via) ?? []), pkg]);
+    }
+  }
+  const directDependentsOf = (start) => {
+    const seen = new Set([start]);
+    const queue = [start];
+    for (const name of queue) {
+      for (const dependent of dependents.get(name) ?? []) {
+        if (!seen.has(dependent)) {
+          seen.add(dependent);
+          queue.push(dependent);
+        }
+      }
+    }
+    return [...seen].filter((name) => name !== start && vulnerabilities[name]?.isDirect).sort();
+  };
+
   const found = new Map();
-  for (const [pkg, vuln] of Object.entries(audit.vulnerabilities ?? {})) {
+  for (const [pkg, vuln] of Object.entries(vulnerabilities)) {
     for (const via of vuln.via ?? []) {
       if (typeof via !== "object" || via === null) continue;
       const id = via.url?.match(/GHSA-[a-z0-9-]+/i)?.[0] ?? `npm:${via.source}`;
-      const advisory = found.get(id) ?? {
+      if (found.has(id)) continue;
+      const name = via.name ?? pkg;
+      found.set(id, {
         id,
-        package: via.name ?? pkg,
+        package: name,
         severity: via.severity,
         title: via.title,
         range: via.range,
-        reachedThrough: new Set(),
-      };
-      if (pkg !== advisory.package) advisory.reachedThrough.add(pkg);
-      found.set(id, advisory);
+        reachedThrough: directDependentsOf(name),
+      });
     }
   }
-  return [...found.values()].map((a) => ({ ...a, reachedThrough: [...a.reachedThrough].sort() }));
+  return [...found.values()];
 }
 
 /**
@@ -120,7 +153,7 @@ export function evaluateAudit(audit, allowlist, today) {
 
 export function formatReport({ allowed, failed, expired, unused, problems }, today) {
   const lines = [];
-  const reached = (a) => (a.reachedThrough.length > 0 ? ` (reached through ${a.reachedThrough.join(", ")})` : "");
+  const reached = (a) => (a.reachedThrough.length > 0 ? ` (pulled in by ${a.reachedThrough.join(", ")})` : "");
 
   if (allowed.length > 0) {
     lines.push("Allowed (in audit-allowlist.json):");

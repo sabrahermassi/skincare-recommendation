@@ -75,7 +75,7 @@ through because no fix exists yet. `scripts/check-audit.mjs` reads it.
 - **Each entry has four fields:** `id` (the GHSA ID), `package` (the package
   the advisory is about, as `npm audit` names it), `reason` (why it is safe
   to wait: how the package is reached and why it doesn't ship) and `expires`
-  (`YYYY-MM-DD`). A missing field or a bad date fails the run.
+  (`YYYY-MM-DD`, a real day). A missing field or a bad date fails the run.
 - **30 days at most.** Set `expires` 30 days from the day the entry is added.
   The entry covers the advisory through that day; after it, the advisory fails
   CI again. To extend, re-check that there is still no fix, then change the
@@ -86,4 +86,4 @@ through because no fix exists yet. `scripts/check-audit.mjs` reads it.
 - **Only high and critical need an entry.** Lower severities never fail the
   build. Moderate and low are for the monthly review.
 - **The output says what happened:** each allowed advisory with its reason and
-  expiry, each failing one with its path, and an expired entry by name.
+  expiry, each failing one with the direct dependencies that pull it in, and an expired entry by name.
