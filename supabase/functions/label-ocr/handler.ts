@@ -1,7 +1,7 @@
 // Read an ingredient list off a photographed label and hand it back; nothing
 // is stored. It used to have a second call that saved the list under a barcode
 // and a name, so the catalogue grew from use; that is switched off (#374), since
-// the app no longer adds products, and what only it used goes in #377.
+// the app no longer adds products.
 //
 // This is the tier that makes a scan-first app viable. Open Beauty Facts holds
 // 37 products tagged South Korea; Olive Young alone lists over 10,000 SKUs. No
@@ -33,7 +33,6 @@ import { MIN_KNOWN_INGREDIENT_RATIO, gateRatio } from "../_shared/gate-ratio.ts"
 import { parseIngredientBlock } from "../_shared/inci-parse.ts";
 import { MAX_IMAGE_CHARS } from "../_shared/image-limits.ts";
 import { spendVisionRead } from "../_shared/vision-ceiling.ts";
-import { signReadToken } from "../_shared/read-token.ts";
 import { logScanBounded, type ScanOutcome } from "../_shared/scan-log.ts";
 import { stripBase64ImageMetadata } from "../_shared/strip-metadata.ts";
 
@@ -85,8 +84,6 @@ export type LabelOcrDeps = {
   fetch: typeof fetch;
   /** Empty when Vision is not configured: a read is then refused with 503, and logged. */
   visionApiKey: string;
-  /** Signs and verifies read tokens (`_shared/read-token.ts`). */
-  readTokenSecret: string;
   /** Vision reads allowed per UTC day across every caller (#198); see `vision-ceiling.ts`. */
   visionDailyCeiling: number;
 };
@@ -134,10 +131,9 @@ export async function handleLabelOcr(req: Request, deps: LabelOcrDeps): Promise<
   let name: string | undefined;
   let brand: string | undefined;
   let ingredients: unknown;
-  let readToken: unknown;
   let type: unknown;
   try {
-    ({ barcode, imageBase64, name, brand, ingredients, readToken, type } = await req.json());
+    ({ barcode, imageBase64, name, brand, ingredients, type } = await req.json());
   } catch {
     return json(req, { error: "Body must be JSON" }, 400);
   }
@@ -160,8 +156,7 @@ export async function handleLabelOcr(req: Request, deps: LabelOcrDeps): Promise<
 
   // Saving a product from a read is switched off (#374). The app no longer
   // adds products, so nothing legitimate calls it, and left open it let anyone
-  // with the public key write to the catalogue. What only it used on the
-  // server (the read token and its tables) goes in #377.
+  // with the public key write to the catalogue.
   if (saving) return json(req, { error: "saving_disabled" }, 410);
 
   if (typeof imageBase64 !== "string" || imageBase64.length === 0) {
@@ -387,7 +382,6 @@ export async function handleLabelOcr(req: Request, deps: LabelOcrDeps): Promise<
     return json(req, { error: "low_confidence", found: parsed.length, recognised: known.size }, 422);
   }
 
-  const readNames = parsed.map((p) => p.inci_name);
   await logRead("read_ok", { namesParsed: parsed.length, namesResolved: known.size });
   return json(
     req,
@@ -395,7 +389,6 @@ export async function handleLabelOcr(req: Request, deps: LabelOcrDeps): Promise<
       ingredients: parsed,
       recognised: known.size,
       total: parsed.length,
-      readToken: await signReadToken(readNames, deps.readTokenSecret),
     },
     200
   );

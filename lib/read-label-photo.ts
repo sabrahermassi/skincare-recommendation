@@ -47,8 +47,8 @@ export type LabelReadOutcome = { kind: "read" } | ({ kind: "failed" } & LabelRea
  * function has no way to *stop* navigation on its own — that decision lives
  * with the caller, which already has its own stale-read guard — but it is
  * the only place that knows a hold is about to happen, so it is the only
- * place that can keep a dropped read from leaving a stale list and a live,
- * single-use read token sitting in `lib/pending-label` for nobody to use.
+ * place that can keep a dropped read from leaving a stale list sitting in
+ * `lib/pending-label` for nobody to use.
  * Omitted, every read is always wanted.
  */
 export async function readLabelPhoto(

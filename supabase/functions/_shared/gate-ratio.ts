@@ -2,9 +2,9 @@
 // dictionary cannot yet speak the language of (#185; full Korean coverage is
 // #201, which has not run anywhere as of this ticket).
 //
-// Split out of `label-ocr/index.ts` for the same reason `read-token.ts` is
-// its own file: it imports nothing and touches no Deno global, so Jest can
-// exercise the exact logic Deno runs, rather than a hand-copy of it.
+// Split out of `label-ocr/index.ts` as its own file: it imports nothing and
+// touches no Deno global, so Jest can exercise the exact logic Deno runs,
+// rather than a hand-copy of it.
 
 /**
  * The same plausibility floor the import scripts use before they'll write a

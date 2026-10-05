@@ -7,7 +7,7 @@ describe("the label read being held", () => {
     expect(heldLabelRead()).toBeNull();
   });
 
-  it("holds the ingredients and read token", () => {
+  it("holds the ingredients", () => {
     holdLabelRead({ ingredients: ["aqua", "glycerin"] });
 
     expect(heldLabelRead()).toEqual({

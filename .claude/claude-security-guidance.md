@@ -44,7 +44,7 @@ The per-item detail is in `docs/device-storage-policy.md` (on the phone) and
    support address. Every other key is server-only.
 6. **Secrets live in the shell or gitignored files, never in the repo.** Edge
    Function secrets (`SUPABASE_SERVICE_ROLE_KEY`, `GOOGLE_VISION_API_KEY`,
-   `INCI_API_KEY`, `READ_TOKEN_SECRET`, `RATE_LIMIT_SALT`, the Apple and PostHog
+   `INCI_API_KEY`, `RATE_LIMIT_SALT`, the Apple and PostHog
    deletion keys) are set in Supabase. `.env` / `.env.staging` are gitignored.
    `secret-scan.yml` greps every built bundle for key names and formats.
 7. **The paid endpoints stay capped.** `product-lookup` and `label-ocr` keep
