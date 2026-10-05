@@ -13,7 +13,7 @@ import { ingredientSubtitle } from "@/lib/ingredient-subtitle";
 import { ruleFor, type MatchResult } from "@/lib/matching";
 import { cloggerConfidence, isPoreClogging } from "@/lib/pore-clogging";
 import { isActiveRule } from "@/lib/rules";
-import { isVerified } from "@/lib/safety";
+import { isOriginDependent, isVerified } from "@/lib/safety";
 import { BUTTON, INK, MUTED, MUTED_FAINT, SPACE, TYPE, WHITE } from "@/lib/tokens";
 import { BUTTON_HEIGHT } from "@/components/PrimaryButton";
 import { useAppStore } from "@/store/useAppStore";
@@ -119,7 +119,8 @@ export function IngredientsCard({
   const truncated = filter === "all" && !showAll && list.length > FIRST_ROWS;
   const rows = truncated ? list.slice(0, FIRST_ROWS) : list;
   const rest = list.slice(FIRST_ROWS);
-  const restIsFine = rest.every((i) => SEVERITY[labelOf(i) ?? "none"] === SEVERITY.good);
+  // An ingredient whose EU status depends on how it is made is not "fine": the fold must not say so.
+  const restIsFine = rest.every((i) => SEVERITY[labelOf(i) ?? "none"] === SEVERITY.good && !isOriginDependent(i));
   const moreLabel = `${rest.length} more${restIsFine ? ", no concerns" : rest.length === 1 ? " ingredient" : " ingredients"}`;
 
   return (

@@ -21,7 +21,7 @@ import { matchProduct, positionNote, positionWeightLabel, ruleFor, type Contrain
 import { openQuiz } from "@/lib/open-quiz";
 import { CONCERN_TITLE, isPersonalized } from "@/lib/profile";
 import type { IngredientRule } from "@/lib/rules";
-import { contraindications, isVerified, regulatoryStatus } from "@/lib/safety";
+import { contraindications, isOriginDependent, isVerified, regulatoryStatus } from "@/lib/safety";
 import { saveFromTap } from "@/lib/saving";
 import { useAppStore } from "@/store/useAppStore";
 import { BUTTON, CARD_RADIUS, CHOSEN, DISPLAY_FONT, HAIRLINE, INK, LINE, MUTED, SPACE, STONE, TOUCH_TARGET, TYPE, VERDICT, VERDICT_NEUTRAL } from "@/lib/tokens";
@@ -154,6 +154,8 @@ function IngredientDetail({
   const labelOf = (i: Ingredient): Fit => (match ? (ingredientLabel(i, match, personalized) ?? "none") : (labelWithoutProduct(i, profile) ?? "none"));
   const fit = labelOf(ingredient);
   const tone = TONE[fit];
+  // Cannabidiol: stored `safe` so nothing is charged, but never shown as cleared (owner, 5 October 2026).
+  const undecided = fit === "none" && isOriginDependent(ingredient);
 
   // The warning that made the row Avoid comes first; one ingredient can carry
   // one per origin, each said with its own source (#347).
@@ -211,7 +213,7 @@ function IngredientDetail({
               {displayIngredientName(primary)}
             </Text>
             {kind ? <Text style={{ fontSize: TYPE.label, color: MUTED }}>{kind}</Text> : null}
-            {fit === "none" ? <Text style={{ fontSize: TYPE.label, color: MUTED }}>No known concerns</Text> : <VerdictMarker label={fit} />}
+            {fit === "none" ? <Text style={{ fontSize: TYPE.label, color: MUTED }}>{undecided ? DEPENDS_HEADLINE : "No known concerns"}</Text> : <VerdictMarker label={fit} />}
           </View>
           <View style={{ flexDirection: "row", gap: 12 }}>
             {verified ? (
@@ -253,7 +255,7 @@ function IngredientDetail({
             {forProfile ? (
               <View style={{ borderRadius: CARD_RADIUS, backgroundColor: tone.wash, padding: 16, gap: 4 }}>
                 <CardHeading>For your skin</CardHeading>
-                <Text style={{ fontSize: TYPE.body, fontWeight: "600", color: tone.deep }}>{fitHeadline(fit, helps, hurts, warning, rule, profile)}</Text>
+                <Text style={{ fontSize: TYPE.body, fontWeight: "600", color: tone.deep }}>{undecided ? DEPENDS_HEADLINE : fitHeadline(fit, helps, hurts, warning, rule, profile)}</Text>
                 {/* A warning's own sentence is the most specific thing we hold (#347). */}
                 {fit !== "unknown" && warningLines.length > 0 ? (
                   warningLines.map((w) => (
@@ -261,6 +263,8 @@ function IngredientDetail({
                       <Text style={{ fontSize: 15, lineHeight: 22, color: INK }}>{w.reason}</Text>
                     </View>
                   ))
+                ) : undecided ? (
+                  <Text style={{ fontSize: 15, lineHeight: 22, color: INK }}>{DEPENDS_BODY}</Text>
                 ) : fit === "none" && !personalized ? (
                   // No skin profile, and nothing about it for everyone: a quiet
                   // way to set one up, not a button (handoff). A fragrance or a
@@ -273,7 +277,7 @@ function IngredientDetail({
                     {fitBody(fit, helps, hurts, verified, Boolean(rule), isCommonIrritant(ingredient), match !== null, cloggerConfidence(ingredient) === "high")}
                   </Text>
                 )}
-                <Text style={{ marginTop: 4, fontSize: TYPE.caption, fontWeight: "600", color: tone.deep }}>{fitTag(fit, helps, hurts, warning, match)}</Text>
+                <Text style={{ marginTop: 4, fontSize: TYPE.caption, fontWeight: "600", color: tone.deep }}>{undecided ? "Not in your score" : fitTag(fit, helps, hurts, warning, match)}</Text>
               </View>
             ) : null}
 
@@ -455,6 +459,9 @@ function whatItDoes(ingredient: Ingredient, ruleReason: string | undefined): str
  * warning, a charge on the score, or a name on the pore-clogging lists
  * (`ingredientLabel`) — and then it reads like any other row with that label.
  */
+const DEPENDS_HEADLINE = "Depends on how it's made";
+const DEPENDS_BODY = "EU rules for this ingredient depend on how it is made, which a label can't show. It doesn't change your score.";
+
 function fitHeadline(
   fit: Fit,
   helps: boolean,
