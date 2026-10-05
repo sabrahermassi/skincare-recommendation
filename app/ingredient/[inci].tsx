@@ -264,7 +264,7 @@ function IngredientDetail({
                     </View>
                   ))
                 ) : undecided ? (
-                  <Text style={{ fontSize: 15, lineHeight: 22, color: INK }}>{DEPENDS_BODY}</Text>
+                  <Text style={{ fontSize: TYPE.body, lineHeight: 22, color: INK }}>{DEPENDS_BODY}</Text>
                 ) : fit === "none" && !personalized ? (
                   // No skin profile, and nothing about it for everyone: a quiet
                   // way to set one up, not a button (handoff). A fragrance or a
@@ -454,14 +454,14 @@ function whatItDoes(ingredient: Ingredient, ruleReason: string | undefined): str
   return "We hold no declared function for this one yet.";
 }
 
+const DEPENDS_HEADLINE = "Depends on how it's made";
+const DEPENDS_BODY = "EU rules for this ingredient depend on how it is made, which a label can't show. It doesn't change your score.";
+
 /*
  * An unrecognised name is "unknown" unless something outranks not knowing — a
  * warning, a charge on the score, or a name on the pore-clogging lists
  * (`ingredientLabel`) — and then it reads like any other row with that label.
  */
-const DEPENDS_HEADLINE = "Depends on how it's made";
-const DEPENDS_BODY = "EU rules for this ingredient depend on how it is made, which a label can't show. It doesn't change your score.";
-
 function fitHeadline(
   fit: Fit,
   helps: boolean,
