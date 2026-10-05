@@ -407,7 +407,8 @@ Three reviewers, not two:
 - Comment `@claude review` (or invoke the `pr-review` skill directly against
   this PR — same contract, P0/P1 only).
 - Comment `@codex review` if Codex is configured on this repo; skip silently
-  if it isn't.
+  if it isn't. **Codex is rationed (the owner has a low Codex limit):** see
+  "When to re-trigger Codex" below — it is not re-triggered every round.
 - **CodeRabbit** — no repo config file exists for it, meaning it's installed
   as a GitHub App with defaults, which auto-reviews on PR open and on every
   push with no trigger comment needed. Don't comment `@coderabbitai review`
@@ -431,8 +432,18 @@ Each round:
    fallback if either skill isn't available) on the resulting
    diff — a reviewer-prompted fix can introduce exactly the kind of thing
    those two catch.
-4. Push. Re-trigger `@claude review` and `@codex review`; CodeRabbit
-   re-reviews on the push automatically.
+4. Push. Re-trigger `@claude review`; CodeRabbit re-reviews on the push
+   automatically. Re-trigger `@codex review` **only** under the rule below.
+
+**When to re-trigger Codex.** Codex reviews once, when the PR opens. After
+that, re-trigger it only if **its most recent review on this PR raised a
+P0 or P1** (or critical/high-equivalent) finding that this round fixed —
+one `@codex review` to confirm that fix. If its most recent review raised
+no P0/P1 (only P2/P3, nits, or nothing), **don't ask Codex again on this
+PR**, whatever the other reviewers find; `@claude review` and CodeRabbit
+carry the remaining rounds. If Codex didn't respond or was rate-limited,
+don't retry it either. Say in the PR's report which Codex round was the
+last and why (e.g. "Codex: 1 review, no P0/P1, not re-run").
 
 **There is no round cap. The loop ends when there is nothing left to fix
 that does not need a decision from the user — and nothing else ends it.**
