@@ -86,6 +86,16 @@ describe("with the flag on", () => {
     expect(screen.queryByText(/flagged as best avoided/i)).toBeNull();
   });
 
+  // Codex review on #414: the six-box limit must not cut the box the line above names.
+  it("keeps the notice's box when six other hazards come before it", async () => {
+    const others = ["one", "two", "three", "four", "five", "six"].map((name) => avoid(`prohibited ${name}`, "Prohibited in cosmetics (EU Annex II/900)"));
+    await show([...others, HICC], PROFILE);
+    await openMatch();
+    expect(screen.getByText(SAFETY_NOTICE_COPY.matchLine)).toBeTruthy();
+    expect(screen.getByText(/Hydroxyisohexyl.*is listed as not permitted in EU cosmetics\./i)).toBeTruthy();
+    expect(screen.getByRole("link", { name: "EU Cosmetics Regulation, Annex II" })).toBeTruthy();
+  });
+
   it("does the same for isobutylparaben", async () => {
     await show([ISOBUTYLPARABEN], PROFILE);
     await openMatch();

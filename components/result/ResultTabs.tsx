@@ -440,7 +440,12 @@ function Reasons({ ingredients, match, profile }: { ingredients: Ingredient[]; m
   const order = reasonOrder(match.verdict);
   const colourOf = (row: Reason) => (row.tone === VERDICT.low ? "red" : row.tone === VERDICT.high ? "green" : "orange");
   rows.sort((a, b) => order.indexOf(colourOf(a)) - order.indexOf(colourOf(b)));
-  const shown = rows.slice(0, 6);
+  // Six boxes at most, but the EU notice is never one of the ones cut: the
+  // line above names it (Codex review on #414).
+  const kept = new Set(rows.filter((row) => row.notice));
+  let room = 6 - kept.size;
+  for (const row of rows) if (!row.notice && room-- > 0) kept.add(row);
+  const shown = rows.filter((row) => kept.has(row));
 
   const line =
     noticeHits.length > 0
