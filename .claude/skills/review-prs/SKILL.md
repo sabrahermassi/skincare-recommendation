@@ -9,9 +9,10 @@ description: Go through every open pull request, work out the order they should 
 already exist**: it takes every open PR, decides the merge order, brings
 each one onto current `main`, and loops fix → review until it is mergeable.
 
-**Never merge. Never write to production. Never close a PR.** The owner
-merges. Read `CLAUDE.md` once at the start; its rules (staging only, the
-scoring invariants, route types, render tests) apply to every fix here.
+**Never merge. Never write to production. Never close a PR. Never
+force-push, rebase or delete a branch.** The owner merges. Read `CLAUDE.md`
+once at the start; its rules (staging only, the scoring invariants, route
+types, render tests) apply to every fix here.
 
 **Talk to the owner only for decisions** — a product, scoring, wording,
 schema or architecture call, or two reviewers contradicting each other.
@@ -39,7 +40,11 @@ Then build the order:
    decides — retargeting would drop the stranded work from its diff
    silently.
 3. **Merged parents.** If a PR's base branch belongs to a PR that is
-   already merged, the PR must move onto `main` (step 2 below).
+   already merged, the PR must move onto `main` (step 2 below). If GitHub has
+   already **closed** it (deleting the parent's branch on merge closes every
+   PR stacked on it, and a closed PR can't be retargeted), don't try to
+   patch it: tell the owner which PR it is and whether its commits are on
+   `main`. Reopening needs the deleted base branch recreated first.
 4. **Among PRs on `main`:** queue priority first (the linked issue's
    `priority:P<n>` label, lowest number first), then oldest first. A PR
    that others depend on (by stack or by an explicit "merge #X first" in
@@ -55,19 +60,16 @@ why it's in this position). Don't wait for approval; start with the first.
 On the PR's head branch, in its own git worktree (several sessions may be
 running; never work in another session's checkout):
 
-- **Base is `main`, branch is behind:** `git rebase origin/main`.
-- **Base is a merged PR's branch** (the usual case after a squash merge):
-  rebase only this PR's own commits:
-  `git rebase --onto origin/main <old-base-tip> <branch>`, then change the
+- **Base is `main`, branch is behind:** `git merge origin/main`.
+- **Base is a merged PR's branch:** `git merge origin/main`, then change the
   PR's base to `main`:
   `gh api -X PATCH repos/<owner>/<repo>/pulls/<n> -f base=main`.
-- **Base is an open parent PR:** rebase onto the parent's current head, keep
-  the base as the parent. It goes to `main` when the parent is merged.
-- Push with `git push --force-with-lease`. Rebasing (not merging `main`
-  in) keeps the history clean for the owner's squash merges. Only branches
-  made by Claude sessions (`task/*`, `claude/*`, `fix/*`, `feat/*`,
-  `docs/*`) are rewritten this way; for any other branch, merge
-  `origin/main` into it instead and don't force-push.
+- **Base is an open parent PR:** merge the parent's current head into it
+  (`git merge origin/<parent-branch>`) and keep the base as the parent. It
+  goes to `main` when the parent is merged.
+- Push with a plain `git push`. **Never rebase and never force-push**, not
+  even `--force-with-lease`: the owner merges with merge commits, so merging
+  `main` in is enough, and rewriting history needs the owner's approval.
 - **Conflicts:** resolve them keeping both sides' intent. If both sides
   changed the same logic and keeping one loses behaviour the other needed,
   that is a decision: stop on this PR, tell the owner exactly which hunks,
@@ -76,7 +78,7 @@ running; never work in another session's checkout):
   hand. If a route changed, regenerate route types (CLAUDE.md).
 
 Then run `npm run typecheck && npm run lint && npm test`. Fix what broke
-because of the rebase before anything else.
+because of the merge before anything else.
 
 ## 3. Hygiene, then self-review
 
@@ -95,8 +97,10 @@ Three reviewers:
   PR directly.
 - **Codex:** comment `@codex review`. **Rationed** (the owner has a low
   Codex limit): see "When to ask again" below.
-- **CodeRabbit:** reviews automatically on every push. Comment
-  `@coderabbitai review` only if it hasn't posted after 15 minutes.
+- **CodeRabbit:** does **not** review automatically on this repository (it
+  posts a "skip review" banner on every PR), so don't wait for it. Triggering
+  it with `@coderabbitai review` needs the owner's approval: list it under
+  "Decisions for you" instead of commenting.
 
 ### Read findings where they actually are
 
@@ -117,8 +121,8 @@ and the unresolved review threads (GraphQL `pullRequest.reviewThreads`,
 
 After a push or a review request, poll every 2 minutes (Monitor tool or a
 background until-loop, never a foreground `sleep`) for up to **15 minutes**
-for Codex and CodeRabbit. Don't leave a PR while a requested review is
-still inside that window.
+for Codex (and for CodeRabbit only if the owner has asked for a review).
+Don't leave a PR while a requested review is still inside that window.
 
 ### What to fix
 
@@ -141,8 +145,8 @@ typecheck, lint, tests, push.
 
 ### When to ask again
 
-- **Claude and CodeRabbit:** after every push, until a round brings no new
-  valid findings.
+- **Claude:** after every push, until a round brings no new valid findings.
+- **CodeRabbit:** only when the owner has approved a review.
 - **Codex:** ask again only while its **most recent** review on this PR
   contained a **P0 or P1**. Once its latest review has nothing above P2 (or
   it didn't respond, or it's rate-limited), fix those findings and **don't
@@ -171,8 +175,8 @@ Then post **one** comment on the PR:
 ```
 ## Ready to merge
 - Merge order: <first | after #X>
-- Rebased onto main at <sha>; CI green
-- Reviews: Claude <n> rounds · Codex <n> (last: no P0/P1) · CodeRabbit <n>
+- Main merged in at <sha>; CI green
+- Reviews: Claude <n> rounds · Codex <n> (last: no P0/P1) · CodeRabbit <n or "not requested">
 - Fixed: <short list>
 - Waiting on you: <decisions, or "None">
 - Before merging (production steps for you): <migrations, secrets, or "None">
