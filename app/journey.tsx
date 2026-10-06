@@ -170,7 +170,7 @@ function Questions({ draft, onChange, onShow }: { draft: Draft; onChange: (next:
           style={{ height: BUTTON_HEIGHT, borderRadius: BUTTON_HEIGHT / 2, backgroundColor: ready ? BUTTON.primary.fill : BUTTON.disabled.fill, flexDirection: "row", alignItems: "center", justifyContent: "center", gap: SPACE.text }}
           className="active:opacity-90"
         >
-          <Text style={{ fontSize: 16, fontWeight: "600", color: WHITE }}>Show what helps</Text>
+          <Text style={{ fontSize: TYPE.card, fontWeight: "600", color: WHITE }}>Show what helps</Text>
         </Pressable>
       </View>
     </View>
@@ -228,7 +228,7 @@ function Chip({ label, accessibilityLabel, on, many = false, onPress }: { label:
       className="active:opacity-80"
     >
       {on ? <Tick size={14} color={CHOSEN.border} /> : null}
-      <Text style={{ fontSize: 16, fontWeight: on ? "600" : "500", color: on ? SKIN_NEEDS.chosenInk : INK }}>{label}</Text>
+      <Text style={{ fontSize: TYPE.card, fontWeight: on ? "600" : "500", color: on ? SKIN_NEEDS.chosenInk : INK }}>{label}</Text>
     </Pressable>
   );
 }

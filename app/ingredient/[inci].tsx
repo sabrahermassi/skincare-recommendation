@@ -267,7 +267,7 @@ function IngredientDetail({
             {notice && !forProfile ? (
               <View style={{ borderRadius: CARD_RADIUS, backgroundColor: tone.wash, padding: SPACE.gutter, gap: 4 }}>
                 <Text style={{ fontSize: TYPE.body, fontWeight: "600", color: tone.deep }}>{SAFETY_NOTICE_COPY.sheetHeadline}</Text>
-                <Text style={{ fontSize: 15, lineHeight: 22, color: INK }}>
+                <Text style={{ fontSize: TYPE.body, lineHeight: 22, color: INK }}>
                   {SAFETY_NOTICE_COPY.sheetBody(notice.entry)}
                   {notice.dates ? ` ${notice.dates}` : ""}
                 </Text>
@@ -280,7 +280,7 @@ function IngredientDetail({
                 <Text style={{ fontSize: TYPE.body, fontWeight: "600", color: tone.deep }}>{undecided ? ORIGIN_DEPENDENT_HEADLINE : notice ? SAFETY_NOTICE_COPY.sheetHeadline : fitHeadline(fit, helps, hurts, warning, rule, profile)}</Text>
                 {/* The EU notice says what the listing is, and for HICC its dates (#404). */}
                 {notice ? (
-                  <Text style={{ fontSize: 15, lineHeight: 22, color: INK }}>
+                  <Text style={{ fontSize: TYPE.body, lineHeight: 22, color: INK }}>
                     {SAFETY_NOTICE_COPY.sheetBody(notice.entry)}
                     {notice.dates ? ` ${notice.dates}` : ""}
                   </Text>
@@ -289,7 +289,7 @@ function IngredientDetail({
                 {fit !== "unknown" && otherWarnings.length > 0 ? (
                   otherWarnings.map((w) => (
                     <View key={w.origin} style={{ gap: 4 }}>
-                      <Text style={{ fontSize: 15, lineHeight: 22, color: INK }}>{w.reason}</Text>
+                      <Text style={{ fontSize: TYPE.body, lineHeight: 22, color: INK }}>{w.reason}</Text>
                     </View>
                   ))
                 ) : notice ? null : undecided ? (
@@ -299,10 +299,10 @@ function IngredientDetail({
                   // way to set one up, not a button (handoff). A fragrance or a
                   // listed pore-clogger still says why, profile or not.
                   <Pressable onPress={openQuiz} accessibilityRole="link" style={{ minHeight: TOUCH_TARGET, justifyContent: "center" }} className="active:opacity-70">
-                    <Text style={{ fontSize: 15, lineHeight: 22, fontWeight: "600", color: CHOSEN.accent }}>Set up your skin profile to see how this fits you</Text>
+                    <Text style={{ fontSize: TYPE.body, lineHeight: 22, fontWeight: "600", color: CHOSEN.accent }}>Set up your skin profile to see how this fits you</Text>
                   </Pressable>
                 ) : (
-                  <Text style={{ fontSize: 15, lineHeight: 22, color: INK }}>
+                  <Text style={{ fontSize: TYPE.body, lineHeight: 22, color: INK }}>
                     {fitBody(fit, helps, hurts, verified, Boolean(rule), isCommonIrritant(ingredient), match !== null, cloggerConfidence(ingredient) === "high")}
                   </Text>
                 )}
@@ -335,7 +335,7 @@ function IngredientDetail({
                   <View key={fact.key} style={{ paddingHorizontal: SPACE.gutter }}>
                     <View style={{ flexDirection: "row", gap: SPACE.block, paddingVertical: 13, borderTopWidth: i === 0 ? 0 : 1, borderTopColor: HAIRLINE }}>
                       <Text style={{ width: 120, fontSize: TYPE.label, color: MUTED }}>{fact.key}</Text>
-                      <Text style={{ flex: 1, fontSize: 15, lineHeight: 21, color: INK }}>{fact.value}</Text>
+                      <Text style={{ flex: 1, fontSize: TYPE.body, lineHeight: 21, color: INK }}>{fact.value}</Text>
                     </View>
                   </View>
                 ))
@@ -398,7 +398,7 @@ function OnThisLabel({ names, index, colour }: { names: string[]; index: number;
     <Card style={{ padding: SPACE.gutter, gap: SPACE.block }}>
       <View style={{ flexDirection: "row", justifyContent: "space-between", alignItems: "baseline", gap: SPACE.block }}>
         <CardHeading>On this label</CardHeading>
-        <Text style={{ fontSize: 13, color: MUTED }}>
+        <Text style={{ fontSize: TYPE.caption, color: MUTED }}>
           #{index + 1} of {total}
           {ordered ? ` · ${weight}` : ""}
         </Text>
@@ -412,7 +412,7 @@ function OnThisLabel({ names, index, colour }: { names: string[]; index: number;
         <Text style={{ fontSize: TYPE.caption, color: MUTED }}>More</Text>
         <Text style={{ fontSize: TYPE.caption, color: MUTED }}>Less</Text>
       </View>
-      <Text style={{ fontSize: 15, lineHeight: 22, color: INK }}>
+      <Text style={{ fontSize: TYPE.body, lineHeight: 22, color: INK }}>
         {ordered
           ? AMOUNT[weight]
           : "This part of the label is in alphabetical order, so its place doesn't say how much there is."}

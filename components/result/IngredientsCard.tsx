@@ -178,7 +178,7 @@ export function IngredientsCard({
           style={{ marginTop: SPACE.block, height: BUTTON_HEIGHT, borderRadius: BUTTON_HEIGHT / 2, backgroundColor: BUTTON.primary.fill, flexDirection: "row", alignItems: "center", justifyContent: "center", gap: SPACE.text }}
           className="active:opacity-90"
         >
-          <Text style={{ fontSize: 16, fontWeight: "600", color: BUTTON.primary.label }}>{moreLabel}</Text>
+          <Text style={{ fontSize: TYPE.card, fontWeight: "600", color: BUTTON.primary.label }}>{moreLabel}</Text>
           <Svg width={17} height={17} viewBox="0 0 24 24" fill="none">
             <Path d="M12 5v14M6 13l6 6 6-6" stroke={BUTTON.primary.label} strokeWidth={2.2} strokeLinecap="round" strokeLinejoin="round" />
           </Svg>
@@ -230,7 +230,7 @@ function IngredientRow({
         <Text style={{ fontSize: TYPE.card, fontWeight: "500", lineHeight: 21, color: INK }}>{name}</Text>
         {label ? (
           <>
-            <Text style={{ fontSize: 15, color: tone.deep }}>{word ?? LABEL_META[label].label}</Text>
+            <Text style={{ fontSize: TYPE.label, color: tone.deep }}>{word ?? LABEL_META[label].label}</Text>
             {wordLine ? (
               <Text numberOfLines={2} style={{ fontSize: TYPE.caption, lineHeight: 17, color: MUTED }}>
                 {wordLine}

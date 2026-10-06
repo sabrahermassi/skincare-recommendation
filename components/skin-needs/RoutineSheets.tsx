@@ -82,7 +82,7 @@ function SheetButton({ label, onPress, filled = false, wide = false }: { label: 
       style={{ width: wide ? 220 : 140, height: BUTTON_HEIGHT, borderRadius: BUTTON_HEIGHT / 2, backgroundColor: filled ? BUTTON.primary.fill : SKIN_NEEDS.sage, alignItems: "center", justifyContent: "center" }}
       className="active:opacity-85"
     >
-      <Text style={{ fontSize: 16, fontWeight: "600", color: filled ? WHITE : SKIN_NEEDS.chosenInk }}>{label}</Text>
+      <Text style={{ fontSize: TYPE.card, fontWeight: "600", color: filled ? WHITE : SKIN_NEEDS.chosenInk }}>{label}</Text>
     </Pressable>
   );
 }
@@ -98,7 +98,7 @@ function ActiveTile({ active, badge, line, isNew = false }: { active: ActiveKey;
       </Text>
       {badge ? (
         <View style={{ height: 22, paddingHorizontal: SPACE.text, borderRadius: 11, backgroundColor: isNew ? SKIN_NEEDS.family[record.family] : WHITE, justifyContent: "center" }}>
-          <Text style={{ fontSize: 12, fontWeight: "600", color: isNew ? SKIN_NEEDS.stepInk : MUTED }}>{badge}</Text>
+          <Text style={{ fontSize: TYPE.caption, fontWeight: "600", color: isNew ? SKIN_NEEDS.stepInk : MUTED }}>{badge}</Text>
         </View>
       ) : null}
       {line}
@@ -154,12 +154,12 @@ export function SwapOrAddSheet({
           line={
             <View style={{ flexDirection: "row", alignItems: "center", gap: 4 }}>
               <TimeGlyph time={time} />
-              <Text style={{ fontSize: 12, color: MUTED_FAINT }}>Step {step}</Text>
+              <Text style={{ fontSize: TYPE.caption, color: MUTED_FAINT }}>Step {step}</Text>
             </View>
           }
         />
         <SwapIcon color={MUTED_FAINT} />
-        <ActiveTile active={active} badge="New" isNew line={<Text style={{ fontSize: 12, color: MUTED_FAINT }}>{activeOf(active).sub}</Text>} />
+        <ActiveTile active={active} badge="New" isNew line={<Text style={{ fontSize: TYPE.caption, color: MUTED_FAINT }}>{activeOf(active).sub}</Text>} />
       </View>
       <Hand size={18} says>
         {why}
@@ -236,7 +236,7 @@ export function AlternateSheet({
         <View style={{ flexDirection: "row" }}>
           <View style={{ width: 76 }} />
           {DAY_LETTERS.map((letter, day) => (
-            <Text key={day} style={{ flex: 1, textAlign: "center", fontSize: 12, fontWeight: "600", color: MUTED_FAINT }}>
+            <Text key={day} style={{ flex: 1, textAlign: "center", fontSize: TYPE.caption, fontWeight: "600", color: MUTED_FAINT }}>
               {letter}
             </Text>
           ))}
@@ -269,9 +269,9 @@ export function OneAtATimeSheet({ visible, onClose, active, other, inRoutine, on
   return (
     <Sheet visible={visible} onClose={onClose} title="One at a time is kinder" line={`Your skin is very sensitive. Swap ${yours(other)} for ${name}, or keep it and save ${name} for later.`}>
       <View style={{ alignSelf: "stretch", flexDirection: "row", alignItems: "center", gap: SPACE.text }}>
-        <ActiveTile active={other} line={<Text style={{ fontSize: 12, color: MUTED_FAINT }}>{inRoutine ? "In your routine" : "You use it"}</Text>} />
+        <ActiveTile active={other} line={<Text style={{ fontSize: TYPE.caption, color: MUTED_FAINT }}>{inRoutine ? "In your routine" : "You use it"}</Text>} />
         <SwapIcon color={MUTED_FAINT} />
-        <ActiveTile active={active} line={<Text style={{ fontSize: 12, color: MUTED_FAINT }}>New</Text>} />
+        <ActiveTile active={active} line={<Text style={{ fontSize: TYPE.caption, color: MUTED_FAINT }}>New</Text>} />
       </View>
       <Hand size={18} says>
         we recommend swapping

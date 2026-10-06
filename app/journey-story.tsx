@@ -259,7 +259,7 @@ function Story({ active, answers }: { active: StoryActive; answers: NeedAnswers 
             <Svg width={18} height={18} viewBox="0 0 24 24" fill="none">
               <Path d="M12 5v14M5 12h14" stroke={WHITE} strokeWidth={2.6} strokeLinecap="round" />
             </Svg>
-            <Text style={{ fontSize: 16, fontWeight: "600", color: WHITE }}>Add {active.name} to my routine</Text>
+            <Text style={{ fontSize: TYPE.card, fontWeight: "600", color: WHITE }}>Add {active.name} to my routine</Text>
           </Pressable>
         )}
         {checkLink}
@@ -431,7 +431,7 @@ function SeeRoutineButton({ onPress }: { onPress: () => void }) {
       style={{ height: BUTTON_HEIGHT, borderRadius: BUTTON_HEIGHT / 2, backgroundColor: SKIN_NEEDS.sage, flexDirection: "row", alignItems: "center", justifyContent: "center", gap: SPACE.text }}
       className="active:opacity-85"
     >
-      <Text style={{ fontSize: 16, fontWeight: "600", color: SKIN_NEEDS.chosenInk }}>See my routine</Text>
+      <Text style={{ fontSize: TYPE.card, fontWeight: "600", color: SKIN_NEEDS.chosenInk }}>See my routine</Text>
     </Pressable>
   );
 }

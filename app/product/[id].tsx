@@ -246,7 +246,7 @@ function ProductScreen({ id, from, need, step, scanned }: { id: string; from?: s
           <Text style={{ fontFamily: DISPLAY_FONT, fontSize: TYPE.heading, color: INK }}>
             Couldn&apos;t load this product
           </Text>
-          <Text style={{ textAlign: "center", fontSize: 13, lineHeight: 19, color: MUTED }}>
+          <Text style={{ textAlign: "center", fontSize: TYPE.caption, lineHeight: 19, color: MUTED }}>
             {failureMessage(failure)}
           </Text>
           <PrimaryButton label="Try again" onPress={() => setRetryKey((k) => k + 1)} />
@@ -422,7 +422,7 @@ function ProductHeader({ product }: { product: ProductWithIngredients }) {
         <Text maxFontSizeMultiplier={FONT_SCALE.ui} style={{ fontSize: TYPE.label, lineHeight: 20, color: MUTED_FAINT }}>
           {product.brand}
         </Text>
-        <Text maxFontSizeMultiplier={FONT_SCALE.display} style={{ fontSize: 18, fontWeight: "600", lineHeight: 23, letterSpacing: -0.18, color: INK }}>
+        <Text maxFontSizeMultiplier={FONT_SCALE.display} style={{ fontSize: TYPE.card, fontWeight: "600", lineHeight: 22, letterSpacing: -0.17, color: INK }}>
           {product.name}
         </Text>
         {product.type !== "unknown" ? (

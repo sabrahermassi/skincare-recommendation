@@ -2,7 +2,7 @@ import { View } from "react-native";
 
 import { Text } from "@/components/Text";
 import { LABEL_META, type IngredientLabel } from "@/lib/ingredient-labels";
-import { VERDICT, VERDICT_NEUTRAL } from "@/lib/tokens";
+import { VERDICT, VERDICT_NEUTRAL, TYPE } from "@/lib/tokens";
 
 // v9 (read off the hand-off): an 8pt dot with a 4pt soft halo round it.
 const DOT = 8;
@@ -40,7 +40,7 @@ export function VerdictMarker({ label, text }: { label: IngredientLabel; /** The
   return (
     <View style={{ flexDirection: "row", alignItems: "center", gap: 10 }}>
       <VerdictDot colour={tone.solid} halo={tone.halo} />
-      <Text style={{ fontSize: 15, color: tone.deep }}>{text ?? LABEL_META[label].label}</Text>
+      <Text style={{ fontSize: TYPE.label, color: tone.deep }}>{text ?? LABEL_META[label].label}</Text>
     </View>
   );
 }

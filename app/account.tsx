@@ -158,7 +158,7 @@ export default function Account() {
           className="active:opacity-70"
         >
           <Ionicons name="trash-outline" size={20} color={MUTED_FAINT} />
-          <Text style={{ fontSize: 16, fontWeight: "600", color: MUTED_FAINT }}>{signedIn ? "Delete my account" : "Delete my profile"}</Text>
+          <Text style={{ fontSize: TYPE.card, fontWeight: "600", color: MUTED_FAINT }}>{signedIn ? "Delete my account" : "Delete my profile"}</Text>
         </Pressable>
       )}
 
