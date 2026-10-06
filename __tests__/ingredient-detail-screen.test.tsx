@@ -288,6 +288,20 @@ describe("the EU safety notice on the ingredient page", () => {
     expect(screen.getByRole("link", { name: EU_PROHIBITED_SOURCE.label })).toBeTruthy();
   });
 
+  // Codex review on #414: opened from a Skin needs result the "For your skin"
+  // card is left out, and the notice still has to be said.
+  it("says it on a Skin needs path too, where 'For your skin' is left out", async () => {
+    useAppStore.setState({ safetyNoticeEnabled: true }, false);
+    mockParams = { inci: "hydroxyisohexyl 3-cyclohexene carboxaldehyde", product: "p", from: "journey" };
+    (fetchProduct as unknown as { mockResolvedValue(value: unknown): void }).mockResolvedValue({ ok: true, value: withThem });
+    await render(<IngredientRoute />);
+    await act(async () => {});
+    expect(screen.queryByText("For your skin")).toBeNull();
+    expect(screen.getByText(SAFETY_NOTICE_COPY.sheetHeadline)).toBeTruthy();
+    expect(screen.getByText(/Annex II, entry 1380/)).toBeTruthy();
+    mockParams = {};
+  });
+
   it("says it for isobutylparaben with no dates", async () => {
     useAppStore.setState({ safetyNoticeEnabled: true }, false);
     await open("isobutylparaben", {}, withThem);

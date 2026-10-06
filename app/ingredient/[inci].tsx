@@ -261,6 +261,19 @@ function IngredientDetail({
 
             {/* For your skin, on the verdict's light wash (v7). Left out when
                 opened from a Skin needs result, which reads nothing from the profile. */}
+            {/* The EU notice does not depend on the profile, so on a Skin needs
+                path, where "For your skin" is left out, it still gets its card
+                (Codex review on #414). */}
+            {notice && !forProfile ? (
+              <View style={{ borderRadius: CARD_RADIUS, backgroundColor: tone.wash, padding: 16, gap: 4 }}>
+                <Text style={{ fontSize: TYPE.body, fontWeight: "600", color: tone.deep }}>{SAFETY_NOTICE_COPY.sheetHeadline}</Text>
+                <Text style={{ fontSize: 15, lineHeight: 22, color: INK }}>
+                  {SAFETY_NOTICE_COPY.sheetBody(notice.entry)}
+                  {notice.dates ? ` ${notice.dates}` : ""}
+                </Text>
+              </View>
+            ) : null}
+
             {forProfile ? (
               <View style={{ borderRadius: CARD_RADIUS, backgroundColor: tone.wash, padding: 16, gap: 4 }}>
                 <CardHeading>For your skin</CardHeading>
