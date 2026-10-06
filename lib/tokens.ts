@@ -183,12 +183,8 @@ export const TOAST = {
 /** The chosen row in a filter popover (v7, read off the hand-off). */
 export const MENU_CHOSEN = "#EEEFE7"; // v9 pale sage
 
-/** A white row or link card while it's pressed (v7 update, read off the hand-off). Mirrored in tailwind.config.js as `row-pressed`. */
-export const ROW_PRESSED = "#EFEDE9"; // v9
-
 /** A starred ingredient's star when on (v7, read off the hand-off). */
 export const STAR_ON = "#CF9E3E";
-
 
 /**
  * The Skincare routine (v9, read off the hand-off): the Morning | Evening
