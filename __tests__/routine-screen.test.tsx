@@ -450,6 +450,21 @@ describe("a pick the EU safety notice applies to", () => {
     expect(screen.getByRole("button", { name: new RegExp(`^Your pick: Brand Night cream\\..*${SHIELD.replace(/\./g, "\\.")}$`) })).toBeTruthy();
   });
 
+  // Codex review on #415: a pick with no score (a formula too short to read) must still say it.
+  it("says it for a pick with no score too", async () => {
+    useAppStore.setState({ safetyNoticeEnabled: true }, false);
+    const base = product("m9", "moisturizer", "Night cream");
+    const short = { ...base, ingredients: [HICC], ingredientIds: [HICC.id] };
+    useAppStore.setState({ profile: ACNE, routinePicks: { "morning:moisturise": "m9" } });
+    fetched.mockResolvedValue(CATALOGUE);
+    fetchedByIds.mockImplementation(async (ids: string[]) => ({ ok: true, value: [...CATALOGUE, short].filter((p) => ids.includes(p.id)) }));
+    await open();
+    await waitFor(() => expect(screen.getByText("Your pick · Brand")).toBeTruthy());
+    const row = screen.getByRole("button", { name: /^Your pick: Brand Night cream\./ });
+    expect(row.props.accessibilityLabel).not.toContain("out of 100");
+    expect(row.props.accessibilityLabel).toContain(SHIELD);
+  });
+
   it("says nothing with the flag off", async () => {
     await openOwn();
     const row = screen.getByRole("button", { name: /^Your pick: Brand Night cream\. / });
