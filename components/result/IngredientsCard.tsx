@@ -8,7 +8,8 @@ import { StarIcon } from "@/components/icons/StarIcon";
 import { VerdictDot, verdictTone } from "@/components/VerdictMarker";
 import type { Ingredient } from "@/data/types";
 import { displayIngredientName } from "@/lib/ingredient-name";
-import { ingredientLabel, LABEL_META, type IngredientLabel } from "@/lib/ingredient-labels";
+import { useSafetyNoticeEnabled } from "@/lib/features";
+import { ingredientLabel, LABEL_META, rowWord, type IngredientLabel } from "@/lib/ingredient-labels";
 import { ingredientSubtitle } from "@/lib/ingredient-subtitle";
 import { ruleFor, type MatchResult } from "@/lib/matching";
 import { cloggerConfidence, isPoreClogging } from "@/lib/pore-clogging";
@@ -114,6 +115,7 @@ export function IngredientsCard({
   afterAll?: ReactNode;
 }) {
   const [showAll, setShowAll] = useState(false);
+  const noticeEnabled = useSafetyNoticeEnabled();
   const labelOf = (i: Ingredient) => ingredientLabel(i, match, personalized);
   const groups = ingredientGroups(ingredients, match, personalized);
   const list = groups[filter];
@@ -152,11 +154,14 @@ export function IngredientsCard({
       ) : (
         rows.map((ingredient) => {
           const label = labelOf(ingredient);
+          const words = label ? rowWord(ingredient, label, match.warnings.filter((w) => w.ingredient.id === ingredient.id), noticeEnabled) : null;
           return (
             <IngredientRow
               key={ingredient.id}
               ingredient={ingredient}
               label={label}
+              word={words?.word}
+              wordLine={words?.line}
               // A disputed pore-clogger carries no warning anywhere else, so under this filter the row says why it is listed.
               subtitle={filter === "pore" && cloggerConfidence(ingredient) === "contested" ? DISPUTED_CLOGGER : ingredientSubtitle(ingredient, label, match.warnings.find((w) => w.ingredient.id === ingredient.id))}
               onPress={hasDetails(ingredient, label) ? () => onIngredientPress(ingredient) : undefined}
@@ -192,11 +197,17 @@ export function IngredientsCard({
 function IngredientRow({
   ingredient,
   label,
+  word,
+  wordLine,
   subtitle,
   onPress,
 }: {
   ingredient: Ingredient;
   label: IngredientLabel | null;
+  /** The label's word on screen: its own, or what the EU safety notice says instead (#404). */
+  word?: string;
+  /** A line under the word, for the notice. */
+  wordLine?: string;
   subtitle: string;
   onPress?: () => void;
 }) {
@@ -208,7 +219,7 @@ function IngredientRow({
       onPress={onPress}
       disabled={!onPress}
       accessibilityRole={onPress ? "button" : undefined}
-      accessibilityLabel={`${name}, ${label ? LABEL_META[label].label : subtitle}`}
+      accessibilityLabel={`${name}, ${label ? (word ?? LABEL_META[label].label) : subtitle}${wordLine ? `. ${wordLine}` : ""}`}
       style={{ minHeight: ROW_MIN_HEIGHT, flexDirection: "row", alignItems: "center", gap: 12, paddingVertical: 8 }}
       className={onPress ? "active:opacity-70" : undefined}
     >
@@ -218,7 +229,14 @@ function IngredientRow({
       <View style={{ flex: 1, gap: 3 }}>
         <Text style={{ fontSize: TYPE.card, fontWeight: "500", lineHeight: 21, color: INK }}>{name}</Text>
         {label ? (
-          <Text style={{ fontSize: 15, color: tone.deep }}>{LABEL_META[label].label}</Text>
+          <>
+            <Text style={{ fontSize: 15, color: tone.deep }}>{word ?? LABEL_META[label].label}</Text>
+            {wordLine ? (
+              <Text numberOfLines={2} style={{ fontSize: TYPE.caption, lineHeight: 17, color: MUTED }}>
+                {wordLine}
+              </Text>
+            ) : null}
+          </>
         ) : (
           <Text numberOfLines={2} style={{ fontSize: TYPE.caption, lineHeight: 17, color: MUTED }}>
             {subtitle}

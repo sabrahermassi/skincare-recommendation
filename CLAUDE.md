@@ -167,7 +167,8 @@ onboarding flag, wishlist, the products a person put in their own routine
 (`routineActives`, `routineStepLimit`, `routineStarted`), whether the routine
 was opened and built (`routineBuilt`: a skin profile alone is not a routine) and the skincare tip
 last read on Home (`tipRead`), all device only, never
-sent to the account. Skin needs' advice lives in one data file,
+sent to the account, and the regulatory-safety feature flag (`safetyNoticeEnabled`,
+`lib/features.ts`, off by default; a dev-only Profile row turns it on, #403, #404). Skin needs' advice lives in one data file,
 `lib/skin-needs-data.ts`: its copy is placeholder until scientifically checked. Persisted via `persist` + AsyncStorage, gated on
 `useAppStore.persist.hasHydrated()` in `app/_layout.tsx` — except the profile,
 which `formeStorageFor` keeps in the Keychain on a phone (#189).

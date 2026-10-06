@@ -16,7 +16,7 @@ import { INGREDIENT_RULES } from "@/lib/rules";
 import { SCHOOL_CHAT_COPY } from "@/lib/school-chat";
 import { EVENING_FALLBACK, EVENING_TIPS, GENERAL_TIPS, MORNING_TIPS, REST_NIGHT_TIP } from "@/lib/skin-tips";
 import { LABEL_ORDER, SCORING_DISCLAIMER, SCORING_INTRO, SCORING_SOURCES, scoreBandLines, scoreFactors, scoreNotes } from "@/lib/scoring-explainer";
-import { UNSET_SENSITIVITY_REASON, contraindications } from "@/lib/safety";
+import { SAFETY_NOTICE_COPY, SAFETY_NOTICE_ENTRIES, UNSET_SENSITIVITY_REASON, contraindications } from "@/lib/safety";
 import { EMPTY_PROFILE } from "@/store/useAppStore";
 
 type OwnedClaim = { source: string; text: string };
@@ -162,6 +162,26 @@ const SCHOOL_CHAT_CLAIMS: OwnedClaim[] = Object.entries(SCHOOL_CHAT_COPY).map(([
   text,
 }));
 
+// #404: the EU safety notice, every sentence of it as it is read on screen: the
+// name, then the line that follows it; the sheet's body for every entry on the
+// verified list, with its dates where it has them.
+const SAFETY_NOTICE_CLAIMS: OwnedClaim[] = [
+  { source: "SAFETY_NOTICE_COPY.matchLine", text: SAFETY_NOTICE_COPY.matchLine },
+  { source: "SAFETY_NOTICE_COPY.rowText", text: `Name${SAFETY_NOTICE_COPY.rowText}` },
+  { source: "SAFETY_NOTICE_COPY.rowCaveat", text: SAFETY_NOTICE_COPY.rowCaveat },
+  { source: "SAFETY_NOTICE_COPY.cardTitle", text: SAFETY_NOTICE_COPY.cardTitle },
+  { source: "SAFETY_NOTICE_COPY.cardText", text: `Name${SAFETY_NOTICE_COPY.cardText}` },
+  { source: "SAFETY_NOTICE_COPY.listWord", text: SAFETY_NOTICE_COPY.listWord },
+  { source: "SAFETY_NOTICE_COPY.listLine", text: SAFETY_NOTICE_COPY.listLine },
+  { source: "SAFETY_NOTICE_COPY.clogWord", text: SAFETY_NOTICE_COPY.clogWord },
+  { source: "SAFETY_NOTICE_COPY.pregnancyWord", text: SAFETY_NOTICE_COPY.pregnancyWord },
+  { source: "SAFETY_NOTICE_COPY.sheetHeadline", text: SAFETY_NOTICE_COPY.sheetHeadline },
+  ...SAFETY_NOTICE_ENTRIES.map((entry) => ({
+    source: `SAFETY_NOTICE_COPY.sheetBody.${entry.entry}`,
+    text: `${SAFETY_NOTICE_COPY.sheetBody(entry.entry)}${entry.dates ? ` ${entry.dates}` : ""}`,
+  })),
+];
+
 const OWNED_CLAIMS: OwnedClaim[] = [
   // #183: the restricted-ingredient warning for an unset sensitivity. The
   // `contraindications` collection below runs at "high", so it never reaches it.
@@ -169,6 +189,7 @@ const OWNED_CLAIMS: OwnedClaim[] = [
   // #406: the oily-skin pore row on Skin match, as it is read: names, then this.
   { source: "PORE_COUNTS_TEXT", text: `Coconut Oil ${PORE_COUNTS_TEXT}` },
   ...NOTE_CLAIMS,
+  ...SAFETY_NOTICE_CLAIMS,
   ...JOURNEY_CLAIMS,
   ...ROUTINE_CLAIMS,
   ...FIRST_PAGE_CLAIMS,

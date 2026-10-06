@@ -134,6 +134,98 @@ export const EU_PROHIBITED_SOURCE: RuleSource = {
 };
 
 /**
+ * What the safety notice may say "not permitted in EU cosmetics" about (#404):
+ * one Annex II entry each, checked by the owner against the current
+ * consolidated EUR-Lex text. **Only an entry with a `verified` date fires**
+ * (and only with the feature flag on, `lib/features.ts`); one without sits here
+ * unused until its date is filled in. Never add an entry from memory.
+ *
+ * 358, 764 and 875 are not here on purpose: 358 and 764 are exemptions (#401)
+ * and 875 is unexplained, so none of them is a prohibition to tell anyone about.
+ * Acrylamide (681) and acrylonitrile (682) join only after the owner verifies them.
+ */
+export type SafetyNoticeEntry = {
+  /** The Annex II entry number the dictionary row cites (`II/1380`). */
+  entry: number;
+  /** For the owner's audit; the screens name the ingredient as it is on the label. */
+  ingredient: string;
+  regulation: string | null;
+  /** ISO date the owner verified it, or null while it is pending. */
+  verified: string | null;
+  verifiedBy: "owner" | null;
+  /** In words, for the ingredient sheet, when the regulation gives dates. */
+  dates?: string;
+};
+
+export const SAFETY_NOTICE_ENTRIES: readonly SafetyNoticeEntry[] = [
+  {
+    entry: 1380,
+    ingredient: "hydroxyisohexyl 3-cyclohexene carboxaldehyde (HICC)",
+    regulation: "Regulation (EU) 2017/1410",
+    verified: "2026-10-05",
+    verifiedBy: "owner",
+    dates: "It has not been allowed on the EU market since 23 August 2019 and not to be sold there since 23 August 2021.",
+  },
+  { entry: 1375, ingredient: "isobutylparaben", regulation: "Regulation (EU) No 358/2014", verified: "2026-10-05", verifiedBy: "owner" },
+  // Pending: the owner confirms 1339 on the current consolidated EUR-Lex text. Until then it does not fire.
+  { entry: 1339, ingredient: "hydroquinone", regulation: null, verified: null, verifiedBy: null },
+];
+
+/** The words of the notice, every one audited by `__tests__/claims-policy.test.ts`. */
+export const SAFETY_NOTICE_COPY = {
+  /** Skin match, the line under the title. */
+  matchLine: "This may contain an ingredient not permitted in EU cosmetics. Please check the label.",
+  /** Skin match, the red row: the bold name, then this. */
+  rowText: " is listed as not permitted in EU cosmetics.",
+  rowCaveat: "Formulas vary by country and scans can contain errors.",
+  /** With no profile or too little read: a card, then the name and this. */
+  cardTitle: "Please check the label",
+  cardText: " is listed as not permitted in EU cosmetics. Formulas vary by country, and scans can contain errors.",
+  /** Ingredients tab: the word in place of "Avoid", and the line under it. */
+  listWord: "Check label",
+  listLine: "Not permitted in EU cosmetics",
+  /** The same tab's other two words, for the two reasons "Avoid" used to cover. */
+  clogWord: "May clog pores",
+  pregnancyWord: "Best avoided while pregnant",
+  /** The ingredient sheet. */
+  sheetHeadline: "Not permitted in EU cosmetics",
+  sheetBody: (entry: number) =>
+    `The EU Cosmetics Regulation lists this ingredient as prohibited (Annex II, entry ${entry}). If it is on a label you scanned, check the label.`,
+} as const;
+
+export type SafetyNoticeHit = { ingredient: Ingredient; entry: SafetyNoticeEntry };
+
+/** The Annex II entry numbers a dictionary note cites: "…(EU Annex II/1339 III/14)" gives [1339], never Annex III's 14. */
+export function annexIIEntries(note: string | undefined): number[] {
+  return [...(note ?? "").matchAll(/(?:^|[^I])II\/(\d+)/g)].map((match) => Number(match[1]));
+}
+
+/**
+ * The notice for one ingredient, or null. Needs the flag on, a recognised
+ * name the dictionary marks `avoid`, and a cited Annex II entry that is on the
+ * verified list with a date.
+ */
+export function safetyNoticeFor(ingredient: Ingredient, enabled: boolean): SafetyNoticeEntry | null {
+  if (!enabled || !isVerified(ingredient) || ingredient.safety !== "avoid") return null;
+  const cited = annexIIEntries(ingredient.note);
+  return SAFETY_NOTICE_ENTRIES.find((entry) => entry.verified !== null && cited.includes(entry.entry)) ?? null;
+}
+
+/**
+ * Every ingredient of a product the notice applies to, once each. The one
+ * place that decides it: the screens (#404) and the shield and share text
+ * (#405) all ask this, with `enabled` from `lib/features.ts`.
+ */
+export function safetyNoticeHits(ingredients: readonly Ingredient[], enabled: boolean): SafetyNoticeHit[] {
+  const hits: SafetyNoticeHit[] = [];
+  for (const ingredient of ingredients) {
+    const entry = safetyNoticeFor(ingredient, enabled);
+    if (entry && !hits.some((hit) => hit.ingredient.name === ingredient.name)) hits.push({ ingredient, entry });
+  }
+  return hits;
+}
+
+/**
  * A restricted ingredient's warning when sensitivity isn't set (#183). Says
  * what the app did, never what the person said — most unset profiles simply
  * stopped the quiz before that question.

@@ -1,9 +1,9 @@
 import type { Ingredient, SkinProfile } from "@/data/types";
-import { ruleFor, RUNG_META, type MatchResult } from "@/lib/matching";
+import { ruleFor, RUNG_META, type Contraindication, type MatchResult } from "@/lib/matching";
 import { cloggerConfidence, isWarnedPoreClogging } from "@/lib/pore-clogging";
 import { isSensitive, treatAsReactive } from "@/lib/profile";
 import { targetApplies, type RuleCategory } from "@/lib/rules";
-import { contraindications, groupByRisk, isVerified } from "@/lib/safety";
+import { contraindications, groupByRisk, isVerified, SAFETY_NOTICE_COPY, safetyNoticeFor } from "@/lib/safety";
 
 /**
  * The word on each row of a product's ingredient list (#324), so the few that
@@ -108,6 +108,30 @@ export function countedAgainst(ingredient: Ingredient, match: MatchResult): bool
 function riskOf(ingredient: Ingredient) {
   const groups = groupByRisk([ingredient]);
   return groups.avoid.length ? "avoid" : groups.caution.length ? "caution" : groups.unknown.length ? "unknown" : "clean";
+}
+
+/**
+ * The word on a row, and the line under it, for the Ingredients tab and the
+ * ingredient sheet. With the safety flag off it is the label's own word and
+ * nothing else — today's screens. With it on (#404) "Avoid" says why it is
+ * there: "Check label" and a line for the EU notice, "May clog pores" for a
+ * strong pore-clogger, "Best avoided while pregnant" for a pregnancy caution.
+ * Any other "Avoid" (an Annex II row the owner has not verified, a hazard)
+ * keeps its word.
+ */
+export function rowWord(
+  ingredient: Ingredient,
+  label: IngredientLabel,
+  warnings: readonly Contraindication[],
+  noticeEnabled: boolean,
+): { word: string; line?: string } {
+  const plain = { word: LABEL_META[label].label };
+  if (!noticeEnabled || label !== "avoid") return plain;
+  if (safetyNoticeFor(ingredient, true)) return { word: SAFETY_NOTICE_COPY.listWord, line: SAFETY_NOTICE_COPY.listLine };
+  if (warnings.some((w) => w.severity === "hazard") || riskOf(ingredient) === "avoid") return plain;
+  if (warnings.some((w) => w.origin === "pregnancy")) return { word: SAFETY_NOTICE_COPY.pregnancyWord };
+  if (cloggerConfidence(ingredient) === "high") return { word: SAFETY_NOTICE_COPY.clogWord };
+  return plain;
 }
 
 export type LabelledIngredient = { ingredient: Ingredient; label: IngredientLabel | null };

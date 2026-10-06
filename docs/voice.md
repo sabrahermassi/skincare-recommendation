@@ -173,6 +173,7 @@ that file's own instruction at the top of `OWNED_CLAIMS`.
 | Confidence label | `lib/matching.ts` (`confidenceLabel`) | No — three fixed words ("high"/"moderate"/"low"), not a sentence; nothing to audit |
 | Ingredient rule reasons | `lib/rules.ts` (`INGREDIENT_RULES[].reason`) | Yes — **out of scope for this ticket**, see below |
 | Pore-clogging reasons | `lib/pore-clogging.ts` (`PORE_CLOGGERS[].reason`) | Yes — **out of scope**, see below |
+| EU safety notice (flag-gated, #404) | `lib/safety.ts` (`SAFETY_NOTICE_COPY`, with each entry's `dates`) | Yes — `SAFETY_NOTICE_CLAIMS`, every sentence as read on screen |
 | Pregnancy-caution reasons | `lib/pregnancy-caution.ts` | Yes — `PREGNANCY_CAUTION.*.reason`, audited directly (the `contraindications[]` collection never reached them: it runs over the sample ingredients, which hold none of these names) |
 | Contraindication reasons | `lib/safety.ts` (`contraindications`) | Yes — `contraindications[]` |
 | Context nudges (sun/SPF) | `lib/context-nudges.ts` | Yes — `contextNudges[]`, every variant (#234) |

@@ -5,7 +5,7 @@ import IngredientRoute from "@/app/ingredient/[inci]";
 import { fetchProduct } from "@/data/api";
 import type { Ingredient, ProductWithIngredients, SkinProfile } from "@/data/types";
 import { PREGNANCY_CAUTION } from "@/lib/pregnancy-caution";
-import { EU_PROHIBITED_SOURCE } from "@/lib/safety";
+import { EU_PROHIBITED_SOURCE, SAFETY_NOTICE_COPY } from "@/lib/safety";
 import { EMPTY_PROFILE, useAppStore } from "@/store/useAppStore";
 
 /**
@@ -252,3 +252,68 @@ it("leaves out For your skin when opened from a Skin needs result", async () => 
   expect(screen.getByText("For your skin")).toBeTruthy();
 });
 
+
+// #404: the EU safety notice on the ingredient's own sheet, only for the
+// entries the owner verified and only with the flag on.
+describe("the EU safety notice on the ingredient page", () => {
+  afterEach(() => useAppStore.setState({ safetyNoticeEnabled: false }, false));
+
+  // As the dictionary writes them (0030): prohibited, with the Annex II entry in the note.
+  const HICC = ingredient("hydroxyisohexyl 3-cyclohexene carboxaldehyde", {
+    safety: "avoid",
+    note: "Prohibited in cosmetics (EU Annex II/1380: not allowed on the EU market since 23 August 2019 and not to be sold there since 23 August 2021; older stock may still be around)",
+  });
+  const ISOBUTYLPARABEN = ingredient("isobutylparaben", { safety: "avoid", note: "Prohibited in cosmetics (EU Annex II/1375)" });
+  const withThem: ProductWithIngredients = { ...PRODUCT, ingredientIds: [...PRODUCT.ingredientIds, HICC.id, ISOBUTYLPARABEN.id], ingredients: [...INGREDIENTS, HICC, ISOBUTYLPARABEN] };
+
+  it("is not there with the flag off: the page says what it said", async () => {
+    await open("hydroxyisohexyl 3-cyclohexene carboxaldehyde", {}, withThem);
+    expect(screen.getByText("Flagged as best avoided")).toBeTruthy();
+    expect(screen.queryByText(SAFETY_NOTICE_COPY.sheetHeadline)).toBeNull();
+    expect(screen.queryByText(SAFETY_NOTICE_COPY.listWord)).toBeNull();
+    expect(screen.getByText("Avoid")).toBeTruthy();
+  });
+
+  it("says HICC is not permitted, names its entry, and gives its two dates", async () => {
+    useAppStore.setState({ safetyNoticeEnabled: true }, false);
+    await open("hydroxyisohexyl 3-cyclohexene carboxaldehyde", {}, withThem);
+    expect(screen.getByText(SAFETY_NOTICE_COPY.sheetHeadline)).toBeTruthy();
+    expect(screen.getByText(/lists this ingredient as prohibited \(Annex II, entry 1380\)\. If it is on a label you scanned, check the label\./)).toBeTruthy();
+    expect(screen.getAllByText(/23 August 2019.*23 August 2021/).length).toBeGreaterThan(0);
+    expect(screen.getByText(SAFETY_NOTICE_COPY.listWord)).toBeTruthy();
+    expect(screen.queryByText("Flagged as best avoided")).toBeNull();
+    // Found in the simulator: the generic sentence must not sit under the notice.
+    expect(screen.queryByText(/The EU inventory restricts or prohibits this one/)).toBeNull();
+    // The regulation stays one tap away.
+    expect(screen.getByRole("link", { name: EU_PROHIBITED_SOURCE.label })).toBeTruthy();
+  });
+
+  // Codex review on #414: opened from a Skin needs result the "For your skin"
+  // card is left out, and the notice still has to be said.
+  it("says it on a Skin needs path too, where 'For your skin' is left out", async () => {
+    useAppStore.setState({ safetyNoticeEnabled: true }, false);
+    mockParams = { inci: "hydroxyisohexyl 3-cyclohexene carboxaldehyde", product: "p", from: "journey" };
+    (fetchProduct as unknown as { mockResolvedValue(value: unknown): void }).mockResolvedValue({ ok: true, value: withThem });
+    await render(<IngredientRoute />);
+    await act(async () => {});
+    expect(screen.queryByText("For your skin")).toBeNull();
+    expect(screen.getByText(SAFETY_NOTICE_COPY.sheetHeadline)).toBeTruthy();
+    expect(screen.getByText(/Annex II, entry 1380/)).toBeTruthy();
+    mockParams = {};
+  });
+
+  it("says it for isobutylparaben with no dates", async () => {
+    useAppStore.setState({ safetyNoticeEnabled: true }, false);
+    await open("isobutylparaben", {}, withThem);
+    expect(screen.getByText(/Annex II, entry 1375/)).toBeTruthy();
+    expect(screen.queryAllByText(/23 August/)).toHaveLength(0);
+  });
+
+  it("leaves hydroquinone as it was, even with the flag on: its entry is not verified", async () => {
+    useAppStore.setState({ safetyNoticeEnabled: true }, false);
+    await open("hydroquinone", {}, withThem);
+    expect(screen.getByText("Flagged as best avoided")).toBeTruthy();
+    expect(screen.queryByText(SAFETY_NOTICE_COPY.sheetHeadline)).toBeNull();
+    expect(screen.getByText("Avoid")).toBeTruthy();
+  });
+});

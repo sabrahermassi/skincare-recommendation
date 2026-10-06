@@ -1,11 +1,10 @@
-import { Ionicons } from "@expo/vector-icons";
 import { useLocalSearchParams } from "expo-router";
 import { useEffect, useState } from "react";
-import * as WebBrowser from "expo-web-browser";
 import { ActivityIndicator, Pressable, ScrollView, View } from "react-native";
 
 import { CloseCross, IconCircle } from "@/components/IconCircle";
 import { PopOnToggle } from "@/components/PopOnToggle";
+import { ReferenceLink } from "@/components/ReferenceLink";
 import { ReportMistakeLink } from "@/components/ReportMistakeLink";
 import { SheetScreen } from "@/components/SheetScreen";
 import { ReadingScale, Text } from "@/components/Text";
@@ -16,17 +15,18 @@ import { displayIngredientName } from "@/lib/ingredient-name";
 import { cloggerConfidence } from "@/lib/pore-clogging";
 import { StarIcon } from "@/components/icons/StarIcon";
 import { comedogenicLabel } from "@/lib/format";
-import { countedAgainst, ingredientLabel, isCommonIrritant, labelWithoutProduct, ruleTargets, type IngredientLabel } from "@/lib/ingredient-labels";
+import { countedAgainst, ingredientLabel, isCommonIrritant, labelWithoutProduct, rowWord, ruleTargets, type IngredientLabel } from "@/lib/ingredient-labels";
 import { matchProduct, positionNote, positionWeightLabel, ruleFor, type Contraindication, type MatchResult } from "@/lib/matching";
 import { openQuiz } from "@/lib/open-quiz";
 import { CONCERN_TITLE, isPersonalized } from "@/lib/profile";
 import type { IngredientRule } from "@/lib/rules";
-import { contraindications, isOriginDependent, isVerified, ORIGIN_DEPENDENT_HEADLINE, regulatoryStatus } from "@/lib/safety";
+import { contraindications, isOriginDependent, isVerified, ORIGIN_DEPENDENT_HEADLINE, regulatoryStatus, SAFETY_NOTICE_COPY, safetyNoticeFor } from "@/lib/safety";
 import { saveFromTap } from "@/lib/saving";
 import { useAppStore } from "@/store/useAppStore";
-import { BUTTON, CARD_RADIUS, CHOSEN, DISPLAY_FONT, HAIRLINE, INK, LINE, MUTED, SPACE, STONE, TOUCH_TARGET, TYPE, VERDICT, VERDICT_NEUTRAL } from "@/lib/tokens";
+import { CARD_RADIUS, CHOSEN, DISPLAY_FONT, HAIRLINE, INK, LINE, MUTED, SPACE, STONE, TOUCH_TARGET, TYPE, VERDICT, VERDICT_NEUTRAL } from "@/lib/tokens";
 import { goBackOrHome } from "@/lib/go-back";
 import { haptic } from "@/lib/haptics";
+import { useSafetyNoticeEnabled } from "@/lib/features";
 import { ingredientNameParam, productIdParam } from "@/lib/route-params";
 import NotFound from "@/app/+not-found";
 
@@ -126,6 +126,8 @@ function IngredientDetail({
     };
   }, [productId, inci]);
 
+  const noticeEnabled = useSafetyNoticeEnabled();
+
   if (loading) {
     return (
       <SheetScreen header={null}>
@@ -166,6 +168,13 @@ function IngredientDetail({
   const warningLines = warning
     ? [warning, ...warnings.filter((w) => w !== warning)].filter((w, i, all) => all.findIndex((other) => other.reason === w.reason) === i)
     : [];
+
+  // The EU safety notice (#404): with the flag off both are null, and the
+  // marker and the sentences below are what they were.
+  const notice = safetyNoticeFor(ingredient, noticeEnabled);
+  const verdictWord = fit === "none" ? null : rowWord(ingredient, fit, warnings, noticeEnabled);
+  // The EU notice replaces the generic "best avoided" line; any other warning (a pregnancy caution) still shows.
+  const otherWarnings = warningLines.filter((w) => !(notice && w.origin === "avoid"));
 
   const rule = ruleFor(ingredient);
   // With a product, what the score itself counted wins, as it does for the
@@ -213,7 +222,7 @@ function IngredientDetail({
               {displayIngredientName(primary)}
             </Text>
             {kind ? <Text style={{ fontSize: TYPE.label, color: MUTED }}>{kind}</Text> : null}
-            {fit === "none" ? <Text style={{ fontSize: TYPE.label, color: MUTED }}>{undecided ? ORIGIN_DEPENDENT_HEADLINE : "No known concerns"}</Text> : <VerdictMarker label={fit} />}
+            {fit === "none" ? <Text style={{ fontSize: TYPE.label, color: MUTED }}>{undecided ? ORIGIN_DEPENDENT_HEADLINE : "No known concerns"}</Text> : <VerdictMarker label={fit} text={verdictWord?.word} />}
           </View>
           <View style={{ flexDirection: "row", gap: 12 }}>
             {verified ? (
@@ -252,18 +261,38 @@ function IngredientDetail({
 
             {/* For your skin, on the verdict's light wash (v7). Left out when
                 opened from a Skin needs result, which reads nothing from the profile. */}
+            {/* The EU notice does not depend on the profile, so on a Skin needs
+                path, where "For your skin" is left out, it still gets its card
+                (Codex review on #414). */}
+            {notice && !forProfile ? (
+              <View style={{ borderRadius: CARD_RADIUS, backgroundColor: tone.wash, padding: 16, gap: 4 }}>
+                <Text style={{ fontSize: TYPE.body, fontWeight: "600", color: tone.deep }}>{SAFETY_NOTICE_COPY.sheetHeadline}</Text>
+                <Text style={{ fontSize: 15, lineHeight: 22, color: INK }}>
+                  {SAFETY_NOTICE_COPY.sheetBody(notice.entry)}
+                  {notice.dates ? ` ${notice.dates}` : ""}
+                </Text>
+              </View>
+            ) : null}
+
             {forProfile ? (
               <View style={{ borderRadius: CARD_RADIUS, backgroundColor: tone.wash, padding: 16, gap: 4 }}>
                 <CardHeading>For your skin</CardHeading>
-                <Text style={{ fontSize: TYPE.body, fontWeight: "600", color: tone.deep }}>{undecided ? ORIGIN_DEPENDENT_HEADLINE : fitHeadline(fit, helps, hurts, warning, rule, profile)}</Text>
+                <Text style={{ fontSize: TYPE.body, fontWeight: "600", color: tone.deep }}>{undecided ? ORIGIN_DEPENDENT_HEADLINE : notice ? SAFETY_NOTICE_COPY.sheetHeadline : fitHeadline(fit, helps, hurts, warning, rule, profile)}</Text>
+                {/* The EU notice says what the listing is, and for HICC its dates (#404). */}
+                {notice ? (
+                  <Text style={{ fontSize: 15, lineHeight: 22, color: INK }}>
+                    {SAFETY_NOTICE_COPY.sheetBody(notice.entry)}
+                    {notice.dates ? ` ${notice.dates}` : ""}
+                  </Text>
+                ) : null}
                 {/* A warning's own sentence is the most specific thing we hold (#347). */}
-                {fit !== "unknown" && warningLines.length > 0 ? (
-                  warningLines.map((w) => (
+                {fit !== "unknown" && otherWarnings.length > 0 ? (
+                  otherWarnings.map((w) => (
                     <View key={w.origin} style={{ gap: 4 }}>
                       <Text style={{ fontSize: 15, lineHeight: 22, color: INK }}>{w.reason}</Text>
                     </View>
                   ))
-                ) : undecided ? (
+                ) : notice ? null : undecided ? (
                   <Text style={{ fontSize: TYPE.body, lineHeight: 22, color: INK }}>{DEPENDS_BODY}</Text>
                 ) : fit === "none" && !personalized ? (
                   // No skin profile, and nothing about it for everyone: a quiet
@@ -327,24 +356,6 @@ function IngredientDetail({
         </ReadingScale>
       </ScrollView>
     </SheetScreen>
-  );
-}
-
-/** One of the Sources card's links (v9): opens in the in-app browser. */
-function ReferenceLink({ label, url }: { label: string; url: string }) {
-  return (
-    <Pressable
-      onPress={() => void WebBrowser.openBrowserAsync(url).catch((err) => console.warn("openBrowserAsync failed:", err))}
-      accessibilityRole="link"
-      accessibilityLabel={label}
-      accessibilityHint="Opens in your browser"
-      style={{ minHeight: 36, flexDirection: "row", alignItems: "center", gap: 6 }}
-      className="active:opacity-70"
-    >
-      <Text style={{ fontSize: TYPE.body, fontWeight: "500", color: CHOSEN.accent }}>{label}</Text>
-      {/* The "opens a website" arrow (owner): every link that leaves the app wears it. */}
-      <Ionicons name="open-outline" size={16} color={BUTTON.primary.fill} />
-    </Pressable>
   );
 }
 
