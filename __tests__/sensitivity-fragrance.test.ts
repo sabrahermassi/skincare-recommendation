@@ -1,5 +1,5 @@
 import type { Ingredient, SkinProfile } from "@/data/types";
-import { matchProduct, resetScoreCache, ruleFor, scoreExplanation } from "@/lib/matching";
+import { matchProduct, resetScoreCache, ruleFor } from "@/lib/matching";
 import { positionWeights } from "@/lib/rules";
 import dictionarySnapshot from "../test-fixtures/scoring-dictionary.json";
 import { SCORING_PRODUCTS } from "../test-fixtures/scoring-products";
@@ -72,14 +72,6 @@ describe("'very sensitive' and a fragranced product (#301, #363)", () => {
     expect(weight * 0.7 * 1.6).toBeCloseTo(10.08, 2);
   });
 
-  it("says so in 'Why this score': the irritation line, and parfum charged what the score charged", () => {
-    resetScoreCache();
-    const match = matchProduct({ type: "moisturizer", ingredients: plainCream }, at("high"));
-    expect(scoreExplanation(match).map((line) => line.label)).toContain("Irritation risk");
-    const parfum = match.reasons.find((reason) => reason.ingredient === "parfum")!;
-    expect(parfum.effect).toBeCloseTo(-9 * 0.7, 5);
-    expect(match.breakdown.irritationPenalty).toBeCloseTo(-parfum.effect * 1.6, 5);
-  });
 
   it("floors an EU fragrance allergen too, and a fragrance high in the list keeps its own weight", () => {
     const withAllergen = [...plainCream.slice(0, 19), { ...plainCream[19], id: "linalool", name: "linalool" }];

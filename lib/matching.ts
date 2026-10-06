@@ -156,13 +156,6 @@ export type MatchResult = {
    * a refusal — see `confidence` above.
    */
   unknownReason?: "not_personalized" | "low_coverage";
-  /**
-   * Set when a scored profile has no sensitivity answer, so irritants were
-   * judged at the middle setting (#183). `scoreExplanation` reads it to say
-   * so beside the irritation charge — it never claims the person told us
-   * they were unsure, since most unset profiles just stopped the quiz early.
-   */
-  sensitivityUnset?: true;
 };
 
 /**
@@ -235,7 +228,7 @@ function poreRelevance(profile: SkinProfile): number {
  * `unset` is spelled out rather than left to a `?? "none"` fallback (#183):
  * that fallback read "I don't know" as the most lenient answer, so not
  * answering scored better than "somewhat sensitive". An unset sensitivity is
- * judged at the middle setting, and `scoreExplanation` says so.
+ * judged at the middle setting.
  */
 const SENSITIVITY_MULTIPLIER: Record<NonNullable<SkinProfile["sensitivity"]> | "unset", number> = {
   none: 0.5,
@@ -705,7 +698,6 @@ function computeMatch(
     coverage,
     confidence: confidenceFor(coverage, scored),
     breakdown: { concernFit, typeFit, irritationPenalty, porePenalty },
-    ...(profile.sensitivity === null ? { sensitivityUnset: true as const } : {}),
   };
 }
 
@@ -753,206 +745,6 @@ function verdictFor(score: number, hazardCount: number): Verdict {
 }
 
 /**
- * One line summarising the verdict, for the top of the result screen.
- * Deliberately says "we can't tell" rather than guessing.
- */
-export function verdictHeadline(result: MatchResult): string {
-  // A pregnancy caution never changes score or verdict — an ingredient list
-  // carries no concentration — but "Looks like a good fit" over a retinoid
-  // caution reads as a contradiction (#187). Only excellent/good/fair get the
-  // qualifier: poor is already cautionary and unknown has no verdict to
-  // qualify. Says "pregnant or breastfeeding", like the section heading:
-  // a breastfeeding profile gets the same hits, and "while pregnant" alone
-  // made its caution read as not applying (#257 review).
-  const pregnancyHits = result.warnings.filter((w) => w.origin === "pregnancy").length;
-
-  switch (result.verdict) {
-    case "excellent":
-    case "good":
-      return pregnancyHits > 0
-        ? `Suits your skin — ${pregnancyHits === 1 ? "one thing" : `${pregnancyHits} things`} to check while pregnant or breastfeeding`
-        : result.verdict === "excellent"
-          ? "One of the better matches for your skin"
-          : "Looks like a good fit for your skin";
-    case "fair":
-      return pregnancyHits > 0
-        ? "Could work, and there's something to check while pregnant or breastfeeding"
-        : "Could work, with a caveat or two";
-    case "poor":
-      return result.warnings.some((w) => w.severity === "hazard")
-        ? "Contains something worth avoiding for your skin"
-        : "Probably not the right pick for you";
-    case "unknown":
-      switch (result.unknownReason) {
-        case "low_coverage":
-          return "We couldn't read enough of this formula to judge it";
-        case "not_personalized":
-        default:
-          // True whether the quiz was skipped or answered "I don't know"
-          // throughout (#291): both need a skin type or a concern to score.
-          return "Add your skin type or a concern and we can tell you how this suits you";
-      }
-  }
-}
-
-/**
- * Three visual tones for the compact badges, derived from the same cutoffs as
- * `verdictFor` rather than from their own. Excellent and good share a tone —
- * a badge has one colour to spend and both are "yes".
- */
-/**
- * The score explanation, in words — one line per thing that actually moved
- * the number, strongest first.
- *
- * Lives here rather than in the screen so the sentences and the arithmetic
- * cannot drift apart. The screen used to derive its own summary from category
- * labels, which meant it could name a direction but never a magnitude, and it
- * had no way to say which of two factors mattered more.
- */
-export type ScoreLine = {
-  label: string;
-  detail: string;
-  direction: "up" | "down";
-  /** Where the line's claim comes from, when every warning behind it shares one (#347). */
-  source?: RuleSource;
-};
-
-/** Beside the irritation charge when sensitivity isn't set (#183). */
-export const SENSITIVITY_UNSET_NOTE =
-  "We don't know how sensitive your skin is, so irritants are judged at the middle setting.";
-
-export function scoreExplanation(result: MatchResult): ScoreLine[] {
-  if (result.score === null) return [];
-  const { concernFit, typeFit, irritationPenalty, porePenalty } = result.breakdown;
-  const lines: (ScoreLine & { weight: number })[] = [];
-
-  // A hazard is not part of the additive breakdown: it caps the finished
-  // score instead. It still has to lead the explanation, or a formula can be
-  // capped at Poor while its "why" list contains nothing but benefits.
-  const hazards = result.warnings.filter((warning) => warning.severity === "hazard");
-  if (hazards.length > 0) {
-    // One link under the line, so only when it backs every name in it: an EU
-    // prohibition says nothing about a pore rating that is also a hazard.
-    const source = hazards[0].source;
-    const shared = source && hazards.every((h) => h.source?.url === source.url) ? source : undefined;
-    lines.push({
-      ...(shared ? { source: shared } : {}),
-      label: "Safety warning",
-      detail:
-        hazards.length === 1
-          ? `${hazards[0].ingredient.name} is flagged as best avoided`
-          : `${hazards.map((h) => h.ingredient.name).join(", ")} are flagged as best avoided`,
-      direction: "down",
-      weight: Number.POSITIVE_INFINITY,
-    });
-  }
-
-  if (concernFit !== null) {
-    const above = concernFit - 50;
-    // Inside this dead zone there is too little movement to call the line
-    // positive or negative — the old `>= 0` branch displayed neutral
-    // evidence with a positive icon.
-    if (Math.abs(above) > 8) {
-      lines.push({
-        label: "Your concerns",
-        detail:
-          above > 0
-            ? "This formula works on what you asked about"
-            : "This formula works against what you asked about",
-        direction: above > 0 ? "up" : "down",
-        weight: Math.abs(above) * 0.7,
-      });
-    } else {
-      // Still said, never left out (#292, owner decision 26 Sep 2026): without
-      // it a person who named concerns can't tell whether they were weighed
-      // at all. `FOR_ME_MVP.md` §15 lists "does not strongly support a
-      // selected concern" among the cautionary factors, hence `down`. Zero
-      // weight so it sorts after anything that actually moved the number.
-      lines.push({
-        label: "Your concerns",
-        detail: "Nothing here strongly targets what you asked about",
-        direction: "down",
-        weight: 0,
-      });
-    }
-  }
-
-  const typeAbove = typeFit - 50;
-  if (Math.abs(typeAbove) > 4) {
-    lines.push({
-      label: "Your skin type",
-      detail: typeAbove > 0 ? "Suits how your skin behaves" : "Not built for your skin type",
-      direction: typeAbove > 0 ? "up" : "down",
-      weight: Math.abs(typeAbove) * 0.3,
-    });
-  }
-
-  if (irritationPenalty > 1) {
-    lines.push({
-      label: "Irritation risk",
-      // The app's own state, never "you told us you're not sure" (#183): an
-      // unset sensitivity is as often a quiz stopped at step one as it is
-      // "I don't know", and quoting back an answer nobody gave is worse
-      // than saying nothing.
-      detail: result.sensitivityUnset
-        ? `Contains ingredients that commonly cause reactions. ${SENSITIVITY_UNSET_NOTE}`
-        : "Contains ingredients that commonly cause reactions",
-      direction: "down",
-      weight: irritationPenalty,
-    });
-  }
-
-  if (porePenalty > 1) {
-    lines.push({
-      label: "Pore-clogging risk",
-      detail: "Contains ingredients associated with congestion",
-      direction: "down",
-      weight: porePenalty,
-    });
-  }
-
-  lines.sort((a, b) => b.weight - a.weight);
-
-  // Explicit score-band contract:
-  //   - Good/Excellent explanations lead with support for the verdict.
-  //   - Poor explanations lead with what works against the verdict.
-  //   - Fair remains an honest mixed middle, ordered by impact.
-  // A score can cross a boundary through several small effects, so when no
-  // single line clears the display threshold we add a truthful aggregate
-  // line rather than inventing an ingredient claim.
-  const requiredDirection =
-    result.verdict === "good" || result.verdict === "excellent"
-      ? "up"
-      : result.verdict === "poor"
-        ? "down"
-        : null;
-
-  if (requiredDirection) {
-    // Only a line that moved the score can carry the verdict. The zero-weight
-    // neutral concern line (#292) must not stand in for "There isn't enough
-    // positive evidence" on a Poor score: it would blame concern fit for a
-    // number concern fit didn't move.
-    const matchingIndex = lines.findIndex((line) => line.direction === requiredDirection && line.weight > 0);
-    if (matchingIndex > 0) {
-      const [matching] = lines.splice(matchingIndex, 1);
-      lines.unshift(matching);
-    } else if (matchingIndex === -1) {
-      lines.unshift({
-        label: "Overall match",
-        detail:
-          requiredDirection === "up"
-            ? `The combined evidence supports ${result.verdict === "excellent" ? "an excellent" : "a good"} match`
-            : "There isn't enough positive evidence to make this a good match",
-        direction: requiredDirection,
-        weight: Number.POSITIVE_INFINITY,
-      });
-    }
-  }
-
-  return lines.map(({ label, detail, direction, source }) => (source ? { label, detail, direction, source } : { label, detail, direction }));
-}
-
-/**
  * How much to say about `confidence` on screen. Deliberately three words
  * rather than a percentage: the number is a heuristic, and showing "62%
  * confident" implies a precision it does not have.
@@ -963,6 +755,11 @@ export function confidenceLabel(confidence: number): "high" | "moderate" | "low"
   return "low";
 }
 
+/**
+ * Three visual tones for the compact badges, derived from the same cutoffs as
+ * `verdictFor` rather than from their own. Excellent and good share a tone —
+ * a badge has one colour to spend and both are "yes".
+ */
 export function matchTone(score: number): "high" | "medium" | "low" {
   if (score >= SCORE_BANDS.good) return "high";
   if (score >= SCORE_BANDS.fair) return "medium";

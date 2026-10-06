@@ -10,9 +10,8 @@ import { ACTIVES, ACTIVES_IN_USE, FAMILIES, GOAL_OPTIONS, PRESCRIPTION, SIGNS } 
 import { pairingNotesFor, shelfPairingNotes } from "@/lib/active-pairings";
 import { claimPolicyViolations } from "@/lib/claims-policy";
 import { goalNudgesFor, nudgesFor } from "@/lib/context-nudges";
-import { PORE_CLOGGERS } from "@/lib/pore-clogging";
+import { PORE_CLOGGERS, PORE_COUNTS_TEXT } from "@/lib/pore-clogging";
 import { PREGNANCY_CAUTION } from "@/lib/pregnancy-caution";
-import { scoreExplanation, verdictHeadline, type MatchResult } from "@/lib/matching";
 import { INGREDIENT_RULES } from "@/lib/rules";
 import { SCHOOL_CHAT_COPY } from "@/lib/school-chat";
 import { EVENING_FALLBACK, EVENING_TIPS, GENERAL_TIPS, MORNING_TIPS, REST_NIGHT_TIP } from "@/lib/skin-tips";
@@ -30,56 +29,6 @@ const STRICTEST_PROFILE = {
 };
 
 const WARNINGS = contraindications(Object.values(INGREDIENTS), STRICTEST_PROFILE);
-
-// Every branch of scoreExplanation: concerns up/down/neutral, type up/down,
-// both penalty lines and the hazard line.
-const EXPLANATION_RESULTS = [
-  { concernFit: 100, typeFit: 100 },
-  { concernFit: 0, typeFit: 0 },
-  { concernFit: 50, typeFit: 50 },
-]
-  .map(
-    (fit) =>
-      ({
-        score: 50,
-        breakdown: { ...fit, irritationPenalty: 10, porePenalty: 10 },
-        warnings: WARNINGS,
-      }) as unknown as MatchResult
-  )
-  // #183: the irritation line's middle-setting note for an unset sensitivity.
-  .concat({
-    score: 50,
-    breakdown: { concernFit: 50, typeFit: 50, irritationPenalty: 10, porePenalty: 0 },
-    warnings: [],
-    sensitivityUnset: true,
-  } as unknown as MatchResult);
-
-// #187: verdictHeadline was never in this audit before — added as its own
-// collection, covering every band and both the pregnancy and non-pregnancy
-// variant, since a pregnancy qualifier is new user-facing copy.
-const PREGNANCY_WARNING = {
-  ingredient: { id: "retinol", name: "Retinol", comedogenic: 0, safety: "safe" as const, verified: true },
-  reason: "A vitamin A derivative — commonly advised against in pregnancy and while breastfeeding",
-  severity: "irritant" as const,
-  origin: "pregnancy" as const,
-};
-
-const HEADLINE_RESULTS: OwnedClaim[] = (["excellent", "good", "fair", "poor"] as const)
-  .flatMap((verdict) =>
-    [false, true].map((pregnant) => ({
-      source: `verdictHeadline.${verdict}${pregnant ? ".pregnant" : ""}`,
-      text: verdictHeadline({
-        verdict,
-        warnings: pregnant ? [PREGNANCY_WARNING] : [],
-      } as unknown as MatchResult),
-    }))
-  )
-  .concat(
-    (["not_personalized", "low_coverage"] as const).map((unknownReason) => ({
-      source: `verdictHeadline.unknown.${unknownReason}`,
-      text: verdictHeadline({ verdict: "unknown", warnings: [], unknownReason } as unknown as MatchResult),
-    }))
-  );
 
 // #234: sun/SPF context nudges — the copy most at risk of reading as a
 // disease-prevention claim, so every variant is audited, not a sample.
@@ -214,10 +163,11 @@ const SCHOOL_CHAT_CLAIMS: OwnedClaim[] = Object.entries(SCHOOL_CHAT_COPY).map(([
 }));
 
 const OWNED_CLAIMS: OwnedClaim[] = [
-  ...HEADLINE_RESULTS,
   // #183: the restricted-ingredient warning for an unset sensitivity. The
   // `contraindications` collection below runs at "high", so it never reaches it.
   { source: "UNSET_SENSITIVITY_REASON", text: UNSET_SENSITIVITY_REASON },
+  // #406: the oily-skin pore row on Skin match, as it is read: names, then this.
+  { source: "PORE_COUNTS_TEXT", text: `Coconut Oil ${PORE_COUNTS_TEXT}` },
   ...NOTE_CLAIMS,
   ...JOURNEY_CLAIMS,
   ...ROUTINE_CLAIMS,
@@ -246,12 +196,6 @@ const OWNED_CLAIMS: OwnedClaim[] = [
   })),
   ...Object.entries(INGREDIENTS).flatMap(([id, ingredient]) =>
     ingredient.note ? [{ source: `INGREDIENTS.${id}.note`, text: ingredient.note }] : []
-  ),
-  ...EXPLANATION_RESULTS.flatMap((result, i) =>
-    scoreExplanation(result).map((line) => ({
-      source: `scoreExplanation[${i}].${line.label}`,
-      text: line.detail,
-    }))
   ),
   ...WARNINGS.map((hit) => ({
     source: `contraindications.${hit.ingredient.id}`,

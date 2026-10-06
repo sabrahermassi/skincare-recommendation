@@ -284,9 +284,25 @@ graduated irritation penalty instead of a hard cap.
 
 **Why the comedogenic threshold is a named constant, not an inline number:**
 `comedogenic >= 3` used to be written directly in three different screens,
-and it drifted between them. `COMEDOGENIC_FLAG_THRESHOLD` /
-`COMEDOGENIC_SEVERE_THRESHOLD` in `lib/safety.ts` exist so there's exactly
-one place that number can be wrong.
+and it drifted between them. `COMEDOGENIC_FLAG_THRESHOLD` in `lib/safety.ts`
+exists so there's exactly one place that number can be wrong. (A second,
+`COMEDOGENIC_SEVERE_THRESHOLD`, went with the hazard that used it — see
+"The comedogenic hazard is gone", 6 October 2026.)
+
+### The comedogenic hazard is gone (6 October 2026, #406)
+
+`contraindications` once raised a `hazard` for acne-prone skin when an
+ingredient's 0-5 comedogenic rating was 4 or more ("Pore-clogging (N/5) and you
+flagged acne-prone skin"). The rating is deliberately empty for every
+catalogue row (`ComedogenicRating` in `data/types.ts`: the scales descend from
+1970s-80s rabbit-ear assays, they are contested, and no openly licensed
+dataset exists), so the branch could only fire on the 8 sample products.
+Owner decision: remove it, with its tests and `COMEDOGENIC_SEVERE_THRESHOLD`.
+Pore-clogging is warned about only from `lib/pore-clogging.ts` (27 hand-written
+families with a confidence tier); an oily skin without a pore-led concern gets
+a plain sentence on Skin match for the same cloggers the score charges it for.
+`verdictHeadline` and `scoreExplanation` went in the same ticket: no screen
+called either.
 
 ### Skin needs is a path of its own (2 October 2026)
 

@@ -1,7 +1,7 @@
 import { fetchProducts } from "@/data/api";
 import { INGREDIENTS } from "@/data/ingredients";
 import type { Ingredient, ProductWithIngredients, SkinProfile } from "@/data/types";
-import { SENSITIVITY_UNSET_NOTE, matchProduct, resetScoreCache, scoreExplanation } from "@/lib/matching";
+import { matchProduct, resetScoreCache } from "@/lib/matching";
 import { isSensitive, treatAsReactive } from "@/lib/profile";
 import { UNSET_SENSITIVITY_REASON } from "@/lib/safety";
 import { EMPTY_PROFILE } from "@/store/useAppStore";
@@ -112,15 +112,6 @@ describe("benefits and words stay with what was said", () => {
     expect(result.breakdown.irritationPenalty).toBeGreaterThan(0);
   });
 
-  it("says why beside the irritation charge, and only when sensitivity is unset", () => {
-    const line = (s: SkinProfile["sensitivity"]) => {
-      resetScoreCache();
-      return scoreExplanation(matchProduct(AHA_SERUM, at(s))).find((l) => l.label === "Irritation risk")?.detail;
-    };
-    expect(line(null)).toContain(SENSITIVITY_UNSET_NOTE);
-    expect(line("some")).not.toContain(SENSITIVITY_UNSET_NOTE);
-    expect(SENSITIVITY_UNSET_NOTE).not.toMatch(/you (told|said)|not sure/i);
-  });
 
   it("shows a visitor with no profile exactly what it did: no score, no irritant warnings", () => {
     const result = matchProduct(FRAGRANCED, EMPTY_PROFILE);

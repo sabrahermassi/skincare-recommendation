@@ -2,7 +2,9 @@ import type { Ingredient } from "@/data/types";
 import {
   isPoreClogging,
   PORE_CLOGGERS,
+  PORE_COUNTS_TEXT,
   poreCloggingHits,
+  poreCountedNames,
   poreVerdict,
 } from "@/lib/pore-clogging";
 
@@ -218,5 +220,27 @@ describe("pattern precision", () => {
 
   it("matches regardless of surrounding whitespace or case", () => {
     expect(isPoreClogging(known(["  Coconut Oil "])[0])).toBe(true);
+  });
+});
+
+// #406: the names the oily-skin row speaks of.
+describe("poreCountedNames", () => {
+  it("lists high and moderate cloggers in label order, once each", () => {
+    expect(poreCountedNames(known(["water", "glyceryl stearate se", "glycerin", "coconut oil", "coconut oil"]))).toEqual([
+      "glyceryl stearate se",
+      "coconut oil",
+    ]);
+  });
+
+  it("never lists a contested one", () => {
+    expect(poreCountedNames(known(["water", "coconut alkanes", "steareth-20"]))).toEqual([]);
+  });
+
+  it("is empty for a clean formula", () => {
+    expect(poreCountedNames(known(CLEAN))).toEqual([]);
+  });
+
+  it("has wording with no number in it", () => {
+    expect(PORE_COUNTS_TEXT).not.toMatch(/\d/);
   });
 });

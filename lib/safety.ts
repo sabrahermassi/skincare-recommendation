@@ -12,9 +12,6 @@ import type { RuleSource } from "./rules";
 /** Comedogenic rating at or above which we consider an ingredient pore-clogging. */
 export const COMEDOGENIC_FLAG_THRESHOLD = 3;
 
-/** Rating at or above which an ingredient is a real problem for acne-prone skin. */
-export const COMEDOGENIC_SEVERE_THRESHOLD = 4;
-
 /**
  * Whether a name was matched to an authoritative dictionary. `undefined` means
  * the hand-written sample catalogue, which is trusted; only an explicit
@@ -113,9 +110,9 @@ export type Contraindication = {
    * Where this hit came from, so a consumer can group or filter without
    * string-matching `reason` (#187). `pregnancy` hits are not a general
    * irritation risk — they need their own section on the result screen,
-   * separate from the sensitivity/comedogenic count.
+   * separate from the sensitivity count.
    */
-  origin: "avoid" | "comedogenic" | "restricted" | "pregnancy";
+  origin: "avoid" | "restricted" | "pregnancy";
   /** Where the caution comes from, when we hold a checked source (#326). */
   source?: RuleSource;
 };
@@ -149,11 +146,10 @@ export const UNSET_SENSITIVITY_REASON =
  * generally flagged.
  *
  * This exists because product-level `targets` tags are author-supplied and can
- * contradict the formula: the sample catalogue contains an ampoule tagged
- * `acne-prone` whose INCI list includes isopropyl myristate (comedogenic 5,
- * safety "avoid"). Without this check the browse screen scored that product at
- * 99% for acne-prone users while the detail screen warned about the very same
- * ingredient.
+ * contradict the formula; the warnings are read from the ingredients
+ * themselves. Pore-clogging is not one of them: it has no hazard here, and is
+ * scored from `lib/pore-clogging.ts` instead (the 0-5 comedogenic column is
+ * deliberately empty for catalogue rows, see `ComedogenicRating`).
  *
  * The "avoid" check applies to every visitor, personalised or not, because
  * it isn't profile-dependent — pass `EMPTY_PROFILE` for an unanswered quiz.
@@ -163,7 +159,6 @@ export function contraindications(
   profile: SkinProfile
 ): Contraindication[] {
   const found: Contraindication[] = [];
-  const { concerns } = profile;
   // Listed on the same condition the irritation penalty charges them (#183),
   // so a score docked for an irritant always shows which one. `treatAsReactive`
   // is false for a visitor with no profile, who keeps seeing hazards only.
@@ -178,19 +173,6 @@ export function contraindications(
     // "avoid" applies to everyone — it is not profile-dependent.
     if (ingredient.safety === "avoid") {
       found.push({ ingredient, reason: "Flagged as best avoided", severity: "hazard", origin: "avoid", source: EU_PROHIBITED_SOURCE });
-      continue;
-    }
-
-    if (
-      concerns.includes("acne-prone") &&
-      ingredient.comedogenic >= COMEDOGENIC_SEVERE_THRESHOLD
-    ) {
-      found.push({
-        ingredient,
-        reason: `Pore-clogging (${ingredient.comedogenic}/5) and you flagged acne-prone skin`,
-        severity: "hazard",
-        origin: "comedogenic",
-      });
       continue;
     }
 

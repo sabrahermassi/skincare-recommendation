@@ -19,7 +19,7 @@ import { deckFor, needVerdict, PLAN_CONCERNS, planFit, type Need, type NeedLevel
 import { concernSupport, confidenceLabel, isLowCoverage, matchProduct, ruleFor, type MatchResult } from "@/lib/matching";
 import { openQuiz } from "@/lib/open-quiz";
 import { CONCERN_PHRASE, isPersonalized } from "@/lib/profile";
-import { cloggerConfidence, poreVerdict } from "@/lib/pore-clogging";
+import { cloggerConfidence, PORE_COUNTS_TEXT, poreCountedNames, poreVerdict } from "@/lib/pore-clogging";
 import { irritationRisk, poreRisk, type Risk } from "@/lib/risk";
 import { irritationWarnings, isVerified } from "@/lib/safety";
 import { inSentence } from "@/lib/skin-needs";
@@ -302,6 +302,21 @@ function Reasons({ ingredients, match, profile }: { ingredients: Ingredient[]; m
       if (confidence === null || confidence === "contested" || seen.has(ingredient.name)) continue;
       seen.add(ingredient.name);
       rows.push({ key: `clog-${ingredient.name}`, name: displayIngredientName(ingredient.name), text: " is comedogenic and may clog pores.", tone: confidence === "high" ? VERDICT.low : VERDICT.medium });
+    }
+  } else if (profile.baseSkinType === "oily") {
+    // Oily skin without a pore-led concern is charged a little for pore-cloggers
+    // (`poreRelevance`, lib/matching.ts), so say what for: one box naming up to
+    // three, amber because it counts a little. Contested ones are never named.
+    const counted = poreCountedNames(ingredients).filter((name) => !seen.has(name));
+    if (counted.length > 0) {
+      counted.forEach((name) => seen.add(name));
+      const shown = counted.slice(0, 3).map(displayIngredientName);
+      rows.push({
+        key: "pore-counts",
+        name: counted.length > 3 ? `${shown.join(", ")} and others` : listNames(shown),
+        text: ` ${PORE_COUNTS_TEXT}`,
+        tone: VERDICT.medium,
+      });
     }
   }
   // Then the recommendations it covers, one box per card.
