@@ -197,6 +197,25 @@ describe("the boxes on Skin match", () => {
   });
 });
 
+describe("the groups of boxes", () => {
+  it("labels what works and what to watch once a result has both", async () => {
+    await show(
+      ["niacinamide", "panthenol", "sodium hyaluronate", "ceramide np", "allantoin", "squalane", "centella asiatica extract", "tocopherol", "parfum"],
+      { ...EMPTY_PROFILE, baseSkinType: "dry", sensitivity: "some", concerns: ["dehydrated"] },
+    );
+    await openMatch();
+    expect(screen.getByText("Working for you")).toBeTruthy();
+    expect(screen.getByText("Worth watching")).toBeTruthy();
+  });
+
+  it("adds no label to a result that is all green", async () => {
+    await show(["niacinamide"], { ...EMPTY_PROFILE, concerns: ["hyperpigmentation"] });
+    await openMatch();
+    expect(screen.queryByText("Working for you")).toBeNull();
+    expect(screen.queryByText("Worth watching")).toBeNull();
+  });
+});
+
 it("starts a tab at its top, so Ingredients does not open scrolled past its risks", async () => {
   scrollToCalls.length = 0;
   await show(["niacinamide"], { ...EMPTY_PROFILE, baseSkinType: "dry" });

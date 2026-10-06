@@ -322,7 +322,9 @@ the scanner, How scoring works and the ingredient sheet slide up.
   - *Skin match:* the score ring on the sheet's edge, the verdict pill, a title
     and one line (with "N things to watch below" when a good match carries
     warnings), then reason boxes (`RADIUS.card`, on the verdict's `wash`, a dot, the
-    bold name and a sentence). At most six boxes; on a good match up to two
+    bold name and a sentence), grouped by colour: 8pt between boxes in a group, a
+    section between groups, a small label ("Working for you", "Worth watching")
+    once there are both, and the first box a size larger. At most six boxes; on a good match up to two
     orange ones always keep their place; boxes that say the same sentence merge.
   - *Ingredients:* the two-risk box, then the ingredient box.
   - A tab opens at its top.
