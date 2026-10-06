@@ -11,8 +11,10 @@ disagree, the code wins and this file is wrong: fix the file.
 - Colours, type, spacing, radii, shadows: `lib/tokens.ts`.
 - Raw hex for props that take a literal colour (`ActivityIndicator.color`,
   `headerTintColor`, SVG `fill`): `lib/colors.ts`.
-- Colours and radii for `className`: `tailwind.config.js`. These three are
-  mirrors; change one, change the others (see "Known gaps").
+- Colours and type sizes for `className`: `tailwind.config.js`. These three are
+  mirrors; change one, change the others (see "Known gaps"). Almost nothing uses
+  a theme class: screens style through inline tokens, and the app's only
+  `className`s are `active:opacity-*`, a few layout utilities and `font-display-medium`.
 - **Never hardcode a value that has a token.** If a token is missing, add it
   first and say where its value was read from or how it was computed.
 - Hand-off folders (`design_handoff_*` and similar) are intent, not code. They
@@ -363,9 +365,6 @@ the scanner, How scoring works and the ingredient sheet slide up.
 - **Good's word is 3.1:1, Poor's is 4.39:1 on white, and the white label on the
   sage button is 4.46:1**, all under 4.5:1 for small text. They are the
   hand-off's colours; Good is the brand olive. Left for the owner.
-- **`tailwind.config.js` still has the older `className` radii** (8, 11, 12, 13,
-  15, 16, 18). Screens use `RADIUS` from the code instead; the tailwind ones are
-  not on the scale.
 - **Colour lives in three files** (`tokens.ts`, `colors.ts`, `tailwind.config.js`)
   and is kept in step by hand.
 - **About 40 font sizes are written inline** rather than from `TYPE`.
