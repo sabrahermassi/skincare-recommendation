@@ -1,9 +1,9 @@
 ---
-name: land-prs
-description: Go through every open pull request, work out the order they should be merged in, bring each one up to date with main, and drive it to mergeable — hygiene, self-review, Claude/Codex/CodeRabbit reviews, fixing every valid finding — without merging. Only stops to ask the owner about real decisions. Use when the user says "/land-prs", "land the open PRs", or "get the open PRs ready to merge".
+name: review-prs
+description: Go through every open pull request, work out the order they should be merged in, bring each one up to date with main, and drive it to mergeable — hygiene, self-review, Claude/Codex/CodeRabbit reviews, fixing every valid finding — without merging. Only stops to ask the owner about real decisions. Use when the user says "/review-prs", "review the open PRs", or "get the open PRs ready to merge".
 ---
 
-# Land PRs
+# Review PRs
 
 `/work-next` builds new tickets. This skill finishes **pull requests that
 already exist**: it takes every open PR, decides the merge order, brings
