@@ -10,11 +10,14 @@ import { BuildingRoutine } from "@/components/BuildingRoutine";
 import { DottedLine } from "@/components/DottedLine";
 import { EmptyState } from "@/components/EmptyState";
 import { ProductThumbnail } from "@/components/ProductThumbnail";
+import { SafetyShield } from "@/components/SafetyShield";
 import { PageTitle } from "@/components/PageTitle";
 import { BUTTON_WIDTH, PrimaryButton } from "@/components/PrimaryButton";
 import { StoryAwareHeader } from "@/components/ScreenHeader";
 import { SegmentedSwitch } from "@/components/SegmentedSwitch";
 import { Text } from "@/components/Text";
+import { useSafetyNoticeHits } from "@/lib/features";
+import { SAFETY_NOTICE_COPY } from "@/lib/safety";
 import type { SkinProfile } from "@/data/types";
 import { openQuiz } from "@/lib/open-quiz";
 import { openScanner } from "@/lib/open-scanner";
@@ -475,12 +478,14 @@ function StepLimitRow() {
  */
 function PickRow({ pick, own = false }: { pick: RoutinePick; own?: boolean }) {
   const { product, match } = pick;
+  // The EU safety notice (#405): a shield beside the verdict, only when #404's own check says so.
+  const notice = useSafetyNoticeHits(product.ingredients).length > 0;
   const verdict = match.score === null ? VERDICT_LABEL[match.verdict] : `${VERDICT_LABEL[match.verdict]} · ${match.score}/100`;
   return (
     <Pressable
       onPress={() => router.push({ pathname: "/product/[id]", params: { id: product.id } })}
       accessibilityRole="button"
-      accessibilityLabel={`${own ? "Your pick: " : ""}${product.brand} ${product.name}. ${match.score === null ? VERDICT_LABEL[match.verdict] : `${VERDICT_LABEL[match.verdict]}, ${match.score} out of 100`}`}
+      accessibilityLabel={`${own ? "Your pick: " : ""}${product.brand} ${product.name}. ${match.score === null ? VERDICT_LABEL[match.verdict] : `${VERDICT_LABEL[match.verdict]}, ${match.score} out of 100`}${notice ? `. ${SAFETY_NOTICE_COPY.shieldLabel}` : ""}`}
       style={{ minHeight: TOUCH_TARGET, flexDirection: "row", alignItems: "center", gap: SPACE.block, paddingVertical: SPACE.text }}
       className="active:opacity-70"
     >
@@ -492,7 +497,10 @@ function PickRow({ pick, own = false }: { pick: RoutinePick; own?: boolean }) {
         <Text numberOfLines={2} style={{ fontSize: TYPE.body, fontWeight: "600", lineHeight: 20, color: INK }}>
           {product.name}
         </Text>
-        <Text style={{ fontSize: TYPE.caption, fontWeight: "600", color: scoreColours(match.verdict).deep }}>{verdict}</Text>
+        <View style={{ flexDirection: "row", alignItems: "center", gap: 6 }}>
+          <Text style={{ fontSize: TYPE.caption, fontWeight: "600", color: scoreColours(match.verdict).deep }}>{verdict}</Text>
+          {notice ? <SafetyShield size={16} /> : null}
+        </View>
       </View>
     </Pressable>
   );

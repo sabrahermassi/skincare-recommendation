@@ -22,11 +22,14 @@ import { CameraPermissionScreen } from "@/components/CameraPermissionScreen";
 import { FLOAT_INSET, FLOAT_RADIUS } from "@/components/BottomSheet";
 import { barcodeBox, ScanViewfinder, type Box } from "@/components/ScanViewfinder";
 import { ProductThumbnail } from "@/components/ProductThumbnail";
+import { SafetyShield } from "@/components/SafetyShield";
 import { ScreenReaderAnnouncer } from "@/components/ScreenReaderAnnouncer";
 import { SegmentedSwitch } from "@/components/SegmentedSwitch";
 import { GlassButton } from "@/components/GlassButton";
 import { BUTTON_WIDTH, PrimaryButton } from "@/components/PrimaryButton";
 import { Text } from "@/components/Text";
+import { useSafetyNoticeHits } from "@/lib/features";
+import { SAFETY_NOTICE_COPY } from "@/lib/safety";
 import { isProductBarcode, fetchProductByBarcode, type FetchFailure } from "@/data/api";
 import type { ProductWithIngredients } from "@/data/types";
 import type { Size } from "@/lib/crop-to-guide";
@@ -732,6 +735,8 @@ function FoundSheet({
   onOpen: () => void;
 }) {
   const profile = useAppStore((s) => s.profile);
+  // The EU safety notice (#405): a shield beside the pill, only when #404's own check says so.
+  const notice = useSafetyNoticeHits(product.ingredients).length > 0;
   // One or the other: the Skin needs answer, or the skin profile's match.
   const verdict = need ? needVerdict(product.ingredients, need) : null;
   const match = verdict ? null : matchProduct(product, profile);
@@ -742,7 +747,7 @@ function FoundSheet({
         onPress={onOpen}
         accessibilityRole="button"
         accessibilityLabel="See the full result"
-        accessibilityHint={`${product.brand} ${product.name}`}
+        accessibilityHint={`${product.brand} ${product.name}${notice ? `. ${SAFETY_NOTICE_COPY.shieldLabel}` : ""}`}
         style={{ alignSelf: "stretch", flexDirection: "row", alignItems: "center", gap: SPACE.block }}
         className="active:opacity-80"
       >
@@ -756,10 +761,13 @@ function FoundSheet({
           <Text numberOfLines={2} style={{ fontSize: TYPE.card, fontWeight: "600", lineHeight: 21, color: INK }}>
             {product.name}
           </Text>
-          <View testID="found-pill" style={{ marginTop: 6, height: 28, paddingHorizontal: 12, borderRadius: 14, justifyContent: "center", backgroundColor: colours.deep }}>
-            <Text style={{ fontSize: TYPE.caption, fontWeight: "600", color: WHITE }}>
-              {verdict ? verdict.headline : !match || match.score === null ? "See full result" : `${VERDICT_LABEL[match.verdict]} · ${match.score}/100`}
-            </Text>
+          <View style={{ marginTop: 6, flexDirection: "row", alignItems: "center", gap: 8 }}>
+            <View testID="found-pill" style={{ height: 28, paddingHorizontal: 12, borderRadius: 14, justifyContent: "center", backgroundColor: colours.deep }}>
+              <Text style={{ fontSize: TYPE.caption, fontWeight: "600", color: WHITE }}>
+                {verdict ? verdict.headline : !match || match.score === null ? "See full result" : `${VERDICT_LABEL[match.verdict]} · ${match.score}/100`}
+              </Text>
+            </View>
+            {notice ? <SafetyShield size={20} label={SAFETY_NOTICE_COPY.shieldLabel} /> : null}
           </View>
         </View>
       </Pressable>

@@ -419,3 +419,55 @@ it("opens the skin profile with the same X when it was itself opened from a stor
   await fireEvent.press(screen.getByRole("button", { name: /^Your skin profile\./ }));
   expect(router.push).toHaveBeenCalledWith({ pathname: "/skin-profile", params: { from: "story" } });
 });
+
+// #405: a shield beside the verdict on a product the person added, when #404's check applies.
+describe("a pick the EU safety notice applies to", () => {
+  const HICC = {
+    id: "hicc",
+    name: "hydroxyisohexyl 3-cyclohexene carboxaldehyde",
+    comedogenic: 0 as const,
+    safety: "avoid" as const,
+    verified: true,
+    note: "Prohibited in cosmetics (EU Annex II/1380: not allowed on the EU market since 23 August 2019 and not to be sold there since 23 August 2021; older stock may still be around)",
+  };
+  const SHIELD = "Contains an ingredient not permitted in EU cosmetics. Check the label.";
+  const own = () => {
+    const base = product("m9", "moisturizer", "Night cream");
+    return { ...base, ingredients: [...base.ingredients, HICC], ingredientIds: [...base.ingredientIds, HICC.id] };
+  };
+  async function openOwn() {
+    useAppStore.setState({ profile: ACNE, routinePicks: { "morning:moisturise": "m9" } });
+    fetched.mockResolvedValue(CATALOGUE);
+    fetchedByIds.mockImplementation(async (ids: string[]) => ({ ok: true, value: [...CATALOGUE, own()].filter((p) => ids.includes(p.id)) }));
+    await open();
+    await waitFor(() => expect(screen.getByText("Your pick · Brand")).toBeTruthy());
+  }
+  afterEach(() => useAppStore.setState({ safetyNoticeEnabled: false }, false));
+
+  it("says it in the row's label, with the flag on", async () => {
+    useAppStore.setState({ safetyNoticeEnabled: true }, false);
+    await openOwn();
+    expect(screen.getByRole("button", { name: new RegExp(`^Your pick: Brand Night cream\\..*${SHIELD.replace(/\./g, "\\.")}$`) })).toBeTruthy();
+  });
+
+  // Codex review on #415: a pick with no score (a formula too short to read) must still say it.
+  it("says it for a pick with no score too", async () => {
+    useAppStore.setState({ safetyNoticeEnabled: true }, false);
+    const base = product("m9", "moisturizer", "Night cream");
+    const short = { ...base, ingredients: [HICC], ingredientIds: [HICC.id] };
+    useAppStore.setState({ profile: ACNE, routinePicks: { "morning:moisturise": "m9" } });
+    fetched.mockResolvedValue(CATALOGUE);
+    fetchedByIds.mockImplementation(async (ids: string[]) => ({ ok: true, value: [...CATALOGUE, short].filter((p) => ids.includes(p.id)) }));
+    await open();
+    await waitFor(() => expect(screen.getByText("Your pick · Brand")).toBeTruthy());
+    const row = screen.getByRole("button", { name: /^Your pick: Brand Night cream\./ });
+    expect(row.props.accessibilityLabel).not.toContain("out of 100");
+    expect(row.props.accessibilityLabel).toContain(SHIELD);
+  });
+
+  it("says nothing with the flag off", async () => {
+    await openOwn();
+    const row = screen.getByRole("button", { name: /^Your pick: Brand Night cream\. / });
+    expect(row.props.accessibilityLabel).not.toContain("not permitted");
+  });
+});
