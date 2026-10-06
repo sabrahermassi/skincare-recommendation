@@ -1,4 +1,5 @@
 import { act, fireEvent, render, screen } from "@testing-library/react-native";
+import { ScrollView } from "react-native";
 
 let mockFontScale = 1;
 jest.mock("react-native/Libraries/Utilities/useWindowDimensions", () => ({
@@ -12,6 +13,11 @@ import { Text } from "@/components/Text";
 import type { Ingredient, SkinProfile } from "@/data/types";
 import { matchProduct } from "@/lib/matching";
 import { EMPTY_PROFILE } from "@/store/useAppStore";
+
+const scrollToCalls: unknown[] = [];
+jest.spyOn(ScrollView.prototype, "scrollTo").mockImplementation((options?: unknown) => {
+  scrollToCalls.push(options);
+});
 
 /** With no skin profile a sheet rises over the result (v9) and nothing behind it can be reached: put it away. */
 async function putTeaserAway() {
@@ -171,6 +177,33 @@ it("lets the header and the switch scroll at the largest text sizes, where they'
 });
 
 // Owner, 2 October 2026: the first box agrees with the verdict above it.
+describe("the boxes on Skin match", () => {
+  it("says three ceramides with one sentence once, not three times", async () => {
+    await show(["ceramide np", "ceramide ap", "ceramide eop"], { ...EMPTY_PROFILE, baseSkinType: "dry", concerns: ["dehydrated"] });
+    await openMatch();
+    expect(screen.getAllByText(/ceramides supply barrier lipids/)).toHaveLength(1);
+    expect(screen.getByText(/Ceramide NP, Ceramide AP and Ceramide EOP/)).toBeTruthy();
+  });
+
+  it("keeps a warning on a good match, under the green boxes, and says so under the title", async () => {
+    // Enough green to fill six boxes, then a fragrance for sensitive skin.
+    await show(
+      ["niacinamide", "panthenol", "sodium hyaluronate", "ceramide np", "allantoin", "squalane", "centella asiatica extract", "tocopherol", "parfum"],
+      { ...EMPTY_PROFILE, baseSkinType: "dry", sensitivity: "some", concerns: ["dehydrated"] },
+    );
+    await openMatch();
+    expect(screen.getByText(/Fragrance|Parfum/i)).toBeTruthy();
+    expect(screen.getByText(/thing(s)? to watch below\./)).toBeTruthy();
+  });
+});
+
+it("starts a tab at its top, so Ingredients does not open scrolled past its risks", async () => {
+  scrollToCalls.length = 0;
+  await show(["niacinamide"], { ...EMPTY_PROFILE, baseSkinType: "dry" });
+  await openIngredients();
+  expect(scrollToCalls).toContainEqual({ y: 0, animated: false });
+});
+
 describe("the order of the boxes", () => {
   it("leads with what works on a good or excellent match", () => {
     expect(reasonOrder("excellent")).toEqual(["red", "green", "orange"]);

@@ -36,7 +36,7 @@ values are in `lib/tokens.ts`.
 | `CHOSEN.fill` / `TAB_PILL` | `#EEF1E7` | a chosen row, the current tab's pill |
 | `INK` / `MUTED` / `MUTED_FAINT` | `#2F2C2A` / `#524D48` / `#5E5954` | text, secondary, meta |
 | `VERDICT.high` | ring `#8A9A5B`, tint `#EEF1E7` | Good; Excellent is `#6B7A40` |
-| `VERDICT.medium` | ring `#E78B30`, word `#C26E1E`, tint `#FBF1E6` | Fair, Watch |
+| `VERDICT.medium` | ring `#E78B30`, word `#A85A14` (darkened from the hand-off's `#C26E1E` for 4.5:1), tint `#FBF1E6` | Fair, Watch |
 | `VERDICT.low` | ring `#E56B65`, word `#CC4F49`, tint `#FFECE9` | Poor, Avoid |
 | `DESTRUCTIVE_OUTLINE` | fill `#FFECE9`, words `#CC4F49` | every delete, remove and report button: soft, never a solid red |
 | `HOME_TILE` | `#EEF1E7`, `#EFEBF1`, `#F6F0E2` | Home's Scan and Find Your Actives tiles, and the Start your routine card |

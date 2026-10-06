@@ -167,7 +167,7 @@ module.exports = {
         // not a verdict."
         level: {
           good: { DEFAULT: "#8A9A5B", tint: "#EEF1E7", ink: "#8A9A5B" },
-          watch: { DEFAULT: "#E78B30", tint: "#FBF1E6", ink: "#C26E1E" },
+          watch: { DEFAULT: "#E78B30", tint: "#FBF1E6", ink: "#A85A14" },
           neutral: { DEFAULT: "#524D48", tint: "#F2F1F0", ink: "#524D48" },
           avoid: { DEFAULT: "#E56B65", tint: "#FFECE9", ink: "#CC4F49" },
         },

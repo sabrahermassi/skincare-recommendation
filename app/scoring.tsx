@@ -51,8 +51,8 @@ export default function HowScoringWorks() {
           <View style={{ marginTop: SPACE.block }}>
             {scoreBandLines().map((band) => (
               <View key={band.verdict} accessible accessibilityLabel={`${band.range}: ${band.label}. ${band.meaning}`} style={{ alignItems: "flex-start", gap: SPACE.text, paddingBottom: SPACE.gutter }}>
-                {/* The band's colour as a filled pill: "Excellent · 90–100". */}
-                <View style={{ height: 32, paddingHorizontal: 14, borderRadius: 16, justifyContent: "center", backgroundColor: scoreColours(band.verdict).solid }}>
+                {/* The band's colour as a filled pill: "Excellent · 90–100". `deep`, not `solid`: white on Fair's solid orange was 2.6:1. */}
+                <View style={{ height: 32, paddingHorizontal: 14, borderRadius: 16, justifyContent: "center", backgroundColor: scoreColours(band.verdict).deep }}>
                   <Text style={{ fontSize: TYPE.body, fontWeight: "600", color: WHITE }}>
                     {band.label.replace(/ match$/, "")} · {band.from}–{band.to}
                   </Text>

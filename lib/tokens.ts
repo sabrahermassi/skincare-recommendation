@@ -368,10 +368,16 @@ export const VERDICT: Record<
   // and halo are read off the screens where drawn, else computed the same way.
   // Latest v9 round (design_handoff_formee_v9): olive, orange and soft red.
   // One colour per band for ring, dot and pill; `deep` is the verdict word.
+  // Fair's `deep` is darker than the hand-off's `#C26E1E` (computed, 6 October
+  // 2026 critique): that read 3.4-3.8:1 on white, the tint and the page, under
+  // the 4.5:1 a 13-15pt word needs ("Watch", "Moderate", "In a routine"), and
+  // white on it as a pill was no better. `#A85A14` is 5.1:1 on white and 4.55:1
+  // on the tint. Good's and Poor's words are still the hand-off's (3.1:1 and
+  // 4.39:1 on white): left for the owner, since Good is the brand's olive.
   // Good's word is its ring colour, 3.1:1 on white (computed): the hand-off
   // only sets it at 15pt semibold or larger, or as white on the filled pill.
   high: { solid: "#8A9A5B", tint: "#EEF1E7", deep: "#8A9A5B", wash: "#EEF1E7", halo: "#EEF1E7", label: "Great match" },
-  medium: { solid: "#E78B30", tint: "#FBF1E6", deep: "#C26E1E", wash: "#FBF1E6", halo: "#FBF1E6", label: "Fair match" },
+  medium: { solid: "#E78B30", tint: "#FBF1E6", deep: "#A85A14", wash: "#FBF1E6", halo: "#FBF1E6", label: "Fair match" },
   low: { solid: "#E56B65", tint: "#FFECE9", deep: "#CC4F49", wash: "#FFECE9", halo: "#FFECE9", label: "Poor match" },
 };
 
@@ -694,7 +700,7 @@ export const SKIN_NEEDS = {
   /** The strength scale's "more", struck through. */
   over: { fill: "#F3ECE3", ink: "#A8968A" },
   /** "Avoid pairing with"'s handwriting. Same as WARN. */
-  warn: "#C26E1E",
+  warn: "#A85A14",
   /** Active nights on the routine's days, and the new active on the clash calendar. */
   amber: "#E7A93C",
   /** The active already in the routine, on the clash calendar. */

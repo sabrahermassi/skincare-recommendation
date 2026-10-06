@@ -494,7 +494,7 @@ describe("the product screen opened from the journey", () => {
   // counts against the skin profile's own concerns instead.
   it("reads against the skin profile's concerns when opened any other way", async () => {
     await open({});
-    expect(screen.getByText(/^It covers \d of the \d recommendations for your skin\.$/)).toBeTruthy();
+    expect(screen.getByText(/^It covers \d of the \d recommendations for your skin\.( (One|\d+) things? to watch below\.)?$/)).toBeTruthy();
     // Nothing in it works on acne, the profile's one concern.
     expect(screen.getAllByText(/it won.t work on your acne on its own/).length).toBeGreaterThan(0);
   });
