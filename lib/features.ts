@@ -1,3 +1,7 @@
+import { useMemo } from "react";
+
+import type { Ingredient } from "@/data/types";
+import { safetyNoticeFor, safetyNoticeHits, type SafetyNoticeEntry, type SafetyNoticeHit } from "@/lib/safety";
 import { useAppStore } from "@/store/useAppStore";
 
 /**
@@ -20,4 +24,20 @@ export function useSafetyNoticeEnabled(): boolean {
 /** For code outside a component (scoring helpers, share text): reads the flag now. */
 export function safetyNoticeEnabled(): boolean {
   return useAppStore.getState().safetyNoticeEnabled;
+}
+
+/** The ingredients of a product the safety notice applies to: none with the flag off. */
+export function useSafetyNoticeHits(ingredients: readonly Ingredient[]): SafetyNoticeHit[] {
+  const enabled = useSafetyNoticeEnabled();
+  return useMemo(() => safetyNoticeHits(ingredients, enabled), [ingredients, enabled]);
+}
+
+/** The notice for one ingredient: null with the flag off. */
+export function useSafetyNoticeFor(ingredient: Ingredient): SafetyNoticeEntry | null {
+  return safetyNoticeFor(ingredient, useSafetyNoticeEnabled());
+}
+
+/** The same outside a component (#405's share text): reads the flag now. */
+export function safetyNoticeHitsNow(ingredients: readonly Ingredient[]): SafetyNoticeHit[] {
+  return safetyNoticeHits(ingredients, safetyNoticeEnabled());
 }

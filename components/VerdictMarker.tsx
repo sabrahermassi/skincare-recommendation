@@ -35,12 +35,12 @@ export function VerdictDot({ colour, halo }: { colour: string; halo: string }) {
  * dot with its halo, then the word in the verdict's text colour. There are no
  * Good / Watch / Avoid pills.
  */
-export function VerdictMarker({ label }: { label: IngredientLabel }) {
+export function VerdictMarker({ label, text }: { label: IngredientLabel; /** The word to show in place of the label's own (the EU safety notice's "Check label", #404). */ text?: string }) {
   const tone = verdictTone(label);
   return (
     <View style={{ flexDirection: "row", alignItems: "center", gap: 10 }}>
       <VerdictDot colour={tone.solid} halo={tone.halo} />
-      <Text style={{ fontSize: 15, color: tone.deep }}>{LABEL_META[label].label}</Text>
+      <Text style={{ fontSize: 15, color: tone.deep }}>{text ?? LABEL_META[label].label}</Text>
     </View>
   );
 }

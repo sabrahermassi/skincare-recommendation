@@ -6,6 +6,8 @@ import { BottomSheet } from "@/components/BottomSheet";
 import { CloseCross, IconCircle } from "@/components/IconCircle";
 import { BUTTON_WIDTH, PrimaryButton } from "@/components/PrimaryButton";
 import { GlassHeader } from "@/components/GlassHeader";
+import { ReferenceLink } from "@/components/ReferenceLink";
+import { SafetyShield } from "@/components/SafetyShield";
 import { IngredientsCard, type IngredientFilter } from "@/components/result/IngredientsCard";
 import { ScoreDisc, VerdictLink } from "@/components/result/ScoreRing";
 import { SegmentedSwitch } from "@/components/SegmentedSwitch";
@@ -14,14 +16,15 @@ import { VerdictDot } from "@/components/VerdictMarker";
 import type { Ingredient, ProductType, SkinProfile } from "@/data/types";
 import { pairingNotesFor } from "@/lib/active-pairings";
 import { goalNudgesFor, nudgesFor } from "@/lib/context-nudges";
+import { useSafetyNoticeHits } from "@/lib/features";
 import { displayIngredientName } from "@/lib/ingredient-name";
 import { deckFor, needVerdict, PLAN_CONCERNS, planFit, type Need, type NeedLevel } from "@/lib/journey";
-import { concernSupport, confidenceLabel, isLowCoverage, matchProduct, ruleFor, type MatchResult } from "@/lib/matching";
+import { concernSupport, confidenceLabel, isLowCoverage, matchProduct, ruleFor, type Contraindication, type MatchResult } from "@/lib/matching";
 import { openQuiz } from "@/lib/open-quiz";
 import { CONCERN_PHRASE, isPersonalized } from "@/lib/profile";
 import { cloggerConfidence, PORE_COUNTS_TEXT, poreCountedNames, poreVerdict } from "@/lib/pore-clogging";
 import { irritationRisk, poreRisk, type Risk } from "@/lib/risk";
-import { irritationWarnings, isVerified } from "@/lib/safety";
+import { EU_PROHIBITED_SOURCE, irritationWarnings, isVerified, SAFETY_NOTICE_COPY, type SafetyNoticeHit } from "@/lib/safety";
 import { inSentence } from "@/lib/skin-needs";
 import { CARD_RADIUS, DIVIDER, DISPLAY_FONT, HOME_CARD_FILL, INK, MUTED, RISK_FILL, RISK_LINE, SEGMENT_TRACK, SHEET, SPACE, STONE, STONE_GLASS, TEASER_INK, TYPE, VERDICT, VERDICT_NEUTRAL, WHITE } from "@/lib/tokens";
 import { EMPTY_PROFILE } from "@/store/useAppStore";
@@ -198,17 +201,30 @@ export function ResultTabs({
 
 function MatchTab({ ingredients, type, match, profile, need }: { ingredients: Ingredient[]; type: ProductType; match: MatchResult; profile: SkinProfile; need?: Need }) {
   const lowCoverage = isLowCoverage(ingredients);
-  if (!need && !isPersonalized(profile) && !lowCoverage) return <NoProfile />;
+  // The EU safety notice (#404): none with the flag off, so those two
+  // states are exactly what they were.
+  const noticeHits = useSafetyNoticeHits(ingredients);
+  if (!need && !isPersonalized(profile) && !lowCoverage) {
+    return (
+      <>
+        <NoticeCard hits={noticeHits} />
+        <NoProfile />
+      </>
+    );
+  }
 
   const identified = ingredients.filter(isVerified).length;
   if (lowCoverage) {
     return (
-      <View style={{ gap: 4, borderRadius: CARD_RADIUS, backgroundColor: VERDICT.medium.wash, padding: SPACE.gutter }}>
-        <Text accessibilityRole="header" style={{ fontSize: TYPE.card, fontWeight: "600", color: VERDICT.medium.deep }}>
-          We only recognised {identified} of {ingredients.length} names
-        </Text>
-        <Text style={{ fontSize: TYPE.body, lineHeight: 21, color: INK }}>That&apos;s too few to score it fairly.</Text>
-      </View>
+      <>
+        <NoticeCard hits={noticeHits} />
+        <View style={{ gap: 4, borderRadius: CARD_RADIUS, backgroundColor: VERDICT.medium.wash, padding: SPACE.gutter }}>
+          <Text accessibilityRole="header" style={{ fontSize: TYPE.card, fontWeight: "600", color: VERDICT.medium.deep }}>
+            We only recognised {identified} of {ingredients.length} names
+          </Text>
+          <Text style={{ fontSize: TYPE.body, lineHeight: 21, color: INK }}>That&apos;s too few to score it fairly.</Text>
+        </View>
+      </>
     );
   }
 
@@ -249,7 +265,46 @@ function ScoreHead({ match }: { match: MatchResult }) {
   );
 }
 
-type Reason = { key: string; name: string; text: string; tone: Tone };
+type Reason = { key: string; name: string; text: string; tone: Tone; /** The EU safety notice (#404): a shield, a link and a caveat. */ notice?: boolean };
+
+/**
+ * The EU safety notice above what a result with no profile, or too little
+ * read, says (#404): "Please check the label", then each name. Nothing when
+ * the flag is off or no verified ingredient is on the label.
+ */
+function NoticeCard({ hits }: { hits: SafetyNoticeHit[] }) {
+  if (hits.length === 0) return null;
+  return (
+    <View style={{ marginBottom: SPACE.block, flexDirection: "row", alignItems: "flex-start", gap: 12, borderRadius: CARD_RADIUS, backgroundColor: VERDICT.low.wash, padding: SPACE.gutter }}>
+      <View style={{ marginTop: 1 }}>
+        <SafetyShield />
+      </View>
+      <View style={{ flex: 1, gap: 4 }}>
+        <Text accessibilityRole="header" style={{ fontSize: TYPE.card, fontWeight: "600", color: VERDICT.low.deep }}>
+          {SAFETY_NOTICE_COPY.cardTitle}
+        </Text>
+        {hits.map((hit) => (
+          <Text key={hit.ingredient.name} style={{ fontSize: TYPE.body, lineHeight: 21, color: INK }}>
+            <Text style={{ fontWeight: "600" }}>{displayIngredientName(hit.ingredient.name)}</Text>
+            {SAFETY_NOTICE_COPY.cardText}
+          </Text>
+        ))}
+      </View>
+    </View>
+  );
+}
+
+/** A hazard's red box: its own sentence, or (#404) the EU notice for an ingredient on the verified list. */
+function hazardRow(w: Contraindication, noticeHits: SafetyNoticeHit[]): Reason {
+  const noticed = noticeHits.some((hit) => hit.ingredient.name === w.ingredient.name);
+  return {
+    key: `avoid-${w.ingredient.name}`,
+    name: displayIngredientName(w.ingredient.name),
+    text: noticed ? SAFETY_NOTICE_COPY.rowText : stripName(w.reason, w.ingredient.name),
+    tone: VERDICT.low,
+    ...(noticed ? { notice: true } : {}),
+  };
+}
 
 /** What the result says first, by how well it scored (v9). */
 const REASONS_TITLE: Record<MatchResult["verdict"], string> = {
@@ -286,12 +341,15 @@ function Reasons({ ingredients, match, profile }: { ingredients: Ingredient[]; m
 
   const seen = new Set<string>();
   const rows: Reason[] = [];
+  // The EU safety notice (#404): with the flag off there are no hits, and
+  // every line below is what it was.
+  const noticeHits = useSafetyNoticeHits(ingredients);
   // Hazards first: they cap the score for everyone.
   const hazards = match.warnings.filter((w) => w.severity === "hazard");
   for (const w of hazards) {
     if (seen.has(w.ingredient.name)) continue;
     seen.add(w.ingredient.name);
-    rows.push({ key: `avoid-${w.ingredient.name}`, name: displayIngredientName(w.ingredient.name), text: stripName(w.reason, w.ingredient.name), tone: VERDICT.low });
+    rows.push(hazardRow(w, noticeHits));
   }
   // A pore-clogger, for the skin it matters to (owner): acne or enlarged
   // pores in the profile. Strong evidence is red, moderate orange; a
@@ -385,7 +443,9 @@ function Reasons({ ingredients, match, profile }: { ingredients: Ingredient[]; m
   const shown = rows.slice(0, 6);
 
   const line =
-    hazards.length > 0
+    noticeHits.length > 0
+      ? SAFETY_NOTICE_COPY.matchLine
+      : hazards.length > 0
       ? "Contains something worth avoiding for your skin."
       : fit
         ? fit.total === 1
@@ -413,20 +473,28 @@ function Reasons({ ingredients, match, profile }: { ingredients: Ingredient[]; m
   );
 }
 
-/** One finding: its colour, the app's one marker, the bold name and a sentence. */
+/**
+ * One finding: its colour, the app's one marker, the bold name and a sentence.
+ * The EU safety notice (#404) wears a shield instead of the dot, and adds the
+ * regulation's link and a line that formulas vary and scans can be wrong.
+ */
 function ReasonBox({ row }: { row: Reason }) {
   return (
     <View style={{ flexDirection: "row", alignItems: "flex-start", gap: 12, borderRadius: 20, backgroundColor: row.tone.wash, padding: SPACE.gutter }}>
       {/* The dot in its halo (owner). The halo is white here: the verdict's
           own pale halo is the card's colour and would not show on it. */}
-      <View style={{ marginTop: 2 }}>
-        <VerdictDot colour={row.tone.solid} halo={WHITE} />
-      </View>
+      <View style={{ marginTop: row.notice ? 0 : 2 }}>{row.notice ? <SafetyShield /> : <VerdictDot colour={row.tone.solid} halo={WHITE} />}</View>
       <View style={{ flex: 1, gap: 2 }}>
         <Text style={{ fontSize: TYPE.body, lineHeight: 20, color: INK }}>
           <Text style={{ fontWeight: "600" }}>{row.name}</Text>
           {row.text}
         </Text>
+        {row.notice ? (
+          <>
+            <ReferenceLink label={EU_PROHIBITED_SOURCE.label} url={EU_PROHIBITED_SOURCE.url} />
+            <Text style={{ fontSize: TYPE.caption, lineHeight: 17, color: MUTED }}>{SAFETY_NOTICE_COPY.rowCaveat}</Text>
+          </>
+        ) : null}
       </View>
     </View>
   );
@@ -450,10 +518,11 @@ function NeedMatch({ ingredients, match, profile, need }: { ingredients: Ingredi
   const names = (list: string[]) => listNames(list.slice(0, 3).map(displayIngredientName));
   const seen = new Set<string>();
   const rows: Reason[] = [];
+  const noticeHits = useSafetyNoticeHits(ingredients);
   for (const w of match.warnings.filter((warning) => warning.severity === "hazard")) {
     if (seen.has(w.ingredient.name)) continue;
     seen.add(w.ingredient.name);
-    rows.push({ key: `avoid-${w.ingredient.name}`, name: displayIngredientName(w.ingredient.name), text: stripName(w.reason, w.ingredient.name), tone: VERDICT.low });
+    rows.push(hazardRow(w, noticeHits));
   }
   for (const finding of verdict.actives) {
     finding.ingredients.forEach((name) => seen.add(name));
