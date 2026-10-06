@@ -266,6 +266,10 @@ const FRAGRANCE_POSITION_FLOOR_HIGH = 0.7;
  * where the floor changes something. Chosen by weight rather than by charge
  * (#368 review): by charge, an essential oil near the top — already above the
  * floor — could take it from a parfum at the end.
+ *
+ * An EU fragrance allergen that no rule names (vanillin, linalyl acetate) weighs
+ * `ALLERGEN_CHARGE`, below every fragrance rule, so it is the main scent only
+ * when nothing heavier is in the formula (#407, Codex review).
  */
 function flooredFragrance(ingredients: Ingredient[], positionFactors: number[]): number {
   let best = -1;
@@ -273,10 +277,11 @@ function flooredFragrance(ingredients: Ingredient[], positionFactors: number[]):
   ingredients.forEach((ingredient, position) => {
     if (!isVerified(ingredient)) return;
     const rule = findRule(ingredient);
-    if (rule?.category !== "fragrance") return;
-    if (rule.weight > bestWeight || (rule.weight === bestWeight && positionFactors[position] <= positionFactors[best])) {
+    const weight = rule ? (rule.category === "fragrance" ? rule.weight : 0) : euAllergenFor(ingredient)?.kind === "fragrance" ? ALLERGEN_CHARGE : 0;
+    if (weight === 0) return;
+    if (weight > bestWeight || (weight === bestWeight && positionFactors[position] <= positionFactors[best])) {
       best = position;
-      bestWeight = rule.weight;
+      bestWeight = weight;
     }
   });
   return best;
@@ -608,7 +613,8 @@ function computeMatch(
   if (treatAsReactive(profile)) {
     for (const [position, ingredient] of product.ingredients.entries()) {
       if (!euAllergenFor(ingredient)) continue;
-      const charge = ALLERGEN_CHARGE * positionFactors[position] * contact.harm;
+      const factor = position === floored ? Math.max(positionFactors[position], FRAGRANCE_POSITION_FLOOR_HIGH) : positionFactors[position];
+      const charge = ALLERGEN_CHARGE * factor * contact.harm;
       const already = ruleIrritation.get(position) ?? 0;
       if (charge <= already) continue;
       irritation += charge - already;

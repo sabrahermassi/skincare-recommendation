@@ -46,6 +46,24 @@ describe("an EU allergen is charged once, at the higher of the two", () => {
     expect(result.breakdown.irritationPenalty).toBeCloseTo(6 * 0.7 * contactWeight("moisturizer").harm * 1.6, 5);
   });
 
+  it("floors the main scent when it is an allergen no rule names, and only then (Codex review)", () => {
+    const tail = Array.from({ length: 18 }, (_, i) => ing(`filler ${String.fromCharCode(97 + i)}`));
+    const factorOf = (list: Ingredient[], name: string) => positionWeights(list.map((i) => i.name))[list.findIndex((i) => i.name === name)];
+    // Vanillin alone, last in a long list: its position factor is under the floor, so "very sensitive" charges 0.7 of the allergen charge.
+    const alone = { type: "moisturizer" as const, ingredients: [...FILLER, ...tail, ing("vanillin")] };
+    expect(factorOf(alone.ingredients, "vanillin")).toBeLessThan(0.7);
+    expect(score(alone, profile("high")).breakdown.irritationPenalty).toBeCloseTo(ALLERGEN_CHARGE * 0.7 * 1.6, 5);
+    // "Somewhat" keeps the position factor.
+    expect(score(alone, profile("some")).breakdown.irritationPenalty).toBeCloseTo(ALLERGEN_CHARGE * factorOf(alone.ingredients, "vanillin"), 5);
+    // With parfum in the list, parfum is the main scent and vanillin keeps its position factor.
+    const withParfum = { type: "moisturizer" as const, ingredients: [...FILLER, ing("parfum"), ...tail, ing("vanillin")] };
+    const list = withParfum.ingredients;
+    expect(score(withParfum, profile("high")).breakdown.irritationPenalty).toBeCloseTo(
+      (9 * Math.max(factorOf(list, "parfum"), 0.7) + ALLERGEN_CHARGE * factorOf(list, "vanillin")) * 1.6,
+      5
+    );
+  });
+
   it("charges an allergen with no rule of its own the allergen charge, and names it as charged", () => {
     const product = formula(ing("vanillin"));
     const result = score(product, profile("some"));
