@@ -101,7 +101,7 @@ type Status =
   | { kind: "missed"; code: string }
   | { kind: "unreachable"; code: string; failure: FetchFailure };
 
-// The design system (design/DESIGN_SYSTEM.md): the dark stage is
+// The design system (DESIGN.md): the dark stage is
 // `CAMERA_STAGE`, the only dark surface in the app; the pop-ups over it are
 // the app's light ones.
 

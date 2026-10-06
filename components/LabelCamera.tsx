@@ -21,7 +21,7 @@ import { CAMERA_STAGE, CANVAS, INK, SELECTED, SPACE, TOUCH_TARGET, TYPE, withAlp
 import { useAppStore } from "@/store/useAppStore";
 import { haptic } from "@/lib/haptics";
 
-// The design system (design/DESIGN_SYSTEM.md). The live camera view stays plain
+// The design system (DESIGN.md). The live camera view stays plain
 // black, same reasoning as the scanner's own dark stage — only the
 // surrounding light-surface chrome (permission screens, the shutter button)
 // moves to this system.

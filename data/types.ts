@@ -26,8 +26,8 @@ export type Concern =
   | "atopic"
   // Post-inflammatory erythema/hyperpigmentation left behind by acne — its
   // own concern rather than folded into `hyperpigmentation`/`redness`,
-  // because the quiz asks about it separately (design/DESIGN_SYSTEM.md's
-  // quiz spec). Scored by extending those two concerns' existing rules
+  // because the quiz asks about it separately
+  // (`app/quiz/concerns.tsx`). Scored by extending those two concerns' existing rules
   // rather than new ingredient evidence — see lib/rules.ts.
   | "post-acne-marks";
 
