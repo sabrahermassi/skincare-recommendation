@@ -69,6 +69,7 @@ const NAME = [
  * lighteners that share a stem (phenylethyl resorcinol, hexylresorcinol,
  * 4-butylresorcinol are different names and are not here).
  */
+/** @type {[string, string[]][]} The Annex III entry number and the INCI names it prints. */
 export const OXIDATION_DYE_ENTRIES = [
     ["8a", ["p-phenylenediamine", "p-phenylenediamine hcl", "p-phenylenediamine sulfate"]],
     ["9a", ["toluene-2,5-diamine", "toluene-2,5-diamine sulfate"]],

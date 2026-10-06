@@ -89,7 +89,7 @@ describe("nonSkincareReason on the ingredient list (hair dye)", () => {
 
   // Codex, #431: the import reads names through the INCI parser, which drops a
   // bracketed part and splits "N,N-bis(...)" at its letter-comma-letter.
-  it.each(OXIDATION_DYE_ENTRIES.flatMap(([entry, names]: [string, string[]]) => names.map((name) => [entry, name] as const)))(
+  it.each(OXIDATION_DYE_ENTRIES.flatMap(([entry, names]) => names.map((name) => [entry, name] as const)))(
     "finds Annex III/%s %p after the importer's own parser has read it",
     (entry: string, printed: string) => {
       const known = new Set(["aqua", "resorcinol", "m-aminophenol"]);
