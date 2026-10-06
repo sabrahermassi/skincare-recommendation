@@ -22,6 +22,8 @@
  * (owner decision, 26 Sep 2026); only what a product *is* is judged here.
  */
 
+import { normalise } from "./inci-parse.mjs";
+
 const CATEGORY = /(^|:)(nail-|nail$|household|cleaning-products|surface-cleaners|dishwashing|laundry|detergents|oral-care|toothpastes|mouthwashes|hair-dyes$)/;
 
 const NAME = [
@@ -47,9 +49,9 @@ const NAME = [
   /\bdentifrice\b/i,
   // Hair dye (#420). Never the bare words "colour" or "color", which name
   // shampoos and masks for coloured hair; always the thing being sold.
-  /\bhair\s*dye\b/i,
-  /\bhair\s*colou?r\s*(kit|cream|creme|gel|dye|developer)\b/i,
-  /\bpermanent\s+(hair\s+)?colou?r\b/i,
+  /\bhair[\s-]*dye\b/i,
+  /\bhair[\s-]*colou?r[\s-]*(kit|cream|creme|gel|dye|developer)\b/i,
+  /\bpermanent[\s-]+(hair[\s-]+)?colou?r\b/i,
   /\bcoloration\s+(permanente|capillaire|d'oxydation)\b/i, // French
   /\bteinture\s+(pour\s+)?cheveux\b/i, // French
   /\bhaar(farbe|f[äa]rbemittel|t[öo]nung|verf)\b/i, // German and Dutch
@@ -67,8 +69,7 @@ const NAME = [
  * lighteners that share a stem (phenylethyl resorcinol, hexylresorcinol,
  * 4-butylresorcinol are different names and are not here).
  */
-const OXIDATION_DYES = new Map(
-  [
+export const OXIDATION_DYE_ENTRIES = [
     ["8a", ["p-phenylenediamine", "p-phenylenediamine hcl", "p-phenylenediamine sulfate"]],
     ["9a", ["toluene-2,5-diamine", "toluene-2,5-diamine sulfate"]],
     ["9b", ["2,6-dihydroxyethylaminotoluene"]],
@@ -90,11 +91,20 @@ const OXIDATION_DYES = new Map(
     ["272", ["p-aminophenol"]],
     ["285", ["2,6-diaminopyridine"]],
     ["292", ["2-methoxymethyl-p-phenylenediamine", "2-methoxymethyl-p-phenylenediamine sulfate"]],
-  ].flatMap(([entry, names]) => names.map((name) => [name, entry]))
-);
+];
 
-/** The same name whichever way the label spells the salt ("sulphate", "sulfate"), in any case. */
-const dyeKey = (name) => name.trim().toLowerCase().replace(/\s+/g, " ").replace(/sulphate/g, "sulfate");
+/**
+ * A name as the OBF import and the dictionary hold it: through the INCI
+ * parser's own `normalise` (which drops a bracketed part, so "1,3-bis-(2,4-
+ * diaminophenoxy)propane" is read as "1,3-bis- propane"), whichever way the
+ * label spells the salt ("sulphate", "sulfate"), in any case.
+ */
+const dyeKey = (name) => normalise(name).replace(/sulphate/g, "sulfate");
+
+const OXIDATION_DYES = new Map(OXIDATION_DYE_ENTRIES.flatMap(([entry, names]) => names.map((name) => [dyeKey(name), entry])));
+// The parser also splits "N,N-bis(...)" at the letter-comma-letter, leaving this
+// (found by Codex on #431; `__tests__/non-skincare.test.ts` pins every name through the parser).
+OXIDATION_DYES.set("n-bis -p-phenylenediamine sulfate", "198");
 
 /**
  * Whether the formula is a hair-dye kit, or null. Two or more of the dye
