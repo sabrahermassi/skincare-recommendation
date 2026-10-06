@@ -246,10 +246,13 @@ with confidence tiers, owns acne fit).
 - `hazard` warnings cap the score at 45 and subtract 5 per additional
   hazard. `irritant` warnings go through the graduated irritation penalty
   instead — **do not merge these two tiers.**
-- Import `COMEDOGENIC_FLAG_THRESHOLD` (3) / `COMEDOGENIC_SEVERE_THRESHOLD`
-  (4) from `lib/safety.ts` — never re-inline a comedogenic check.
-  `scoreExplanation` / `confidenceLabel` live in `lib/matching.ts` with the
-  arithmetic they describe.
+- Import `COMEDOGENIC_FLAG_THRESHOLD` (3) from `lib/safety.ts` — never
+  re-inline a comedogenic check. There is no comedogenic *hazard*: the 0-5
+  column is empty for catalogue rows, so pore-clogging is warned about and
+  explained only from `lib/pore-clogging.ts` (#406). `confidenceLabel` lives
+  in `lib/matching.ts` with the arithmetic it describes; the old
+  `verdictHeadline` and `scoreExplanation` were removed in #406 (no screen
+  called them).
 
 ## Design system
 

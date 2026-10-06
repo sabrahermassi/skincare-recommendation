@@ -200,4 +200,55 @@ describe("a pore-clogger on Skin match", () => {
     await openMatch();
     expect(screen.queryByText(/is comedogenic and may clog pores/)).toBeNull();
   });
+  // #406: oily skin with no pore-led concern is charged a little for them, and
+  // Skin match says so, with no number.
+  describe("for oily skin without acne or enlarged pores (#406)", () => {
+    const OILY = { ...EMPTY_PROFILE, baseSkinType: "oily" as const, concerns: ["dehydrated" as const] };
+    const SAYS = "can clog pores. That counts a little for your oily skin.";
+
+    it("names the clogger and says it counts a little", async () => {
+      await show(["coconut oil"], OILY);
+      await openMatch();
+      expect(screen.getByText(new RegExp(`Coconut Oil ${SAYS.replace(/\./g, "\\.")}`))).toBeTruthy();
+      expect(screen.queryByText(/is comedogenic/)).toBeNull();
+    });
+
+    it("also names a moderate one, together with a strong one in one row", async () => {
+      await show(["coconut oil", "glyceryl stearate se"], OILY);
+      await openMatch();
+      expect(screen.getByText(/Coconut Oil and Glyceryl Stearate SE can clog pores\. That counts a little/i)).toBeTruthy();
+    });
+
+    it("names three and then says 'and others'", async () => {
+      await show(["coconut oil", "lauric acid", "isopropyl myristate", "glyceryl stearate se"], OILY);
+      await openMatch();
+      expect(screen.getByText(/Coconut Oil, Lauric Acid, Isopropyl Myristate and others can clog pores\./)).toBeTruthy();
+    });
+
+    it("never names a contested one, and shows no row for it alone", async () => {
+      await show(["coconut alkanes"], OILY);
+      await openMatch();
+      expect(screen.queryByText(/can clog pores/)).toBeNull();
+      expect(screen.queryByText(/Coconut Alkanes/i)).toBeNull();
+    });
+
+    it("shows no row when nothing on the label clogs pores", async () => {
+      await show(["niacinamide"], OILY);
+      await openMatch();
+      expect(screen.queryByText(/That counts a little/)).toBeNull();
+    });
+
+    it("leaves acne and enlarged pores to their own wording, not this row", async () => {
+      await show(["coconut oil"], { ...OILY, concerns: ["acne-prone"] });
+      await openMatch();
+      expect(screen.getByText(/Coconut Oil is comedogenic and may clog pores\./)).toBeTruthy();
+      expect(screen.queryByText(/That counts a little/)).toBeNull();
+    });
+
+    it("is for oily skin only: normal skin is told nothing of it", async () => {
+      await show(["coconut oil"], { ...OILY, baseSkinType: "normal" });
+      await openMatch();
+      expect(screen.queryByText(/can clog pores/)).toBeNull();
+    });
+  });
 });

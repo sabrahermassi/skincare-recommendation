@@ -26,7 +26,7 @@ the register these principles rule out, not a real regression.
 ### 1. Say what happens, not that something went wrong in general
 
 > **What we ship:** "Answer a few questions and we can tell you how this
-> suits you." (`lib/matching.ts`, `verdictHeadline`)
+> suits you."
 >
 > **What we don't write:** "Unable to generate a compatibility score at
 > this time."
@@ -78,8 +78,8 @@ produced it, it is not ready to ship.
 ### 4. Confidence without certainty
 
 > **What we ship:** "We couldn't read enough of this formula to judge it"
-> (`verdictHeadline`, `unknownReason: "low_coverage"`) rather than silently
-> scoring a formula the app barely identified.
+> (`unknownReason: "low_coverage"`) rather than silently scoring a formula
+> the app barely identified.
 >
 > **Written but not yet on screen:** "The assessment is an ingredient-based
 > compatibility analysis and is not a guarantee of an individual's skin
@@ -169,8 +169,7 @@ that file's own instruction at the top of `OWNED_CLAIMS`.
 
 | Surface | File(s) | Claims-audited? |
 |---|---|---|
-| Verdict headline | `lib/matching.ts` (`verdictHeadline`) | Yes — added in #187, its own `HEADLINE_RESULTS` collection |
-| Score explanation | `lib/matching.ts` (`scoreExplanation`) | Yes — `scoreExplanation[]` |
+| Skin match reasons (pore-cloggers for oily skin) | `lib/pore-clogging.ts` (`PORE_COUNTS_TEXT`, #406) | Yes — `PORE_COUNTS_TEXT`, read with a name before it |
 | Confidence label | `lib/matching.ts` (`confidenceLabel`) | No — three fixed words ("high"/"moderate"/"low"), not a sentence; nothing to audit |
 | Ingredient rule reasons | `lib/rules.ts` (`INGREDIENT_RULES[].reason`) | Yes — **out of scope for this ticket**, see below |
 | Pore-clogging reasons | `lib/pore-clogging.ts` (`PORE_CLOGGERS[].reason`) | Yes — **out of scope**, see below |

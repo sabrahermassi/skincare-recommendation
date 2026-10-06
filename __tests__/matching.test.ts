@@ -7,14 +7,10 @@ import {
   matchTone,
   resetScoreCache,
   SCORE_BANDS,
-  scoreExplanation,
-  verdictHeadline,
-  type MatchResult,
 } from "@/lib/matching";
 import { EMPTY_PROFILE } from "@/store/useAppStore";
 import { ingredientLabel } from "@/lib/ingredient-labels";
 import { isPersonalized } from "@/lib/profile";
-import { EU_PROHIBITED_SOURCE, type Contraindication } from "@/lib/safety";
 
 async function load(id: string): Promise<ProductWithIngredients> {
   const result = await fetchProduct(id);
@@ -232,38 +228,6 @@ describe("verdict engine", () => {
     };
   }
 
-  function resultAt(
-    score: number,
-    breakdown: Partial<MatchResult["breakdown"]> = {}
-  ): MatchResult {
-    const seed = matchProduct(
-      synthetic(["water", "glycerin", "xanthan gum"]),
-      profile({ baseSkinType: "normal" })
-    );
-    const verdict =
-      score >= SCORE_BANDS.excellent
-        ? "excellent"
-        : score >= SCORE_BANDS.good
-          ? "good"
-          : score >= SCORE_BANDS.fair
-            ? "fair"
-            : "poor";
-
-    return {
-      ...seed,
-      score,
-      verdict,
-      warnings: [],
-      breakdown: {
-        concernFit: 50,
-        typeFit: 50,
-        irritationPenalty: 0,
-        porePenalty: 0,
-        ...breakdown,
-      },
-    };
-  }
-
   const FILLER = ["water", "butylene glycol", "glycerin", "1,2-hexanediol", "xanthan gum"];
 
   /**
@@ -401,156 +365,6 @@ describe("verdict engine", () => {
       )?.effect;
 
       expect(ambiguousEffect).toBeCloseTo((leaveOnEffect as number) * 0.5);
-    });
-
-    it("explains the score in order of what actually moved it", () => {
-      // A fragranced formula for someone with redness: irritation should be
-      // the loudest line, not buried under a neutral concern-fit note.
-      const prof = profile({ baseSkinType: "normal", concerns: ["redness"], sensitivity: "high" });
-      const lines = scoreExplanation(
-        matchProduct(synthetic(["water", "parfum", "limonene", "glycerin"]), prof)
-      );
-      expect(lines.length).toBeGreaterThan(0);
-      expect(lines[0].label).toBe("Irritation risk");
-      expect(lines[0].direction).toBe("down");
-    });
-
-    it("has nothing to explain when it declined to score", () => {
-      const unscored = matchProduct(synthetic(["water", "glycerin"]), EMPTY_PROFILE);
-      expect(unscored.score).toBeNull();
-      expect(scoreExplanation(unscored)).toEqual([]);
-    });
-
-    it.each([
-      [0, "poor", "down"],
-      [59, "poor", "down"],
-      [60, "fair", null],
-      [74, "fair", null],
-      [75, "good", "up"],
-      [89, "good", "up"],
-      [90, "excellent", "up"],
-      [100, "excellent", "up"],
-    ] as const)(
-      "keeps a score of %i consistent with its %s explanation",
-      (
-        score: number,
-        _verdict: "poor" | "fair" | "good" | "excellent",
-        requiredDirection: "up" | "down" | null
-      ) => {
-        const lines = scoreExplanation(resultAt(score));
-        if (requiredDirection === null) {
-          // Fair is the mixed middle: with no material factor there is no
-          // invented positive or negative claim — only the neutral concern
-          // line, which is said whenever concerns were named (#292).
-          expect(lines).toEqual([
-            { label: "Your concerns", detail: "Nothing here strongly targets what you asked about", direction: "down" },
-          ]);
-        } else {
-          // The label too, not only the direction: the neutral concern line
-          // (#292) points down but moved nothing, so it must not lead a Poor
-          // explanation in place of the honest aggregate.
-          expect(lines[0]).toMatchObject({ label: "Overall match", direction: requiredDirection });
-        }
-      }
-    );
-
-    it("does not let a positive factor make a Poor explanation entirely positive", () => {
-      const lines = scoreExplanation(resultAt(59, { concernFit: 90 }));
-      expect(lines[0]).toMatchObject({ label: "Overall match", direction: "down" });
-      expect(lines.some((line) => line.direction === "up")).toBe(true);
-    });
-
-    it("leads a Good explanation with support even when a penalty is the largest factor", () => {
-      const lines = scoreExplanation(
-        resultAt(75, { concernFit: 75, irritationPenalty: 30 })
-      );
-      expect(lines[0]).toMatchObject({ label: "Your concerns", direction: "up" });
-      expect(lines.some((line) => line.direction === "down")).toBe(true);
-    });
-
-    it("names a hazard cap before otherwise positive evidence", () => {
-      const product = synthetic(["water", "isopropyl myristate", "glycerin"]);
-      const result = resultAt(45, { concernFit: 90 });
-      result.warnings = [
-        {
-          ingredient: product.ingredients[1],
-          reason: "Flagged as best avoided",
-          severity: "hazard",
-          origin: "avoid",
-        },
-      ];
-
-      expect(scoreExplanation(result)[0]).toMatchObject({
-        label: "Safety warning",
-        direction: "down",
-      });
-    });
-
-    it("names every hazard, not only the first", () => {
-      const product = synthetic(["water", "isopropyl myristate", "glycerin"]);
-      const result = resultAt(40, { concernFit: 90 });
-      result.warnings = [1, 2].map((i) => ({
-        ingredient: product.ingredients[i],
-        reason: "Flagged as best avoided",
-        severity: "hazard" as const,
-        origin: "avoid" as const,
-      }));
-      const detail = scoreExplanation(result)[0].detail;
-      expect(detail).toContain(product.ingredients[1].name);
-      expect(detail).toContain(product.ingredients[2].name);
-    });
-
-    // #347: the EU prohibition behind an "avoid" hazard is linked under the line.
-    it("links the EU source under a hazard line only when it backs every name in it", () => {
-      const product = synthetic(["water", "isopropyl myristate", "glycerin"]);
-      const avoid = (i: number): Contraindication => ({
-        ingredient: product.ingredients[i],
-        reason: "Flagged as best avoided",
-        severity: "hazard",
-        origin: "avoid",
-        source: EU_PROHIBITED_SOURCE,
-      });
-      const result = resultAt(40, { concernFit: 90 });
-      result.warnings = [avoid(1), avoid(2)];
-      expect(scoreExplanation(result)[0]).toMatchObject({ label: "Safety warning", source: EU_PROHIBITED_SOURCE });
-
-      result.warnings = [
-        avoid(1),
-        { ingredient: product.ingredients[2], reason: "Pore-clogging (4/5)", severity: "hazard", origin: "comedogenic" },
-      ];
-      const [line] = scoreExplanation(result);
-      expect(line.label).toBe("Safety warning");
-      expect(line).not.toHaveProperty("source");
-    });
-
-    it("does not present neutral concern evidence as positive", () => {
-      expect(scoreExplanation(resultAt(60, { concernFit: 50 }))).toEqual([
-        { label: "Your concerns", detail: "Nothing here strongly targets what you asked about", direction: "down" },
-      ]);
-      expect(scoreExplanation(resultAt(75, { concernFit: 50 }))[0]).toMatchObject({
-        label: "Overall match",
-        direction: "up",
-      });
-    });
-
-    // #292: someone who named concerns always sees how the product met them.
-    it.each([
-      [80, "up", "This formula works on what you asked about"],
-      [53, "down", "Nothing here strongly targets what you asked about"],
-      [20, "down", "This formula works against what you asked about"],
-    ] as const)("always explains concern fit %i", (concernFit: number, direction: "up" | "down", detail: string) => {
-      const lines = scoreExplanation(resultAt(65, { concernFit }));
-      expect(lines.find((line) => line.label === "Your concerns")).toEqual({ label: "Your concerns", detail, direction });
-    });
-
-    it("shows no concern line when no concerns were named", () => {
-      const lines = scoreExplanation(resultAt(65, { concernFit: null }));
-      expect(lines.some((line) => line.label === "Your concerns")).toBe(false);
-    });
-
-    it("sorts the neutral concern line after anything that moved the score", () => {
-      const lines = scoreExplanation(resultAt(65, { concernFit: 50, irritationPenalty: 6 }));
-      expect(lines.map((line) => line.label)).toEqual(["Irritation risk", "Your concerns"]);
     });
 
     it("reports lower confidence for a formula it mostly could not read", () => {
@@ -995,65 +809,6 @@ describe("verdict engine", () => {
     expect(matchProduct(a, prof).score).toBe(matchProduct(b, prof).score);
   });
 
-  // #187: a pregnancy caution never changes score or verdict, but the
-  // headline must say so rather than reading like an unqualified "good fit".
-  describe("verdictHeadline", () => {
-    function withPregnancyHits(result: MatchResult, count = 1): MatchResult {
-      return {
-        ...result,
-        warnings: Array.from({ length: count }, (_, i) => ({
-          ingredient: { id: `retinol-${i}`, name: `Retinol ${i}`, comedogenic: 0, safety: "safe" as const, verified: true },
-          reason: "A vitamin A derivative — commonly advised against in pregnancy and while breastfeeding",
-          severity: "irritant" as const,
-          origin: "pregnancy" as const,
-        })),
-      };
-    }
-
-    it("qualifies an excellent verdict with a singular pregnancy caution count", () => {
-      const result = withPregnancyHits(resultAt(95, { concernFit: 95 }));
-      expect(verdictHeadline(result)).toBe("Suits your skin — one thing to check while pregnant or breastfeeding");
-    });
-
-    it("qualifies a good verdict, pluralising more than one pregnancy hit", () => {
-      const result = withPregnancyHits(resultAt(80, { concernFit: 80 }), 2);
-      expect(verdictHeadline(result)).toBe("Suits your skin — 2 things to check while pregnant or breastfeeding");
-    });
-
-    it("leaves a good verdict unqualified with no pregnancy hit", () => {
-      expect(verdictHeadline(resultAt(80, { concernFit: 80 }))).toBe("Looks like a good fit for your skin");
-    });
-
-    it("qualifies a fair verdict with a pregnancy caution", () => {
-      const result = withPregnancyHits(resultAt(65, { concernFit: 65 }));
-      expect(verdictHeadline(result)).toBe("Could work, and there's something to check while pregnant or breastfeeding");
-    });
-
-    // #257 review: a breastfeeding profile gets the same pregnancy-origin
-    // hits, so a headline saying only "while pregnant" read as not applying.
-    it("names breastfeeding too, with the warnings a breastfeeding profile really gets", () => {
-      const product = synthetic(["water", "retinol", ...FILLER]);
-      const real = matchProduct(product, profile({ baseSkinType: "normal", pregnancyStatus: "breastfeeding" }));
-      expect(real.warnings.some((w) => w.origin === "pregnancy")).toBe(true);
-      // Pinned to "good" so the qualified branch is exercised whatever this
-      // formula happens to score; the warnings are the real ones.
-      expect(verdictHeadline({ ...real, verdict: "good" })).toMatch(/while pregnant or breastfeeding$/);
-    });
-
-    it("does not qualify a poor verdict — it's already cautionary", () => {
-      const result = withPregnancyHits(resultAt(40, { concernFit: 20 }));
-      expect(verdictHeadline(result)).toBe("Probably not the right pick for you");
-    });
-
-    it("does not qualify the unknown verdict, even though the hit still shows in warnings", () => {
-      const product = synthetic(["water", "tretinoin", ...FILLER]);
-      const unpersonalizedPregnant = profile({ pregnancyStatus: "pregnant" });
-      const result = matchProduct(product, unpersonalizedPregnant);
-      expect(result.verdict).toBe("unknown");
-      expect(result.warnings.some((w) => w.origin === "pregnancy")).toBe(true);
-      expect(verdictHeadline(result)).toBe("Add your skin type or a concern and we can tell you how this suits you");
-    });
-  });
 });
 
 /**

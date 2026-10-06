@@ -45,18 +45,16 @@ describe("contraindications", () => {
     expect(restricted.source).toBeUndefined();
   });
 
-  it("flags highly comedogenic ingredients for acne-prone users", () => {
-    const p = profile({ baseSkinType: "oily", concerns: ["acne-prone"] });
-    const result = contraindications([moderate], p);
-    expect(result).toHaveLength(1);
-    expect(result[0].reason).toMatch(/acne-prone/);
-  });
-
-  it("does NOT flag a comedogenic ingredient when the user is not acne-prone", () => {
-    // "none", not unset: an unset sensitivity now lists coconut oil's
-    // `caution` as an irritant (#183), which is a different question.
-    const p = profile({ baseSkinType: "dry", concerns: ["dehydrated"], sensitivity: "none" });
-    expect(contraindications([moderate], p)).toEqual([]);
+  // The 0-5 comedogenic column is empty for catalogue rows, so a hazard read
+  // from it could never fire (#406); pore-clogging is scored and explained from
+  // lib/pore-clogging.ts instead.
+  it("does not flag a comedogenic rating, for acne-prone skin or any other", () => {
+    // `sensitivity: "none"`, not unset: an unset sensitivity lists coconut
+    // oil's `caution` as an irritant (#183), which is a different question.
+    const acne = profile({ baseSkinType: "oily", concerns: ["acne-prone"], sensitivity: "none" });
+    expect(contraindications([moderate], acne)).toEqual([]);
+    const dry = profile({ baseSkinType: "dry", concerns: ["dehydrated"], sensitivity: "none" });
+    expect(contraindications([moderate], dry)).toEqual([]);
   });
 
   it("flags 'caution' irritants for sensitive skin, not for skin that said it isn't", () => {
@@ -89,8 +87,8 @@ describe("contraindications", () => {
   });
 
   it("reports each problem ingredient once", () => {
-    // coconut-oil is both caution AND comedogenic 4; a sensitive acne-prone
-    // user must not see it listed twice.
+    // coconut-oil is caution and rated comedogenic 4; a sensitive acne-prone
+    // user sees it once, as the restricted ingredient it is.
     const p = profile({ sensitivity: "some", concerns: ["acne-prone"] });
     const result = contraindications([moderate], p);
     expect(result).toHaveLength(1);

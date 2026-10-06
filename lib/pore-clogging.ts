@@ -351,6 +351,28 @@ export function cloggerConfidence(ingredient: Ingredient): CloggerConfidence | n
   return PORE_CLOGGERS.find((candidate) => entryMatches(candidate, ingredient.name))?.confidence ?? null;
 }
 
+/**
+ * What Skin match says about pore-cloggers for oily skin with no pore-led
+ * concern (#406), after the names: "{Names} can clog pores. That counts a
+ * little for your oily skin." The score does charge them a little for that
+ * skin (`poreRelevance` in lib/matching.ts), so the sentence says so rather
+ * than leave a lower score unexplained. No number, and never a contested name.
+ */
+export const PORE_COUNTS_TEXT = "can clog pores. That counts a little for your oily skin.";
+
+/**
+ * The ingredients that sentence is about: every high or moderate pore-clogger
+ * on the label, once each, in label order — the same ones the score charges
+ * (`CLOGGER_WEIGHT` is zero for a contested entry, so those are never named).
+ */
+export function poreCountedNames(ingredients: Ingredient[]): string[] {
+  const names: string[] = [];
+  for (const hit of poreCloggingHits(ingredients)) {
+    if (hit.confidence !== "contested" && !names.includes(hit.name)) names.push(hit.name);
+  }
+  return names;
+}
+
 export type PoreVerdict =
   /** At least one flagged ingredient. `warned` excludes contested entries. */
   | { kind: "hits"; hits: CloggerHit[]; warned: CloggerHit[] }
