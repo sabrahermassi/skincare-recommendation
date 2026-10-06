@@ -8,7 +8,7 @@ import { Text } from "@/components/Text";
 import { TERRACOTTA } from "@/components/shell/shared";
 import { clearProfileErasedNotice, profileErasedNoticePending } from "@/lib/erase-notice";
 import { POST_ONBOARDING_ROUTE } from "@/lib/profile";
-import { CANVAS, FLOATING_SHADOW, INK } from "@/lib/tokens";
+import { CANVAS, FLOATING_SHADOW, INK, TYPE } from "@/lib/tokens";
 import { useAppStore } from "@/store/useAppStore";
 
 // Watercolor heroes, one per screen, each with its own handwritten line
@@ -27,13 +27,13 @@ const SCREENS: OnboardingScreenContent[] = [
   },
   {
     headline: ["Know", "what's inside"],
-    supportingCopy: "Understand the ingredients and what they mean for your skin.",
+    supportingCopy: "We read the ingredient list and flag what may irritate or clog pores.",
     buttonLabel: "Continue",
     illustrationSource: HERO_INGREDIENTS,
   },
   {
     headline: ["Find what fits", "your skin"],
-    supportingCopy: "See how each formula matches your skin, concerns and goals.",
+    supportingCopy: "Add your skin type and concerns to see how each product may suit you.",
     // Lands on Home now, not the quiz (#346), so it no longer promises one.
     buttonLabel: "Get started",
     illustrationSource: HERO_FOR_ME,
@@ -162,9 +162,9 @@ export default function Onboarding() {
               backgroundColor: TERRACOTTA,
             }}
           >
-            <Text style={{ fontSize: 11, fontWeight: "700", color: CANVAS }}>✓</Text>
+            <Text style={{ fontSize: TYPE.caption, fontWeight: "700", color: CANVAS }}>✓</Text>
           </View>
-          <Text style={{ fontSize: 13, fontWeight: "600", color: INK }}>Your profile is erased</Text>
+          <Text style={{ fontSize: TYPE.caption, fontWeight: "600", color: INK }}>Your profile is erased</Text>
         </View>
       )}
     </View>

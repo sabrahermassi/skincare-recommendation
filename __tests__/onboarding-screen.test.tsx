@@ -1,5 +1,5 @@
 import { act, fireEvent, render, screen } from "@testing-library/react-native";
-import { StyleSheet, type StyleProp, type ViewStyle } from "react-native";
+import { AccessibilityInfo, StyleSheet, type StyleProp, type ViewStyle } from "react-native";
 
 import Onboarding from "@/app/onboarding";
 import { scaleThatFits } from "@/components/shell/OnboardingShell";
@@ -100,10 +100,10 @@ it("shows each screen's sentence in the muted colour, and moves through all thre
   await fireEvent.press(screen.getByText("Continue"));
   // The words change halfway through the slide.
   expect(await screen.findByText("Know")).toBeTruthy();
-  expect(screen.getByText("Understand the ingredients and what they mean for your skin.")).toBeTruthy();
+  expect(screen.getByText("We read the ingredient list and flag what may irritate or clog pores.")).toBeTruthy();
   await fireEvent.press(screen.getByText("Continue"));
   expect(await screen.findByText("Find what fits")).toBeTruthy();
-  expect(screen.getByText("See how each formula matches your skin, concerns and goals.")).toBeTruthy();
+  expect(screen.getByText("Add your skin type and concerns to see how each product may suit you.")).toBeTruthy();
 });
 
 it("draws the button in the primary button colours, and Skip in the muted one", async () => {
@@ -112,6 +112,55 @@ it("draws the button in the primary button colours, and Skip in the muted one", 
   expect(textStyle(button).backgroundColor).toBe(COLORS.buttonPrimary);
   expect(textStyle(screen.getByText("Continue")).color).toBe(COLORS.buttonPrimaryText);
   expect(textStyle(screen.getByText("Skip")).color).toBe(COLORS.introMuted);
+});
+
+// Moving through the intro by VoiceOver and by swipe (onboarding critique, 6 October 2026).
+const swipe = async (dx: number, dy = 0) => {
+  const root = screen.getByTestId("onboarding-shell");
+  await fireEvent(root, "touchStart", { nativeEvent: { touches: [{}], pageX: 200, pageY: 400 } });
+  await fireEvent(root, "touchEnd", { nativeEvent: { touches: [], pageX: 200 + dx, pageY: 400 + dy } });
+};
+
+it("labels the dots as one element, 'Page n of 3', that follows the active screen", async () => {
+  await render(<Onboarding />);
+  expect(screen.getByLabelText("Page 1 of 3")).toBeTruthy();
+  await fireEvent.press(screen.getByText("Continue"));
+  expect(screen.getByLabelText("Page 2 of 3")).toBeTruthy();
+  // Let the slide finish, so it cannot announce during the next test.
+  await screen.findByText("Know");
+});
+
+it("announces the new headline once the words change", async () => {
+  // Jest's own mock of AccessibilityInfo already holds the calls earlier tests made.
+  const announce = jest.spyOn(AccessibilityInfo, "announceForAccessibility");
+  announce.mockClear();
+  await render(<Onboarding />);
+  expect(announce).not.toHaveBeenCalled();
+  await fireEvent.press(screen.getByText("Continue"));
+  await screen.findByText("Know");
+  expect(announce).toHaveBeenCalledWith("Know what's inside");
+  announce.mockRestore();
+});
+
+it("moves forward on a swipe left and back on a swipe right", async () => {
+  await render(<Onboarding />);
+  await swipe(-120);
+  expect(await screen.findByText("Know")).toBeTruthy();
+  await swipe(120);
+  expect(await screen.findByText("Scan any")).toBeTruthy();
+});
+
+it("leaves a tap and a vertical drag alone, and a swipe left on the last screen", async () => {
+  await render(<Onboarding />);
+  await swipe(0);
+  await swipe(-120, 200);
+  expect(screen.getByText("Scan any")).toBeTruthy();
+  await fireEvent.press(screen.getByText("Continue"));
+  await screen.findByText("Know");
+  await fireEvent.press(screen.getByText("Continue"));
+  await screen.findByText("Find what fits");
+  await swipe(-120);
+  expect(useAppStore.getState().hasSeenOnboarding).toBe(false);
 });
 
 // A larger text setting grows the headline only as far as its band holds it.

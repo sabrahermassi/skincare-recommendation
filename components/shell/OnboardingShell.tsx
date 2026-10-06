@@ -1,9 +1,19 @@
 import { Image } from "expo-image";
 import { useEffect, useRef, useState } from "react";
-import { AccessibilityInfo, Animated, Easing, Platform, Pressable, StyleSheet, useWindowDimensions, View } from "react-native";
+import {
+  AccessibilityInfo,
+  Animated,
+  Easing,
+  type GestureResponderEvent,
+  Platform,
+  Pressable,
+  StyleSheet,
+  useWindowDimensions,
+  View,
+} from "react-native";
 
 import { Text } from "@/components/Text";
-import { slideDirection } from "@/lib/onboarding-slide";
+import { slideDirection, swipeDirection } from "@/lib/onboarding-slide";
 import { H_PADDING, INTRO, INTRO_INACTIVE_DOT_OPACITY, ProgressDots, ShellBackButton, SkipButton } from "@/components/shell/shared";
 import { BUTTON, CANVAS, DISPLAY_FONT } from "@/lib/tokens";
 
@@ -88,11 +98,15 @@ export function scaleThatFits(windowHeight: number, band: { top: number; bottom:
  *
  * 1.3 was picked as the largest multiplier that still fits two wrapped
  * lines inside the headline/copy bands at 375pt width without visibly
- * colliding with their neighbours — verified against the longest line in
- * `app/onboarding/index.tsx`'s SCREENS ("We analyse the ingredients and
- * explain what they mean for your skin" reflowed). It is a real, meaningful
- * increase for a "Larger Text" setting, just not RN's full ~3x accessibility
- * range, which this fixed layout cannot survive.
+ * colliding with their neighbours. It is a real, meaningful increase for a
+ * "Larger Text" setting, just not RN's full ~3x accessibility range, which
+ * this fixed layout cannot survive.
+ *
+ * ACCEPTED TRADE-OFF (owner, onboarding critique of 6 October 2026): someone
+ * on a larger accessibility text size sees this intro at 1.3x, not at the size
+ * they chose. Kept because the intro is three screens, seen once and
+ * skippable, and a reflowing layout would mean redesigning `BANDS`. Revisit
+ * only if that stops being true.
  */
 const MAX_FONT_SCALE = 1.3;
 
@@ -204,6 +218,9 @@ export function OnboardingShell({ screens, activeIndex, onNext, onSkip, onBack }
     slideOut.start(({ finished }) => {
       if (!finished) return;
       setShownIndex(activeIndex);
+      // A screen reader gets the new headline as the words change; sighted
+      // users see it arrive. A no-op when no screen reader is running.
+      AccessibilityInfo.announceForAccessibility(screens[activeIndex].headline.join(" "));
       translateX.setValue(direction * SLIDE_OFFSET);
       // One frame for the new content to commit before it starts fading in,
       // so the old screen never flashes back at partial opacity. If another tap
@@ -221,10 +238,39 @@ export function OnboardingShell({ screens, activeIndex, onNext, onSkip, onBack }
       slideOut.stop();
       pictures.stop();
     };
-  }, [activeIndex, opacity, translateX, pictureOpacity]);
+  }, [activeIndex, opacity, translateX, pictureOpacity, screens]);
+
+  // A swipe is read from raw touches, not a pan responder, so it never takes
+  // a touch away from Skip, Back or Continue: a tap travels nowhere and turns
+  // nothing. Left moves forward and right moves back, through the same
+  // `activeIndex` change a button press makes, so the crossfade (and its Reduce
+  // Motion path) is the one above. Swiping forward on the last screen does
+  // nothing: finishing the intro stays a button press.
+  const touchStart = useRef<{ x: number; y: number } | null>(null);
+  function onTouchStart(event: GestureResponderEvent) {
+    const { touches, pageX, pageY } = event.nativeEvent;
+    touchStart.current = touches.length === 1 ? { x: pageX, y: pageY } : null;
+  }
+  function onTouchEnd(event: GestureResponderEvent) {
+    const start = touchStart.current;
+    touchStart.current = null;
+    if (!start) return;
+    const { pageX, pageY } = event.nativeEvent;
+    const direction = swipeDirection(pageX - start.x, pageY - start.y);
+    if (direction === 1 && activeIndex < screens.length - 1) onNext();
+    else if (direction === -1) onBack?.();
+  }
 
   return (
-    <View style={{ flex: 1, backgroundColor: CANVAS }}>
+    <View
+      testID="onboarding-shell"
+      style={{ flex: 1, backgroundColor: CANVAS }}
+      onTouchStart={onTouchStart}
+      onTouchEnd={onTouchEnd}
+      onTouchCancel={() => {
+        touchStart.current = null;
+      }}
+    >
       {/* The pictures: they do not move, they cross-fade. Decorative, so out of
           the way of touches and the accessibility tree alike. */}
       <View pointerEvents="none" style={StyleSheet.absoluteFill}>
