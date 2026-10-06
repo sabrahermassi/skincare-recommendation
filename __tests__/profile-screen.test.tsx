@@ -81,6 +81,34 @@ describe("ProfileScreen", () => {
     expect(screen.queryByText("Delete my profile")).toBeNull();
   });
 
+  // #403: the regulatory-safety flag has a row beside "Fill with test data" in
+  // a development build, and no row at all in a release build.
+  describe("the EU safety notice row", () => {
+    afterEach(() => {
+      (globalThis as { __DEV__?: boolean }).__DEV__ = true;
+      useAppStore.setState({ safetyNoticeEnabled: false }, false);
+    });
+
+    it("shows Off by default and flips the flag when pressed", async () => {
+      await render(<ProfileScreen />);
+      expect(screen.getByRole("button", { name: /EU safety notice.*Off/ })).toBeTruthy();
+
+      await fireEvent.press(screen.getByRole("button", { name: /EU safety notice/ }));
+      expect(useAppStore.getState().safetyNoticeEnabled).toBe(true);
+      expect(screen.getByRole("button", { name: /EU safety notice.*On/ })).toBeTruthy();
+
+      await fireEvent.press(screen.getByRole("button", { name: /EU safety notice/ }));
+      expect(useAppStore.getState().safetyNoticeEnabled).toBe(false);
+    });
+
+    it("is not in a release build, next to the test-data rows", async () => {
+      (globalThis as { __DEV__?: boolean }).__DEV__ = false;
+      await render(<ProfileScreen />);
+      expect(screen.queryByText("EU safety notice")).toBeNull();
+      expect(screen.queryByText("Fill with test data")).toBeNull();
+    });
+  });
+
   it("opens the skincare routine, account, privacy policy and support from the menu", async () => {
     await render(<ProfileScreen />);
     for (const [label, route] of [

@@ -203,6 +203,16 @@ type AppState = {
   setTipRead: (id: string) => void;
 
   /**
+   * The regulatory-safety feature flag (#403, see lib/features.ts): off by
+   * default, so every screen is today's behaviour until it is turned on. A
+   * device setting, not user data, so Delete my profile keeps it. A new key
+   * with a first-run value, so it needs no migration: a stored blob without
+   * it reads back as off.
+   */
+  safetyNoticeEnabled: boolean;
+  setSafetyNoticeEnabled: (on: boolean) => void;
+
+  /**
    * Whether this install has already cleared whatever an earlier install left
    * in the Keychain — see `claimOnce` in lib/secure-storage.ts. A plain flag,
    * never the session itself: tokens go to secure storage, not here.
@@ -376,6 +386,7 @@ export const PERSISTED_KEYS = [
   "routineStarted",
   "routineBuilt",
   "tipRead",
+  "safetyNoticeEnabled",
   "secureStoreClaimed",
   "shelfOwner",
   "shelfQueue",
@@ -399,6 +410,7 @@ export function partializeState(state: AppState): PersistedState {
     routineStarted: state.routineStarted,
     routineBuilt: state.routineBuilt,
     tipRead: state.tipRead,
+    safetyNoticeEnabled: state.safetyNoticeEnabled,
     secureStoreClaimed: state.secureStoreClaimed,
     shelfOwner: state.shelfOwner,
     shelfQueue: state.shelfQueue,
@@ -421,6 +433,7 @@ const INITIAL_STATE = {
   routineStarted: false,
   routineBuilt: false,
   tipRead: null as string | null,
+  safetyNoticeEnabled: false,
   secureStoreClaimed: false,
   shelfOwner: null as string | null,
   shelfQueue: [] as ShelfOp[],
@@ -923,6 +936,7 @@ export const useAppStore = create<AppState>()(
         set((state) => ({ routineActives: entries, routineStepLimit: stepLimit ?? state.routineStepLimit, routineStarted: started ?? state.routineStarted })),
       removeRoutineActive: (active) => set((state) => ({ routineActives: state.routineActives.filter((entry) => entry.active !== active) })),
       setTipRead: (id) => set({ tipRead: id }),
+      setSafetyNoticeEnabled: (on) => set({ safetyNoticeEnabled: on }),
       setRoutineBuilt: (built = true) => set({ routineBuilt: built }),
       clearSavedProducts: () =>
         set((state) => ({
@@ -1017,6 +1031,7 @@ export const useAppStore = create<AppState>()(
         // account itself, and this device's claim on it, stay.
         set((state) => ({
           ...INITIAL_STATE,
+          safetyNoticeEnabled: state.safetyNoticeEnabled,
           secureStoreClaimed: state.secureStoreClaimed,
           shelfOwner: state.shelfOwner,
           // Changes parked from an earlier sign-out are shelf data too.

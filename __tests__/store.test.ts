@@ -230,6 +230,7 @@ describe("what survives an app restart", () => {
       "routinePicks",
       "routineStarted",
       "routineStepLimit",
+      "safetyNoticeEnabled",
       "savedIngredients",
       "savedProducts",
       "secureStoreClaimed",
@@ -454,6 +455,34 @@ describe("history log", () => {
 
     s().toggleSaved("b");
     expect(s().history.map((h) => h.id)).toEqual(["a"]);
+  });
+});
+
+describe("the regulatory-safety flag (#403)", () => {
+  afterEach(() => useAppStore.setState({ safetyNoticeEnabled: false }, false));
+
+  it("is off on a first run, and a setter flips it", () => {
+    expect(s().safetyNoticeEnabled).toBe(false);
+    s().setSafetyNoticeEnabled(true);
+    expect(s().safetyNoticeEnabled).toBe(true);
+    expect(partializeState(s()).safetyNoticeEnabled).toBe(true);
+  });
+
+  // A new key with a first-run value needs no migration: a blob written before
+  // the flag existed has to read back as off, not undefined.
+  it("reads back as off from a stored blob that predates it", async () => {
+    const { safetyNoticeEnabled: _omitted, ...before } = partializeState(s());
+    await formeStorage.setItem(useAppStore.persist.getOptions().name as string, JSON.stringify({ state: before, version: 10 }));
+
+    await useAppStore.persist.rehydrate();
+
+    expect(s().safetyNoticeEnabled).toBe(false);
+  });
+
+  it("is a device setting: Delete my profile keeps it", () => {
+    s().setSafetyNoticeEnabled(true);
+    s().resetApp();
+    expect(s().safetyNoticeEnabled).toBe(true);
   });
 });
 
