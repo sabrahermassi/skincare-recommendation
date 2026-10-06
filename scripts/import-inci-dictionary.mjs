@@ -257,6 +257,103 @@ const DATED_PROHIBITION = new Map([
  */
 const NATURAL_ESSENCE_SOURCE = /(^|[^a-z])(citrus|ruta|cuminum)([^a-z]|$)/;
 
+/**
+ * Stale Annex citations (#419). The OBF taxonomy still cites Annex III entries the regulation has
+ * since deleted or moved, so the import wrote a ban as "Restricted use" and cited entries that do
+ * not exist. Every fact below was read off the consolidated Regulation (EC) No 1223/2009 (version
+ * 18.05.2026) and its amending acts (the owner approved them on #419, 7 October 2026).
+ *
+ * Mirrored by supabase/migrations/0032_annex_stale_citations.sql: keep the notes the same in both,
+ * `__tests__/annex-stale-citations.test.ts` checks it.
+ */
+
+/** Annex II, from Regulation (EU) 2021/1902 (applies from 1 March 2022): "2-(4-tert-butylbenzyl) propionaldehyde". Old citation III/83. */
+const LILIAL_NOTE = "Prohibited in cosmetics (EU Annex II/1666, since 1 March 2022)";
+/** Annex II/1389, moved there from Annex III/7 by Regulation (EU) 2019/831. */
+const DICHLOROMETHANE_NOTE = "Prohibited in cosmetics (EU Annex II/1389)";
+/**
+ * Regulation (EU) 2019/831 deleted Annex III entries 1a and 1b and prohibited boric acid (1395),
+ * diboron trioxide (1394) and the whole class of borates, tetraborates, octaborates and boric acid
+ * salts and esters (1396, replaced by Regulation (EU) 2019/1966). Matched by INCI name and class,
+ * never by CAS: CosIng and the regulation give potassium borate different CAS numbers.
+ */
+const BORIC_ACID_NOTE = "Prohibited in cosmetics (EU Annex II/1395)";
+const DIBORON_TRIOXIDE_NOTE = "Prohibited in cosmetics (EU Annex II/1394)";
+const BORATE_SALT_NOTE = "Prohibited in cosmetics (EU Annex II/1396)";
+const BORIC_ACID = /^boric acid$/;
+const DIBORON_TRIOXIDE = /^(diboron trioxide|boric oxide)$/;
+/**
+ * A boric acid salt or ester by name. The same pattern runs as a JS regex here and as a Postgres
+ * regex in 0032 (no `\b`, which Postgres reads as a backspace): "perborate", "tetrafluoroborate"
+ * and "borosilicate" do not match because a letter precedes the stem. "phenyl mercuric borate" does
+ * match, and `BORIC_ACID_CITATIONS` is what keeps it out: it never cited 1a or 1b.
+ */
+const BORATE_SALT = /(^|[^a-z])(borate|tetraborate|octaborate|fructoborate|ascorbylborate|borax)([^a-z]|$)/;
+/** The Annex III citations an old boric-acid-class row carries: 1a, 1b, and the amine and zinc entries some also cite. */
+const BORIC_ACID_CITATIONS = new Set(["1a", "1b", "24", "61"]);
+
+/** Regulation (EU) 2023/1545 deleted entries 125, 126, 158, 160-163, 165, 167 and 168, merged into 124 (turpentine), 157 (rose ketones) and 88 (limonene). 19 is now 227. */
+const RENUMBERED = new Map([
+  ["125", "124"], ["126", "124"],
+  ["158", "157"], ["160", "157"], ["161", "157"], ["162", "157"], ["163", "157"], ["165", "157"],
+  ["167", "88"], ["168", "88"],
+  ["19", "227"],
+]);
+/** Old Part I numbering ("Annex III/I/256 - Directive 2012/21/EU") to the current entry, matched by ingredient name. */
+const PART_I = new Map([
+  ["255", "200"], ["256", "206"], ["257", "207"], ["258", "208"], ["260", "210"], ["262", "212"],
+  ["263", "213"], ["265", "240"], ["266", "251"], ["268", "255"], ["269", "256"], ["270", "258"],
+  ["271", "259"], ["272", "260"], ["273", "261"], ["274", "262"], ["275", "263"], ["276", "264"],
+]);
+
+/** One Part I citation lost its number upstream ("Annex III/I/EU - Directive 2012/21/EU"): 6-hydroxyindole, which is entry 209. */
+const UNNUMBERED_PART_I = { name: /^6[ -]hydroxyindole$/, citation: /^(?:annex\s+)?III\/I\/EU\b/i, entry: "209" };
+
+/** The Annex III entry numbers a citation names, e.g. "III/1a III/61" gives ["1a", "61"], never a Part I number. */
+function annexThreeEntries(text) {
+  return [...String(text).matchAll(/(?:^|[\s[(,;])\s*(?:annex\s+)?III\/(\d+[a-z]?)(?![\w/])/gi)].map((m) => m[1].toLowerCase());
+}
+
+/** A citation with the deleted entries replaced by the ones they became, each entry once. */
+function renumberCitation(text) {
+  const current = String(text)
+    .replace(/(?:annex\s+)?III\/I\/(\d+)(?:\s*-\s*Directive\s+\S+)?/gi, (whole, n) => (PART_I.has(n) ? `III/${PART_I.get(n)}` : whole))
+    .replace(/(^|[\s[(,;])((?:annex\s+)?)III\/(\d+)(?![\w/])/gi, (whole, lead, annex, n) =>
+      RENUMBERED.has(n) ? `${lead}${annex}III/${RENUMBERED.get(n)}` : whole
+    );
+  return current.replace(/\b(III\/\d+[a-z]?)(?:\s+\1)+(?![\w/])/gi, "$1");
+}
+
+/** The rating a stale citation corrects to, or null when this row is not one of the reviewed cases. */
+function staleCitationFix(canonical, text) {
+  if (!text || annexTwoEntries(text).length > 0) return null;
+  const entries = annexThreeEntries(text);
+  const only = (...wanted) => entries.length > 0 && entries.every((e) => wanted.includes(e));
+  if (only("83")) return { safety: "avoid", note: LILIAL_NOTE };
+  if (only("7")) return { safety: "avoid", note: DICHLOROMETHANE_NOTE };
+  if (entries.length > 0 && entries.every((e) => BORIC_ACID_CITATIONS.has(e)) && entries.some((e) => e === "1a" || e === "1b")) {
+    if (BORIC_ACID.test(canonical)) return { safety: "avoid", note: BORIC_ACID_NOTE };
+    if (DIBORON_TRIOXIDE.test(canonical)) return { safety: "avoid", note: DIBORON_TRIOXIDE_NOTE };
+    if (BORATE_SALT.test(canonical) && !/mercur/.test(canonical)) return { safety: "avoid", note: BORATE_SALT_NOTE };
+    return null;
+  }
+  if (UNNUMBERED_PART_I.name.test(canonical) && UNNUMBERED_PART_I.citation.test(text)) {
+    return safetyFrom({ en: `III/${UNNUMBERED_PART_I.entry}` });
+  }
+  const renumbered = renumberCitation(text);
+  return renumbered === text ? null : safetyFrom({ en: renumbered });
+}
+
+/** Every note `staleCitationFix` can write: a CosIng-owned row moving to one of these is a correction, not "stricter". */
+const STALE_FIX_NOTES = new Set([
+  LILIAL_NOTE,
+  DICHLOROMETHANE_NOTE,
+  BORIC_ACID_NOTE,
+  DIBORON_TRIOXIDE_NOTE,
+  BORATE_SALT_NOTE,
+  ...[...new Set([...RENUMBERED.values(), ...PART_I.values(), UNNUMBERED_PART_I.entry])].map((entry) => `Restricted use (EU Annex III/${entry})`),
+]);
+
 /** The Annex II entry numbers a citation names, e.g. "II/358 R1 III/156" gives ["358"]. */
 function annexTwoEntries(text) {
   return [...String(text).matchAll(/(?:^|[\s[(,;])\s*(?:annex\s+)?II\/(\d+)/gi)].map((m) => m[1]);
@@ -266,6 +363,8 @@ function annexTwoEntries(text) {
 function safetyFor(canonical, restriction) {
   const ref = pickEn(restriction);
   const text = ref ? String(ref).trim() : "";
+  const stale = staleCitationFix(canonical, text);
+  if (stale) return stale;
   const entries = annexTwoEntries(text);
   if (entries.length > 0 && entries.every((entry) => entry === "358") && NATURAL_ESSENCE_SOURCE.test(canonical)) {
     const rest = text.replace(/(?:\bannex\s+)?\bII\/358\b(\s+R1?\b)?/i, "").trim();
@@ -399,7 +498,8 @@ function isReviewedCorrection(row) {
     note === ORIGIN_DEPENDENT_NOTE ||
     note.startsWith(`${DMSO_NOTE} (`) ||
     note.startsWith(`${REFINED_GRADE_NOTE} (`) ||
-    [...DATED_PROHIBITION.values()].includes(note)
+    [...DATED_PROHIBITION.values()].includes(note) ||
+    STALE_FIX_NOTES.has(note)
   );
 }
 
@@ -429,8 +529,8 @@ function planWrites(rows, existing) {
     else if (current.source === "obf") refreshed.push(row);
     else {
       untouched += 1;
-      const corrected = current.source === "cosing" && isReviewedCorrection(row) && (current.safety !== row.safety || current.note !== row.note);
-      if (corrected || STRICTNESS[row.safety] > (STRICTNESS[current.safety] ?? 0)) {
+      const corrected = isReviewedCorrection(row) && (current.safety !== row.safety || current.note !== row.note);
+      if ((corrected && current.source === "cosing") || STRICTNESS[row.safety] > (STRICTNESS[current.safety] ?? 0) || (corrected && STALE_FIX_NOTES.has(row.note))) {
         const stricter = { inci_name: row.inci_name, safety: row.safety, note: row.note, owner: current.source };
         (current.source === "cosing" ? safetyOnly : reviewByHand).push(stricter);
       }
@@ -556,7 +656,20 @@ function invokedDirectly() {
   }
 }
 
-export { fetchTaxonomy, NATURAL_ESSENCE_SOURCE, normaliseDictionaryName, planWrites, safetyFor, safetyFrom, sharedLabelForms, toRows };
+export {
+  BORATE_SALT,
+  BORIC_ACID_CITATIONS,
+  fetchTaxonomy,
+  NATURAL_ESSENCE_SOURCE,
+  normaliseDictionaryName,
+  PART_I,
+  planWrites,
+  RENUMBERED,
+  safetyFor,
+  safetyFrom,
+  sharedLabelForms,
+  toRows,
+};
 
 if (invokedDirectly()) {
   main().catch((err) => {

@@ -431,7 +431,7 @@ export const INGREDIENT_RULES: IngredientRule[] = [
     names: [
       "limonene", "linalool", "citronellol", "geraniol", "eugenol", "coumarin",
       "citral", BENZYL_SALICYLATE_NAME, "benzyl benzoate", "hexyl cinnamal",
-      "butylphenyl methylpropional", "isoeugenol", "farnesol",
+      "isoeugenol", "farnesol",
     ],
     category: "fragrance",
     hurts: { sensitive: true, concerns: ["atopic"] },

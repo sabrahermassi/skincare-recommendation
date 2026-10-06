@@ -48,6 +48,31 @@ Evidence for 358, 764 and 306 came from the regulation as copied on legislation.
 which stops at the end of 2020; the owner confirms 1339, 1375, 1380, 358, 764 and 875 on the
 current consolidated EUR-Lex text before the safety notice is switched on.
 
+**A citation can name an entry the regulation has since deleted (7 October 2026, owner).**
+The taxonomy still cites Annex III entries that no longer exist, so the import wrote some
+EU bans as "Restricted use". Checked against the consolidated Regulation (EC) No 1223/2009
+(version 18.05.2026, Publications Office copy) and CosIng:
+
+- **Now prohibited (Annex II):** butylphenyl methylpropional (Lilial) is 1666 (Regulation
+  (EU) 2021/1902, from 1 March 2022; it was cited as III/83); boric acid is 1395 and diboron
+  trioxide 1394 (Regulation (EU) 2019/831); every boric acid salt or ester is 1396
+  (2019/831, replaced by 2019/1966), because that regulation deleted Annex III entries 1a and
+  1b; dichloromethane is 1389 (it left Annex III/7 in 2019/831; the owner has not yet
+  confirmed it for the safety notice).
+- **Matched by INCI name and class, never by CAS:** CosIng and the regulation give
+  potassium borate different CAS numbers. Perborates (1397, changed by 2026/78), phenyl
+  mercuric borate (III/17) and a borate that cites anything else are left as they were.
+- **Renumbered, still restricted:** Regulation (EU) 2023/1545 deleted entries 125, 126, 158,
+  160-163, 165, 167 and 168 and merged them into 124, 157 and 88; 19 is now 227; and the
+  old Part I numbering ("Annex III/I/256 - Directive 2012/21/EU") is the current entry by
+  ingredient name. Only the note's entry number changes.
+
+`staleCitationFix` in `scripts/import-inci-dictionary.mjs` makes the corrections and
+`supabase/migrations/0032_annex_stale_citations.sql` fixes the rows already written; keep their
+notes the same (`__tests__/annex-stale-citations.test.ts`, and
+`supabase/tests/annex_stale_citations.test.sql` against a real Postgres). The score impact is
+in the #419 PR.
+
 ## Routing
 
 **Never navigate from a layout file.** This is not theoretical caution —
