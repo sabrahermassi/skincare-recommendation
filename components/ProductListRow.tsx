@@ -7,6 +7,7 @@ import { SaveHeart } from "@/components/SaveHeart";
 import { ScorePill } from "@/components/ScorePill";
 import { Text } from "@/components/Text";
 import type { ProductType } from "@/data/types";
+import { SAFETY_NOTICE_COPY } from "@/lib/safety";
 import { CARD_RADIUS, INK, MUTED, SPACE, SURFACE, TYPE } from "@/lib/tokens";
 
 /** v9 measurements (read off the hand-off). */
@@ -29,6 +30,7 @@ export function ProductListRow({
   href,
   detail,
   heart = true,
+  notice = false,
   onUnsave,
   children,
 }: {
@@ -39,6 +41,8 @@ export function ProductListRow({
   /** The second line, in place of the brand. */
   detail?: string;
   heart?: boolean;
+  /** The EU safety notice applies to this product (#405): a shield beside the score. */
+  notice?: boolean;
   /** Replaces the heart's own unsave (Saved: unsave with an Undo). */
   onUnsave?: () => void;
   /** Anything under the second line (a saved product's note). */
@@ -50,7 +54,7 @@ export function ProductListRow({
       <Link href={link} asChild>
         <Pressable
           accessibilityRole="button"
-          accessibilityLabel={`${product.name}, ${detail ?? product.brand}${score !== null ? `, ${score} out of 100` : ""}`}
+          accessibilityLabel={`${product.name}, ${detail ?? product.brand}${score !== null ? `, ${score} out of 100` : ""}${notice ? `. ${SAFETY_NOTICE_COPY.shieldLabel}` : ""}`}
           className="active:opacity-70"
           style={{ flex: 1, alignSelf: "stretch", flexDirection: "row", alignItems: "center", gap: SPACE.block, paddingVertical: SPACE.block, paddingLeft: SPACE.gutter, paddingRight: 4 }}
         >
@@ -81,7 +85,7 @@ export function ProductListRow({
           className="active:opacity-70"
           style={{ alignSelf: "stretch", flexDirection: "row", alignItems: "center", gap: SPACE.block, paddingLeft: 4, paddingRight: SPACE.gutter }}
         >
-          <ScorePill score={score} />
+          <ScorePill score={score} notice={notice} />
         </Pressable>
       </Link>
     </View>

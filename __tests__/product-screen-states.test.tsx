@@ -618,3 +618,69 @@ describe("the product screen opened from a routine step", () => {
     expect(screen.queryByRole("button", { name: /^Add to / })).toBeNull();
   });
 });
+
+// #405: what sharing says when the EU safety notice applies to the product.
+describe("sharing a product the EU safety notice applies to", () => {
+  const { matchProduct } = require("@/lib/matching") as typeof import("@/lib/matching");
+  const safe = (name: string): Ingredient => ({ id: name, name, comedogenic: 0, safety: "safe", verified: true });
+  const avoid = (name: string, note: string): Ingredient => ({ id: name, name, comedogenic: 0, safety: "avoid", verified: true, note });
+  const HICC = avoid("hydroxyisohexyl 3-cyclohexene carboxaldehyde", "Prohibited in cosmetics (EU Annex II/1380: not allowed on the EU market since 23 August 2019 and not to be sold there since 23 August 2021; older stock may still be around)");
+  const HYDROQUINONE = avoid("hydroquinone", "Prohibited in cosmetics (EU Annex II/1339 III/14)");
+  const productWith = (extra: Ingredient) => ({
+    id: "obf-8801234567890",
+    barcode: "8801234567890",
+    brand: "Brand",
+    name: "Serum",
+    type: "serum" as const,
+    productType: "serum",
+    price: 0,
+    volume: "",
+    suitableFor: [],
+    targets: [],
+    description: "",
+    benefits: [],
+    imageUrl: null,
+    attribution: null,
+    fetchedAt: "2026-09-26T00:00:00Z",
+    ingredientIds: [],
+    ingredients: [...["water", "glycerin", "niacinamide", "butylene glycol"].map(safe), extra],
+  });
+  const OWN = { ...EMPTY_PROFILE, baseSkinType: "oily" as const, concerns: ["acne-prone" as const], sensitivity: "high" as const };
+
+  afterEach(() => useAppStore.setState({ profile: EMPTY_PROFILE, history: [], savedProducts: [], safetyNoticeEnabled: false }));
+
+  async function shareFor(product: ReturnType<typeof productWith>, params: Record<string, string> = {}) {
+    const share = jest.spyOn(Share, "share").mockResolvedValue({ action: "sharedAction" });
+    useAppStore.setState({ profile: OWN, history: [], savedProducts: [] });
+    mockParams = { id: product.id, ...params };
+    fetched.mockReturnValueOnce(Promise.resolve({ ok: true, value: product }));
+    await render(<ProductRoute />);
+    await act(async () => {});
+    await putTeaserAway();
+    await fireEvent.press(screen.getByRole("button", { name: "Share this result" }));
+    const message = share.mock.calls[0]?.[0]?.message;
+    share.mockRestore();
+    return message;
+  }
+
+  it("says 'checked on for.me', with no score and no safety claim, with the flag on", async () => {
+    useAppStore.setState({ safetyNoticeEnabled: true }, false);
+    expect(await shareFor(productWith(HICC))).toBe("Brand Serum, checked on for.me");
+  });
+
+  it("does the same from Skin needs, where the share is in words", async () => {
+    useAppStore.setState({ safetyNoticeEnabled: true }, false);
+    expect(await shareFor(productWith(HICC), { from: "journey", need: "pimples.." })).toBe("Brand Serum, checked on for.me");
+  });
+
+  it("is unchanged with the flag off", async () => {
+    const product = productWith(HICC);
+    expect(await shareFor(product)).toBe(`Brand Serum - ${matchProduct(product, OWN).score}/100 for my skin, on for.me`);
+  });
+
+  it("is unchanged for hydroquinone, whose entry is not verified, even with the flag on", async () => {
+    useAppStore.setState({ safetyNoticeEnabled: true }, false);
+    const product = productWith(HYDROQUINONE);
+    expect(await shareFor(product)).toBe(`Brand Serum - ${matchProduct(product, OWN).score}/100 for my skin, on for.me`);
+  });
+});
