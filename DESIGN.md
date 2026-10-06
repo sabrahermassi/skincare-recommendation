@@ -228,11 +228,28 @@ onboarding intro's button is its own flat 56pt pill (`OnboardingShell`).
   Back is an arrow only, never a word. Heart on is filled red (`VERDICT.low.solid`),
   star on is filled ochre.
 - **`GlassHeader`**: a fixed top on glass for the product result and Find your
-  actives. What scrolls up passes behind it, blurred (12); a 24pt soft edge fades
-  in once scrolled. A deliberate owner decision (2 October 2026).
+  actives. What scrolls up passes behind it; a 24pt soft edge fades in once
+  scrolled. A deliberate owner decision (2 October 2026). It is `Glass`, below.
 - Two header patterns exist today: the inline title with a back circle (the
   result, Find your actives), and a large left title below a title-less
   `ScreenHeader` (Routine, Account, Support, Privacy).
+
+### Glass: `Glass`
+
+The see-through look is Apple's Liquid Glass wherever the phone has it (iOS 26 and
+later; owner, 7 October 2026), through `components/Glass.tsx`. Everywhere else it
+is the frosted blur the app always had, with the same layout. `Glass` decides
+once (`hasLiquidGlass`); nothing else should call the native glass directly
+(`GlassButton`, the scanner's round buttons, is the one older exception).
+
+- **Where:** the navigation and control layer that floats over content: the fixed
+  header (`GlassHeader`), the tab bar capsule, the round nav buttons
+  (`IconCircle`, interactive) and the raised scan button (tinted sage,
+  interactive).
+- **Where not:** content. Cards, reason boxes, rows and reading text stay flat,
+  and glass is never put on glass.
+- Light only (`colorScheme="light"`). Never set opacity 0 on glass or a parent of
+  it: the glass stops drawing.
 
 ### Controls
 

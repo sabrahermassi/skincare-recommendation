@@ -1,7 +1,8 @@
-import { BlurView } from "expo-blur";
 import { useMemo, type ReactNode } from "react";
 import { Animated, StyleSheet, View } from "react-native";
 import Svg, { Defs, LinearGradient, Rect, Stop } from "react-native-svg";
+
+import { Glass } from "@/components/Glass";
 
 // How strongly what scrolls behind the header is blurred (expo-blur, 1-100):
 // light, so it reads as glass (owner).
@@ -37,11 +38,8 @@ export function GlassHeader({
   const atRest = useMemo(() => scrollY.interpolate({ inputRange: [0, FADE_AFTER], outputRange: [1, 0], extrapolate: "clamp" }), [scrollY]);
   return (
     <View onLayout={(event) => onHeight(event.nativeEvent.layout.height)} style={{ position: "absolute", top: 0, left: 0, right: 0 }}>
-      {/* "light", never "default": the default follows the phone's appearance,
-          and in dark mode it turned the header grey and swallowed a switch's
-          track. */}
-      <BlurView intensity={BLUR} tint="light" style={StyleSheet.absoluteFill} />
-      <View style={[StyleSheet.absoluteFill, { backgroundColor: glass }]} />
+      {/* Liquid Glass on iOS 26 and later, the frosted blur elsewhere (`Glass`). */}
+      <Glass style={StyleSheet.absoluteFill} blur={BLUR} fill={glass} tint={glass} />
       {/* Plain until the list scrolls, so at rest the header is exactly the
           page's own colour, whatever the blur does. */}
       <Animated.View pointerEvents="none" style={[StyleSheet.absoluteFill, { backgroundColor: solid, opacity: atRest }]} />
