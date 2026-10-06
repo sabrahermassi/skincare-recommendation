@@ -270,4 +270,44 @@ describe("v9 list layout", () => {
     expect(screen.getByText("1 starred")).toBeTruthy();
     expect(screen.getByLabelText(/^Niacinamide, /)).toBeTruthy();
   });
+
+  // #404: the same word the Ingredients tab and the sheet use, not the label's own "Avoid".
+  describe("a starred ingredient the EU safety notice applies to", () => {
+    const HICC = {
+      id: "hicc",
+      name: "hydroxyisohexyl 3-cyclohexene carboxaldehyde",
+      comedogenic: 0 as const,
+      safety: "avoid" as const,
+      verified: true,
+      note: "Prohibited in cosmetics (EU Annex II/1380: not allowed on the EU market since 23 August 2019 and not to be sold there since 23 August 2021; older stock may still be around)",
+    };
+    beforeEach(() => {
+      jest.spyOn(require("@/data/api") as typeof import("@/data/api"), "resolveIngredientNames").mockResolvedValue([HICC]);
+      useAppStore.setState({ savedIngredients: [HICC.name] });
+    });
+    afterEach(() => {
+      jest.restoreAllMocks();
+      useAppStore.setState({ safetyNoticeEnabled: false }, false);
+    });
+
+    async function openIngredients() {
+      await render(<Saved />);
+      await act(async () => fireEvent.press(screen.getByRole("tab", { name: /Ingredients/ })));
+      await screen.findByText("1 starred");
+    }
+
+    it("says Check label with the flag on, never Avoid", async () => {
+      useAppStore.setState({ safetyNoticeEnabled: true }, false);
+      await openIngredients();
+      expect(await screen.findByText("Check label")).toBeTruthy();
+      expect(screen.queryByText("Avoid")).toBeNull();
+      expect(screen.getByLabelText(/, Check label$/)).toBeTruthy();
+    });
+
+    it("still says Avoid with the flag off", async () => {
+      await openIngredients();
+      expect(await screen.findByText("Avoid")).toBeTruthy();
+      expect(screen.queryByText("Check label")).toBeNull();
+    });
+  });
 });

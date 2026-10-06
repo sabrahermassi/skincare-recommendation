@@ -1,7 +1,7 @@
 import { useMemo } from "react";
 
 import type { Ingredient } from "@/data/types";
-import { safetyNoticeFor, safetyNoticeHits, type SafetyNoticeEntry, type SafetyNoticeHit } from "@/lib/safety";
+import { safetyNoticeHits, type SafetyNoticeHit } from "@/lib/safety";
 import { useAppStore } from "@/store/useAppStore";
 
 /**
@@ -33,11 +33,6 @@ export function safetyNoticeEnabled(): boolean {
 export function useSafetyNoticeHits(ingredients: readonly Ingredient[]): SafetyNoticeHit[] {
   const enabled = useSafetyNoticeEnabled();
   return useMemo(() => safetyNoticeHits(ingredients, enabled), [ingredients, enabled]);
-}
-
-/** The notice for one ingredient: null with the flag off. */
-export function useSafetyNoticeFor(ingredient: Ingredient): SafetyNoticeEntry | null {
-  return safetyNoticeFor(ingredient, useSafetyNoticeEnabled());
 }
 
 /** The same outside a component (#405's share text): reads the flag now. */
