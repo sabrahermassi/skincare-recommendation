@@ -65,7 +65,13 @@ export function ProgressDots({
   const DOT_SIZE = 7.2;
   const DOT_GAP = 15;
   return (
-    <View style={{ flexDirection: "row", alignItems: "center", justifyContent: "center", gap: DOT_GAP }}>
+    // One element for a screen reader: "Page 2 of 3", following the active dot.
+    // The dots themselves are not separate stops.
+    <View
+      accessible
+      accessibilityLabel={`Page ${activeIndex + 1} of ${count}`}
+      style={{ flexDirection: "row", alignItems: "center", justifyContent: "center", gap: DOT_GAP }}
+    >
       {Array.from({ length: count }, (_, i) => (
         <View
           key={i}

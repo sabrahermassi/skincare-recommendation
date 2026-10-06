@@ -148,7 +148,7 @@ function Questions({ draft, onChange, onShow }: { draft: Draft; onChange: (next:
             <BackChevron />
           </IconCircle>
           <Text accessibilityRole="header" style={{ flex: 1, textAlign: "center", fontSize: TYPE.card, fontWeight: "600", color: INK }}>
-            Skin needs
+            Find your actives
           </Text>
           <View style={{ width: 40 }} />
         </View>

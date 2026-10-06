@@ -1,5 +1,5 @@
-import { useState, type ReactNode } from "react";
-import { Animated, Pressable, View } from "react-native";
+import { useRef, useState, type ReactNode } from "react";
+import { Animated, Pressable, ScrollView, View } from "react-native";
 import Svg, { Circle, Path } from "react-native-svg";
 
 import { BottomSheet } from "@/components/BottomSheet";
@@ -111,6 +111,14 @@ export function ResultTabs({
     setTimeout(() => setTeaser(false), TEASER_GONE_MS);
   };
   const [scrollY] = useState(() => new Animated.Value(0));
+  // The two tabs are different lengths, so one's scroll position means nothing on
+  // the other: Ingredients used to open already scrolled, with its two risk
+  // cards hidden behind the header. A tab starts at its top.
+  const scrollRef = useRef<ScrollView | null>(null);
+  const selectTab = (next: Tab) => {
+    setTab(next);
+    scrollRef.current?.scrollTo({ y: 0, animated: false });
+  };
 
   const top = (
     <>
@@ -127,7 +135,7 @@ export function ResultTabs({
             { value: "ingredients", label: "Ingredients" },
           ]}
           selected={tab}
-          onSelect={setTab}
+          onSelect={selectTab}
         />
       </View>
     </>
@@ -138,6 +146,8 @@ export function ResultTabs({
           and touches follow the React tree, not the Modal's window. Without
           it, the first tap on "Save note" while typing only closed the keyboard. */}
       <Animated.ScrollView
+        ref={scrollRef}
+        testID="result-scroll"
         keyboardShouldPersistTaps="handled"
         style={{ flex: 1 }}
         // The result starts under the fixed header and scrolls up behind it.
@@ -439,13 +449,11 @@ function Reasons({ ingredients, match, profile }: { ingredients: Ingredient[]; m
   // a colour the order built above stands.
   const order = reasonOrder(match.verdict);
   const colourOf = (row: Reason) => (row.tone === VERDICT.low ? "red" : row.tone === VERDICT.high ? "green" : "orange");
-  rows.sort((a, b) => order.indexOf(colourOf(a)) - order.indexOf(colourOf(b)));
-  // Six boxes at most, but the EU notice is never one of the ones cut: the
-  // line above names it (Codex review on #414).
-  const kept = new Set(rows.filter((row) => row.notice));
-  let room = 6 - kept.size;
-  for (const row of rows) if (!row.notice && room-- > 0) kept.add(row);
-  const shown = rows.filter((row) => kept.has(row));
+  const sorted = mergeSameSentence(rows).sort((a, b) => order.indexOf(colourOf(a)) - order.indexOf(colourOf(b)));
+  const shown = limitBoxes(sorted, colourOf, order);
+  // What the first view says about the orange boxes: on a good match they sit
+  // under the green ones, out of sight, and the green read as the whole answer.
+  const watching = order[1] === "green" ? shown.filter((row) => colourOf(row) === "orange" && !row.notice).length : 0;
 
   const line =
     noticeHits.length > 0
@@ -467,7 +475,10 @@ function Reasons({ ingredients, match, profile }: { ingredients: Ingredient[]; m
         <Text accessibilityRole="header" style={{ fontFamily: DISPLAY_FONT, fontSize: TYPE.heading, lineHeight: 28, letterSpacing: -0.5, color: INK }}>
           {REASONS_TITLE[match.verdict]}
         </Text>
-        <Text style={{ fontSize: TYPE.body, lineHeight: 21, color: MUTED }}>{line}</Text>
+        <Text style={{ fontSize: TYPE.body, lineHeight: 21, color: MUTED }}>
+          {line}
+          {watching > 0 ? ` ${watching === 1 ? "One thing to watch" : `${watching} things to watch`} below.` : ""}
+        </Text>
       </View>
       <View style={{ marginTop: 16, gap: SPACE.block }}>
         {shown.map((row) => (
@@ -476,6 +487,54 @@ function Reasons({ ingredients, match, profile }: { ingredients: Ingredient[]; m
       </View>
     </View>
   );
+}
+
+/**
+ * Findings that say the same sentence become one box: "Ceramide NP", "Ceramide
+ * AP" and "Ceramide EOP" each carried "ceramides supply barrier lipids…", three
+ * near-identical boxes in a row. Only plain boxes of one colour merge, never the
+ * EU notice, and the merged one keeps the first's place.
+ */
+function mergeSameSentence(rows: Reason[]): Reason[] {
+  const names = new Map<Reason, string[]>();
+  const merged: Reason[] = [];
+  for (const row of rows) {
+    const twin = row.notice || row.text.trim() === "" ? undefined : merged.find((other) => !other.notice && other.tone === row.tone && other.text === row.text);
+    if (twin) names.get(twin)?.push(row.name);
+    else {
+      const first = { ...row };
+      names.set(first, [row.name]);
+      merged.push(first);
+    }
+  }
+  return merged.map((row) => {
+    const all = names.get(row) ?? [];
+    return all.length > 1 ? { ...row, name: listNames(all) } : row;
+  });
+}
+
+/** The most boxes a result shows. */
+const MAX_BOXES = 6;
+/** On a result that leads with green, the orange boxes (what this skin is warned about) that are never cut for more green. */
+const KEPT_ORANGE = 2;
+
+/**
+ * At most six boxes, but never at the cost of the ones that matter: the EU
+ * notice is never cut (Codex review on #414), and on a result that leads with
+ * green, up to two orange boxes keep their place. Without that, six green
+ * boxes filled the six and a warning sitting under them was dropped; a
+ * flagged ingredient's own sheet said "lowers your score" while the result
+ * above it said nothing. Shown in `rows` order.
+ */
+function limitBoxes(rows: Reason[], colourOf: (row: Reason) => "red" | "green" | "orange", order: ("red" | "green" | "orange")[]): Reason[] {
+  const kept = new Set(rows.filter((row) => row.notice));
+  const oranges = rows.filter((row) => !row.notice && colourOf(row) === "orange");
+  // Held back from the green ones: the oranges that would otherwise be cut.
+  const reserved = order[1] === "green" ? new Set(oranges.slice(0, KEPT_ORANGE)) : new Set<Reason>();
+  let room = MAX_BOXES - kept.size - reserved.size;
+  for (const row of rows) if (!row.notice && !reserved.has(row) && room > 0) { kept.add(row); room--; }
+  reserved.forEach((row) => kept.add(row));
+  return rows.filter((row) => kept.has(row));
 }
 
 /**
