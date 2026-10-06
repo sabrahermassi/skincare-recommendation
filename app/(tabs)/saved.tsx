@@ -24,8 +24,9 @@ import { PRODUCT_TYPE_LABEL, unknownIngredient, type Ingredient, type ProductWit
 import { displayIngredientName } from "@/lib/ingredient-name";
 import { shelfPairingNotes, type PairingNote } from "@/lib/active-pairings";
 import { relativeTime } from "@/lib/format";
-import { LABEL_META, labelWithoutProduct, type IngredientLabel } from "@/lib/ingredient-labels";
-import { isOriginDependent, ORIGIN_DEPENDENT_HEADLINE } from "@/lib/safety";
+import { useSafetyNoticeEnabled } from "@/lib/features";
+import { labelWithoutProduct, rowWord, type IngredientLabel } from "@/lib/ingredient-labels";
+import { contraindications, isOriginDependent, ORIGIN_DEPENDENT_HEADLINE } from "@/lib/safety";
 import { labelName, labelTitle } from "@/lib/label-title";
 import { openScanner } from "@/lib/open-scanner";
 import { matchProduct } from "@/lib/matching";
@@ -751,6 +752,7 @@ function IngredientsTab({
 }) {
   const insets = useSafeAreaInsets();
   const profile = useAppStore((s) => s.profile);
+  const noticeEnabled = useSafetyNoticeEnabled();
   const toggleSavedIngredient = useAppStore((s) => s.toggleSavedIngredient);
   const restoreSavedIngredient = useAppStore((s) => s.restoreSavedIngredient);
   /** Untapping a star (v9): unstarred at once, with an Undo that puts it back in its place. */
@@ -826,7 +828,10 @@ function IngredientsTab({
       <View style={{ gap: ROW_GAP }}>
         {names.map((name) => {
           const ingredient: Ingredient = byName[name] ?? unknownIngredient(name);
-          return <IngredientRow key={name} ingredient={ingredient} label={labelWithoutProduct(ingredient, profile)} onUnstar={() => unstar(name)} />;
+          const label = labelWithoutProduct(ingredient, profile);
+          // The same word the Ingredients tab and the sheet show (#404): the EU notice's "Check label" when it applies.
+          const word = label ? rowWord(ingredient, label, contraindications([ingredient], profile), noticeEnabled).word : null;
+          return <IngredientRow key={name} ingredient={ingredient} label={label} word={word} onUnstar={() => unstar(name)} />;
         })}
       </View>
 
@@ -841,7 +846,7 @@ function IngredientsTab({
  * card is a `Link`; the star is its sibling, not inside it, so a tap on it
  * never opens the ingredient.
  */
-function IngredientRow({ ingredient, label, onUnstar }: { ingredient: Ingredient; label: IngredientLabel | null; onUnstar: () => void }) {
+function IngredientRow({ ingredient, label, word, onUnstar }: { ingredient: Ingredient; label: IngredientLabel | null; /** The verdict's word from `rowWord`; `null` when there is no verdict. */ word: string | null; onUnstar: () => void }) {
   const name = displayIngredientName(ingredient.name);
   // Cannabidiol is stored safe, but never shown as cleared.
   const clear = isOriginDependent(ingredient) ? ORIGIN_DEPENDENT_HEADLINE : "No known concerns";
@@ -850,14 +855,14 @@ function IngredientRow({ ingredient, label, onUnstar }: { ingredient: Ingredient
       <Link href={{ pathname: "/ingredient/[inci]", params: { inci: ingredient.name } }} asChild>
         <Pressable
           accessibilityRole="button"
-          accessibilityLabel={`${name}, ${label ? LABEL_META[label].label : clear}`}
+          accessibilityLabel={`${name}, ${word ?? clear}`}
           style={{ flex: 1, gap: 3, paddingVertical: SPACE.block, paddingLeft: SPACE.gutter, paddingRight: 4 }}
           className="active:opacity-70"
         >
           <Text numberOfLines={2} style={{ fontSize: TYPE.label, fontWeight: "600", lineHeight: 19, color: INK }}>
             {name}
           </Text>
-          {label ? <VerdictMarker label={label} /> : <Text style={{ fontSize: TYPE.caption, color: MUTED }}>{clear}</Text>}
+          {label ? <VerdictMarker label={label} text={word ?? undefined} /> : <Text style={{ fontSize: TYPE.caption, color: MUTED }}>{clear}</Text>}
         </Pressable>
       </Link>
       <Pressable
