@@ -26,7 +26,7 @@ import { cloggerConfidence, PORE_COUNTS_TEXT, poreCountedNames, poreVerdict } fr
 import { irritationRisk, poreRisk, type Risk } from "@/lib/risk";
 import { EU_PROHIBITED_SOURCE, irritationWarnings, isVerified, SAFETY_NOTICE_COPY, type SafetyNoticeHit } from "@/lib/safety";
 import { inSentence } from "@/lib/skin-needs";
-import { CARD_RADIUS, DIVIDER, DISPLAY_FONT, HOME_CARD_FILL, INK, MUTED, RISK_FILL, RISK_LINE, SEGMENT_TRACK, SHEET, SPACE, STONE, STONE_GLASS, TEASER_INK, TYPE, VERDICT, VERDICT_NEUTRAL, WHITE } from "@/lib/tokens";
+import { CARD_RADIUS, DIVIDER, DISPLAY_FONT, HOME_CARD_FILL, INK, MUTED, RISK_FILL, RISK_LINE, SEGMENT_TRACK, SHEET, SPACE, STONE, STONE_GLASS, TEASER_INK, TYPE, VERDICT, VERDICT_NEUTRAL, WHITE, RADIUS } from "@/lib/tokens";
 import { EMPTY_PROFILE } from "@/store/useAppStore";
 
 type Tab = "match" | "ingredients";
@@ -45,7 +45,7 @@ const RISK_TONE: Record<Risk["tone"], Tone> = {
 // v9 measurements, read off the hand-off: the stone under the switch that the
 // white sheet rises over (taller when a score ring has to straddle the edge),
 // the sheet's top corners, and how far the ring is pulled up over that edge.
-const SHEET_RADIUS = 32;
+const SHEET_RADIUS = RADIUS.sheet;
 const SHEET_OVERLAP = 16;
 const HEAD_SPACER = { ring: 60, plain: 16 } as const;
 const RING_LIFT = 76;
@@ -127,7 +127,7 @@ export function ResultTabs({
       <ReadingScale>{header}</ReadingScale>
       {/* The 12pt under the switch is frosted too, so nothing is cut at the
           switch's own edge. */}
-      <View style={{ paddingHorizontal: SPACE.gutter, paddingTop: 16, paddingBottom: SPACE.block }}>
+      <View style={{ paddingHorizontal: SPACE.gutter, paddingTop: SPACE.gutter, paddingBottom: SPACE.block }}>
         <SegmentedSwitch
           tone="stone"
           options={[
@@ -171,7 +171,7 @@ export function ResultTabs({
                 borderTopLeftRadius: SHEET_RADIUS,
                 borderTopRightRadius: SHEET_RADIUS,
                 backgroundColor: SHEET,
-                paddingTop: 24,
+                paddingTop: SPACE.section,
                 paddingHorizontal: SPACE.gutter,
                 paddingBottom: 40,
                 gap: SPACE.block,
@@ -285,7 +285,7 @@ type Reason = { key: string; name: string; text: string; tone: Tone; /** The EU 
 function NoticeCard({ hits }: { hits: SafetyNoticeHit[] }) {
   if (hits.length === 0) return null;
   return (
-    <View style={{ marginBottom: SPACE.block, flexDirection: "row", alignItems: "flex-start", gap: 12, borderRadius: CARD_RADIUS, backgroundColor: VERDICT.low.wash, padding: SPACE.gutter }}>
+    <View style={{ marginBottom: SPACE.block, flexDirection: "row", alignItems: "flex-start", gap: SPACE.block, borderRadius: CARD_RADIUS, backgroundColor: VERDICT.low.wash, padding: SPACE.gutter }}>
       <View style={{ marginTop: 1 }}>
         <SafetyShield />
       </View>
@@ -470,7 +470,7 @@ function Reasons({ ingredients, match, profile }: { ingredients: Ingredient[]; m
           ? "Nothing in it works on your skin in particular, either way."
           : "Checked against your skin profile.";
   return (
-    <View style={{ marginTop: 8 }}>
+    <View style={{ marginTop: SPACE.text }}>
       <View style={{ paddingHorizontal: 4, gap: 4 }}>
         <Text accessibilityRole="header" style={{ fontFamily: DISPLAY_FONT, fontSize: TYPE.heading, lineHeight: 28, letterSpacing: -0.5, color: INK }}>
           {REASONS_TITLE[match.verdict]}
@@ -480,7 +480,7 @@ function Reasons({ ingredients, match, profile }: { ingredients: Ingredient[]; m
           {watching > 0 ? ` ${watching === 1 ? "One thing to watch" : `${watching} things to watch`} below.` : ""}
         </Text>
       </View>
-      <View style={{ marginTop: 16, gap: SPACE.block }}>
+      <View style={{ marginTop: SPACE.gutter, gap: SPACE.block }}>
         {shown.map((row) => (
           <ReasonBox key={row.key} row={row} />
         ))}
@@ -544,7 +544,7 @@ function limitBoxes(rows: Reason[], colourOf: (row: Reason) => "red" | "green" |
  */
 function ReasonBox({ row }: { row: Reason }) {
   return (
-    <View style={{ flexDirection: "row", alignItems: "flex-start", gap: 12, borderRadius: 20, backgroundColor: row.tone.wash, padding: SPACE.gutter }}>
+    <View style={{ flexDirection: "row", alignItems: "flex-start", gap: SPACE.block, borderRadius: RADIUS.card, backgroundColor: row.tone.wash, padding: SPACE.gutter }}>
       {/* The dot in its halo (owner). The halo is white here: the verdict's
           own pale halo is the card's colour and would not show on it. */}
       <View style={{ marginTop: row.notice ? 0 : 2 }}>{row.notice ? <SafetyShield /> : <VerdictDot colour={row.tone.solid} halo={WHITE} />}</View>
@@ -629,7 +629,7 @@ function NeedMatch({ ingredients, match, profile, need }: { ingredients: Ingredi
   return (
     <View style={{ gap: SPACE.gutter }}>
       {/* Where the score ring's verdict pill sits on any other result: the answer, in words. */}
-      <View testID="need-verdict" style={{ alignSelf: "center", minHeight: 40, borderRadius: 14, paddingHorizontal: 20, justifyContent: "center", backgroundColor: tone.deep }}>
+      <View testID="need-verdict" style={{ alignSelf: "center", minHeight: 40, borderRadius: RADIUS.control, paddingHorizontal: 20, justifyContent: "center", backgroundColor: tone.deep }}>
         <Text accessibilityRole="header" style={{ fontSize: TYPE.card, lineHeight: 22, fontWeight: "600", color: WHITE }}>
           {verdict.headline}
         </Text>
@@ -674,7 +674,7 @@ function RoutineNotes({ ingredients, type, profile }: { ingredients: Ingredient[
       {notes.map((note) => {
         const caution = pairingIds.has(note.id) && note.id !== EVENING_NOTE;
         return (
-          <View key={note.id} style={{ minHeight: 52, flexDirection: "row", alignItems: "flex-start", gap: 10, paddingVertical: 12, paddingHorizontal: 4, borderTopWidth: 0.5, borderTopColor: DIVIDER }}>
+          <View key={note.id} style={{ minHeight: 52, flexDirection: "row", alignItems: "flex-start", gap: 10, paddingVertical: SPACE.block, paddingHorizontal: 4, borderTopWidth: 0.5, borderTopColor: DIVIDER }}>
             <View testID={caution ? "routine-caution" : undefined} style={{ width: 16, height: 32, alignItems: "center", justifyContent: "center" }}>
               <Svg width={17} height={17} viewBox="0 0 24 24" fill="none">
                 <Path d="M20 14.5A8 8 0 1 1 9.5 4a6.5 6.5 0 0 0 10.5 10.5z" stroke={caution ? VERDICT.medium.deep : MUTED} strokeWidth={2} strokeLinejoin="round" />
@@ -696,7 +696,7 @@ function PregnancyCard({ match }: { match: MatchResult }) {
   const pregnancy = match.warnings.filter((w) => w.origin === "pregnancy");
   if (pregnancy.length === 0) return null;
   return (
-    <View style={{ flexDirection: "row", alignItems: "flex-start", gap: 12, borderRadius: CARD_RADIUS, backgroundColor: VERDICT.low.wash, padding: SPACE.gutter }}>
+    <View style={{ flexDirection: "row", alignItems: "flex-start", gap: SPACE.block, borderRadius: CARD_RADIUS, backgroundColor: VERDICT.low.wash, padding: SPACE.gutter }}>
       <View style={{ width: 28, height: 28, borderRadius: 14, alignItems: "center", justifyContent: "center", backgroundColor: VERDICT.low.solid }}>
         <Svg width={14} height={14} viewBox="0 0 24 24" fill="none">
           <Path d="M12 7v6M12 17h.01" stroke={WHITE} strokeWidth={2.8} strokeLinecap="round" />
@@ -726,7 +726,7 @@ function NoProfile() {
         Is it right for your skin?
       </Text>
       <Text style={{ marginTop: 4, textAlign: "center", fontSize: TYPE.body, lineHeight: 21, color: MUTED }}>4 quick questions. No sign-up needed.</Text>
-      <PrimaryButton label="Get my match" onPress={openQuiz} style={{ marginTop: 12, width: BUTTON_WIDTH.inCard }} />
+      <PrimaryButton label="Get my match" onPress={openQuiz} style={{ marginTop: SPACE.block, width: BUTTON_WIDTH.inCard }} />
     </View>
   );
 }
@@ -752,7 +752,7 @@ function ProfileTeaser({ visible, onClose, onQuiz }: { visible: boolean; onClose
       }
     >
       {/* The top half: a ring with no score yet, and the verdict as a question. */}
-      <View style={{ alignItems: "center", gap: 12, backgroundColor: HOME_CARD_FILL, paddingTop: 32, paddingHorizontal: 20, paddingBottom: 24 }}>
+      <View style={{ alignItems: "center", gap: SPACE.block, backgroundColor: HOME_CARD_FILL, paddingTop: 32, paddingHorizontal: 20, paddingBottom: SPACE.section }}>
         <View style={{ width: 96, height: 96, borderRadius: 48, backgroundColor: WHITE, alignItems: "center", justifyContent: "center" }}>
           <Svg width={80} height={80} style={{ position: "absolute" }}>
             <Circle cx={40} cy={40} r={34} stroke={SEGMENT_TRACK} strokeWidth={6} fill="none" />
@@ -762,16 +762,16 @@ function ProfileTeaser({ visible, onClose, onQuiz }: { visible: boolean; onClose
             ?
           </Text>
         </View>
-        <View style={{ height: 36, paddingHorizontal: 20, borderRadius: 14, backgroundColor: TEASER_INK, justifyContent: "center" }}>
+        <View style={{ height: 36, paddingHorizontal: 20, borderRadius: RADIUS.control, backgroundColor: TEASER_INK, justifyContent: "center" }}>
           <Text style={{ fontSize: 16, fontWeight: "600", color: WHITE }}>Good match?</Text>
         </View>
       </View>
-      <View style={{ alignItems: "center", gap: 8, paddingTop: 24, paddingHorizontal: 20, paddingBottom: 20 }}>
+      <View style={{ alignItems: "center", gap: SPACE.text, paddingTop: SPACE.section, paddingHorizontal: 20, paddingBottom: 20 }}>
         <Text accessibilityRole="header" style={{ textAlign: "center", fontFamily: DISPLAY_FONT, fontSize: TYPE.heading, lineHeight: 28, letterSpacing: -0.5, color: INK }}>
           Is it right for your skin?
         </Text>
         <Text style={{ maxWidth: 300, textAlign: "center", fontSize: 16, lineHeight: 23, color: MUTED }}>Answer 4 quick questions and we&apos;ll match every product to your skin.</Text>
-        <PrimaryButton label="Take the 1-minute quiz" onPress={onQuiz} style={{ marginTop: 12, width: BUTTON_WIDTH.secondary }} />
+        <PrimaryButton label="Take the 1-minute quiz" onPress={onQuiz} style={{ marginTop: SPACE.block, width: BUTTON_WIDTH.secondary }} />
       </View>
     </BottomSheet>
   );
@@ -806,7 +806,7 @@ function IngredientsTab({
       <PregnancyCard match={match} />
       <Text style={{ paddingHorizontal: 4, fontSize: TYPE.body, lineHeight: 21, color: INK }}>General ingredients info, the same for everyone.</Text>
       {/* The two risks in one box, a row each (v9); either opens the list filtered to its watch-outs. */}
-      <View testID="risk-cards" style={{ borderRadius: 20, backgroundColor: RISK_FILL, paddingVertical: 4, paddingHorizontal: 16 }}>
+      <View testID="risk-cards" style={{ borderRadius: RADIUS.card, backgroundColor: RISK_FILL, paddingVertical: 4, paddingHorizontal: SPACE.gutter }}>
         <RiskRow title="Irritation risk" risk={irritation} onPress={irritation.hasEntries ? () => onFilter("watch") : undefined} />
         <RiskRow title="Pore-clogging risk" risk={pore} divider onPress={pore.hasEntries ? () => onFilter("pore") : undefined} />
       </View>
@@ -837,7 +837,7 @@ function RiskRow({ title, risk, divider = false, onPress }: { title: string; ris
       disabled={!onPress}
       accessibilityRole={onPress ? "button" : undefined}
       accessibilityLabel={`${title}: ${risk.level}. ${risk.note}`}
-      style={{ minHeight: 60, flexDirection: "row", alignItems: "center", gap: 12, paddingVertical: 12, borderTopWidth: divider ? 0.5 : 0, borderTopColor: RISK_LINE }}
+      style={{ minHeight: 60, flexDirection: "row", alignItems: "center", gap: SPACE.block, paddingVertical: SPACE.block, borderTopWidth: divider ? 0.5 : 0, borderTopColor: RISK_LINE }}
       className={onPress ? "active:opacity-70" : undefined}
     >
       <VerdictDot colour={tone.solid} halo={tone.halo} />

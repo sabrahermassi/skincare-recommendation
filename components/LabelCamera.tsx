@@ -380,7 +380,7 @@ export function LabelCamera({
         >
           {/* White on the camera, no box behind it (owner): a soft shadow keeps
               it readable over a bright label. */}
-          <View style={{ alignItems: "center", gap: 3, paddingHorizontal: 8 }}>
+          <View style={{ alignItems: "center", gap: 3, paddingHorizontal: SPACE.text }}>
             <Text style={[TIP_SHADOW, { textAlign: "center", fontSize: TYPE.label, fontWeight: "700", color: CANVAS }]}>
               {readyCopy.title}
             </Text>
@@ -400,12 +400,12 @@ export function LabelCamera({
           // `clearance` is where the frame ends: 16 inside it.
           bottom: clearance + SPACE.gutter,
           alignItems: "center",
-          gap: 12,
+          gap: SPACE.block,
           paddingHorizontal: SCAN_SIDE_INSET + 12,
         }}
       >
         {status.kind === "failed" ? (
-          <View style={{ width: "100%", alignItems: "center", gap: 8 }}>
+          <View style={{ width: "100%", alignItems: "center", gap: SPACE.text }}>
             {/* Grouped so the message and its hint read as one sentence rather
                 than two fragments. The announcement itself is made by
                 `ScreenReaderAnnouncer` above — a live region on this
@@ -502,7 +502,7 @@ function QuietLink({ label, onPress }: { label: string; onPress: () => void }) {
       onPress={onPress}
       accessibilityRole="button"
       accessibilityLabel={label}
-      style={{ minHeight: TOUCH_TARGET, alignItems: "center", justifyContent: "center", paddingHorizontal: 12 }}
+      style={{ minHeight: TOUCH_TARGET, alignItems: "center", justifyContent: "center", paddingHorizontal: SPACE.block }}
       className="active:opacity-70"
     >
       <Text style={{ fontSize: TYPE.label, fontWeight: "600", color: withAlpha(CANVAS, 0.85) }}>{label}</Text>

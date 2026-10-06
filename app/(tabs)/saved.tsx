@@ -32,7 +32,7 @@ import { openScanner } from "@/lib/open-scanner";
 import { matchProduct } from "@/lib/matching";
 import { STEP_LABEL, STEP_ORDER, stepOf, type StepGroup } from "@/lib/routine-step";
 import { tabBarClearance, tabRootTop } from "@/lib/tab-bar";
-import { CANVAS, CANVAS_GLASS, CARD_RADIUS, DISPLAY_FONT, INK, LINK, MUTED, SPACE, SURFACE, TOUCH_TARGET, TYPE, VERDICT_NEUTRAL } from "@/lib/tokens";
+import { CANVAS, CANVAS_GLASS, CARD_RADIUS, DISPLAY_FONT, INK, LINK, MUTED, SPACE, SURFACE, TOUCH_TARGET, TYPE, VERDICT_NEUTRAL, RADIUS } from "@/lib/tokens";
 import { useAppStore, type HistoryEntry } from "@/store/useAppStore";
 import { haptic } from "@/lib/haptics";
 import { reduceMotionNow } from "@/lib/reduce-motion";
@@ -592,7 +592,7 @@ function PlainRow({
 // A row's least height, and the tile where a product's bottle would be, with its corners (v9).
 const ROW_MIN_HEIGHT = 76;
 const TILE = 52;
-const TILE_RADIUS = 12;
+const TILE_RADIUS = RADIUS.control;
 
 /**
  * A label photo in History: its number and the ingredients that say most

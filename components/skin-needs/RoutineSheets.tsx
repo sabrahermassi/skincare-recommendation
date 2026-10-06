@@ -12,7 +12,7 @@ import { Text } from "@/components/Text";
 import { haptic } from "@/lib/haptics";
 import { activeOf, DAY_LETTERS, DEFAULT_STEP_LIMIT, familyOf, inSentence, STEP_LIMITS, type StepLimit } from "@/lib/skin-needs";
 import type { ActiveKey } from "@/lib/skin-needs-data";
-import { BUTTON, DISPLAY_FONT, INK, MUTED, MUTED_FAINT, SKIN_NEEDS, STONE, WHITE, TYPE } from "@/lib/tokens";
+import { BUTTON, DISPLAY_FONT, INK, MUTED, MUTED_FAINT, SKIN_NEEDS, STONE, WHITE, TYPE, RADIUS, SPACE } from "@/lib/tokens";
 
 /**
  * The sheets over the last story card when Add needs a choice (hand-off 7b,
@@ -49,7 +49,7 @@ function Sheet({ visible, onClose, closable = true, title, line, children }: { v
         ) : undefined
       }
     >
-      <View style={{ alignItems: "center", gap: 12, paddingTop: 2, paddingHorizontal: 6 }}>
+      <View style={{ alignItems: "center", gap: SPACE.block, paddingTop: 2, paddingHorizontal: 6 }}>
         <Text accessibilityRole="header" style={{ paddingHorizontal: closable ? 40 : 0, textAlign: "center", fontFamily: DISPLAY_FONT, fontSize: TYPE.heading, lineHeight: 28, letterSpacing: -0.5, color: INK }}>
           {title}
         </Text>
@@ -63,7 +63,7 @@ function Sheet({ visible, onClose, closable = true, title, line, children }: { v
 /** Two buttons side by side: the one we recommend filled, the other pale sage. */
 function Pair({ first, second }: { first: { label: string; onPress: () => void }; second: { label: string; onPress: () => void } }) {
   return (
-    <View style={{ marginTop: 4, flexDirection: "row", gap: 12, justifyContent: "center" }}>
+    <View style={{ marginTop: 4, flexDirection: "row", gap: SPACE.block, justifyContent: "center" }}>
       <SheetButton label={first.label} onPress={first.onPress} filled />
       <SheetButton label={second.label} onPress={second.onPress} />
     </View>
@@ -91,13 +91,13 @@ function SheetButton({ label, onPress, filled = false, wide = false }: { label: 
 function ActiveTile({ active, badge, line, isNew = false }: { active: ActiveKey; badge?: string; line?: ReactNode; isNew?: boolean }) {
   const record = activeOf(active);
   return (
-    <View style={{ flex: 1, minWidth: 0, backgroundColor: STONE, borderRadius: 20, padding: 12, alignItems: "center", gap: 6 }}>
+    <View style={{ flex: 1, minWidth: 0, backgroundColor: STONE, borderRadius: RADIUS.card, padding: SPACE.block, alignItems: "center", gap: 6 }}>
       <Image source={familyOf(record).picture} contentFit="contain" accessibilityLabel="" style={{ width: 56, height: 54 }} />
       <Text numberOfLines={2} style={{ fontSize: TYPE.body, fontWeight: "600", textAlign: "center", color: INK }}>
         {record.name}
       </Text>
       {badge ? (
-        <View style={{ height: 22, paddingHorizontal: 8, borderRadius: 11, backgroundColor: isNew ? SKIN_NEEDS.family[record.family] : WHITE, justifyContent: "center" }}>
+        <View style={{ height: 22, paddingHorizontal: SPACE.text, borderRadius: 11, backgroundColor: isNew ? SKIN_NEEDS.family[record.family] : WHITE, justifyContent: "center" }}>
           <Text style={{ fontSize: 12, fontWeight: "600", color: isNew ? SKIN_NEEDS.stepInk : MUTED }}>{badge}</Text>
         </View>
       ) : null}
@@ -147,7 +147,7 @@ export function SwapOrAddSheet({
       title="Swap or add a step?"
       line={`Your ${time} active step already has ${inSentence(takenName)}. Your routine has ${stepsNow} steps.`}
     >
-      <View style={{ alignSelf: "stretch", flexDirection: "row", alignItems: "center", gap: 8 }}>
+      <View style={{ alignSelf: "stretch", flexDirection: "row", alignItems: "center", gap: SPACE.text }}>
         <ActiveTile
           active={taken}
           badge="In your routine"
@@ -188,7 +188,7 @@ export function StartRoutineSheet({ visible, onClose, active, onStart }: { visib
   const [limit, setLimit] = useState<StepLimit>(DEFAULT_STEP_LIMIT);
   return (
     <Sheet visible={visible} onClose={onClose} title="Let's start your routine" line={`We'll add the basics around ${activeOf(active).name}: cleanse, moisturise and SPF.`}>
-      <View style={{ alignSelf: "stretch", gap: 8, marginTop: 4 }}>
+      <View style={{ alignSelf: "stretch", gap: SPACE.text, marginTop: 4 }}>
         <Text style={{ fontSize: TYPE.body, fontWeight: "600", color: INK }}>How many steps feel right?</Text>
         <SegmentedSwitch
           tone="light"
@@ -198,7 +198,7 @@ export function StartRoutineSheet({ visible, onClose, active, onStart }: { visib
         />
         <Text style={{ fontSize: TYPE.caption, color: MUTED_FAINT }}>Per routine. You can change it later.</Text>
       </View>
-      <View style={{ marginTop: 8 }}>
+      <View style={{ marginTop: SPACE.text }}>
         <SheetButton label="Start my routine" onPress={() => onStart(limit)} filled wide />
       </View>
     </Sheet>
@@ -232,7 +232,7 @@ export function AlternateSheet({
   ];
   return (
     <Sheet visible={visible} onClose={onClose} title={`You already use ${namedInLine(other)}`} line="Together they can be too much for your skin. Use them on different nights.">
-      <View style={{ alignSelf: "stretch", backgroundColor: STONE, borderRadius: 20, paddingVertical: 12, paddingHorizontal: 16, gap: 8 }}>
+      <View style={{ alignSelf: "stretch", backgroundColor: STONE, borderRadius: RADIUS.card, paddingVertical: SPACE.block, paddingHorizontal: SPACE.gutter, gap: SPACE.text }}>
         <View style={{ flexDirection: "row" }}>
           <View style={{ width: 76 }} />
           {DAY_LETTERS.map((letter, day) => (
@@ -268,7 +268,7 @@ export function OneAtATimeSheet({ visible, onClose, active, other, inRoutine, on
   const name = activeOf(active).name;
   return (
     <Sheet visible={visible} onClose={onClose} title="One at a time is kinder" line={`Your skin is very sensitive. Swap ${yours(other)} for ${name}, or keep it and save ${name} for later.`}>
-      <View style={{ alignSelf: "stretch", flexDirection: "row", alignItems: "center", gap: 8 }}>
+      <View style={{ alignSelf: "stretch", flexDirection: "row", alignItems: "center", gap: SPACE.text }}>
         <ActiveTile active={other} line={<Text style={{ fontSize: 12, color: MUTED_FAINT }}>{inRoutine ? "In your routine" : "You use it"}</Text>} />
         <SwapIcon color={MUTED_FAINT} />
         <ActiveTile active={active} line={<Text style={{ fontSize: 12, color: MUTED_FAINT }}>New</Text>} />

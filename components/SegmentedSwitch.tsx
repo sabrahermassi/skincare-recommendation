@@ -4,7 +4,7 @@ import Animated, { useAnimatedStyle, useSharedValue, withSpring } from "react-na
 
 import { Text } from "@/components/Text";
 import { FLOW_LEAD, FLOW_TRAIL } from "@/lib/flow";
-import { INK, MUTED, SWITCH_TRACK_GLASS, TYPE, WHITE, withAlpha } from "@/lib/tokens";
+import { INK, MUTED, SWITCH_TRACK_GLASS, TYPE, WHITE, withAlpha, SPACE } from "@/lib/tokens";
 
 
 // The two looks (v7). Over the camera: a see-through white track, a white
@@ -141,7 +141,7 @@ export function SegmentedSwitch<T extends string>({
               accessibilityRole="tab"
               accessibilityLabel={label}
               accessibilityState={{ selected: on }}
-              style={{ flex: 1, flexDirection: "row", gap: 8, alignItems: "center", justifyContent: "center", paddingHorizontal: 6 }}
+              style={{ flex: 1, flexDirection: "row", gap: SPACE.text, alignItems: "center", justifyContent: "center", paddingHorizontal: 6 }}
               className="active:opacity-70"
             >
               {icon ? icon(on) : null}

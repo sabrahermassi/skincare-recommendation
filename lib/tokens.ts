@@ -324,12 +324,19 @@ export const SCANNER_SWITCH = {
 export const CHOSEN = { fill: "#EEF1E7", border: BUTTON.primary.fill, label: INK, accent: LINK } as const; // v9
 
 /**
- * One shape for every selectable control in the app — chips, option cards,
- * filter pills, segmented tabs. Size varies with the job (a 2-per-row quiz
- * chip is not a filter pill), the corner never does: a screen mixing 999-px
- * pills with 14-px chips reads as two design systems arguing.
+ * The corner scale: four steps for every rounded rectangle in the app (7 October
+ * 2026, from the design critique: about 20 different radii had grown up, which
+ * is what makes screens look assembled). A circle is half its own size and a pill
+ * half its own height, so those are computed where they are drawn, not taken from
+ * here. A shape nested in another takes the outer radius less the gap between
+ * them (the filter popover's rows).
+ *
+ * - `control` 14: small controls, verdict pills, steppers, chips with corners.
+ * - `card` 20: cards, rows, boxes: a product row, a reason, a list group.
+ * - `panel` 28: large cards: the routine card, story cards, the ingredient box.
+ * - `sheet` 36: pop-ups and sheets, including the product result's white sheet.
  */
-export const RADIUS_SELECTOR = 14;
+export const RADIUS = { control: 14, card: 20, panel: 28, sheet: 36 } as const;
 
 // ── Match verdict ───────────────────────────────────────────────────────────
 
@@ -547,11 +554,8 @@ export const DISPLAY_FONT = "PTSerif_700Bold";
  */
 export const MENU_FONT = "Figtree_600SemiBold";
 
-/** The Profile menu's softer cards (same reference): rounder corners than `CARD_RADIUS`. Inferred from the screenshot. */
-export const MENU_SOFT_RADIUS = 22;
-
-/** A card's corners (v7). Every card, white or tinted, is its fill alone: no border, no shadow. */
-export const CARD_RADIUS = 16; // v9 (v7 was 20)
+/** A card's corners: `RADIUS.card`. Every card, white or tinted, is its fill alone: no border, no shadow. Kept by name because many files import it. */
+export const CARD_RADIUS = RADIUS.card;
 
 /**
  * How far iOS Larger Text / Android font size may grow text (#314). The

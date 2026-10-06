@@ -56,8 +56,8 @@ export function EmptyState({
           {title}
         </Text>
       ) : null}
-      <Text style={{ marginTop: 8, maxWidth: 300, textAlign: "center", fontSize: TYPE.body, lineHeight: 21, color: MUTED }}>{line}</Text>
-      {action ? <View style={{ marginTop: 24, alignItems: "center" }}>{action}</View> : null}
+      <Text style={{ marginTop: SPACE.text, maxWidth: 300, textAlign: "center", fontSize: TYPE.body, lineHeight: 21, color: MUTED }}>{line}</Text>
+      {action ? <View style={{ marginTop: SPACE.section, alignItems: "center" }}>{action}</View> : null}
     </View>
   );
 }

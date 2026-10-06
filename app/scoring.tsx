@@ -16,7 +16,7 @@ import {
   type ScoreFactor,
   type ScoreNote,
 } from "@/lib/scoring-explainer";
-import { CARD_RADIUS, CHOSEN, DISPLAY_FONT, HAIRLINE, INK, MUTED, MUTED_FAINT, scoreColours, SPACE, STONE, TYPE, VERDICT, VERDICT_NEUTRAL, WHITE } from "@/lib/tokens";
+import { CARD_RADIUS, CHOSEN, DISPLAY_FONT, HAIRLINE, INK, MUTED, MUTED_FAINT, scoreColours, SPACE, STONE, TYPE, VERDICT, VERDICT_NEUTRAL, WHITE, RADIUS } from "@/lib/tokens";
 
 /**
  * How scoring works (#325) — where the number comes from, in plain English:
@@ -31,7 +31,7 @@ export default function HowScoringWorks() {
   return (
     <SheetScreen
       header={
-        <View style={{ flexDirection: "row", alignItems: "center", justifyContent: "space-between", gap: SPACE.block, paddingTop: 24, paddingHorizontal: SPACE.gutter }}>
+        <View style={{ flexDirection: "row", alignItems: "center", justifyContent: "space-between", gap: SPACE.block, paddingTop: SPACE.section, paddingHorizontal: SPACE.gutter }}>
           <Text accessibilityRole="header" style={{ flex: 1, fontFamily: DISPLAY_FONT, fontSize: TYPE.heading, lineHeight: 28, letterSpacing: -0.5, color: INK }}>
             How scoring works
           </Text>
@@ -44,7 +44,7 @@ export default function HowScoringWorks() {
       <ScrollView style={{ flexShrink: 1 }} contentContainerStyle={{ paddingHorizontal: SPACE.gutter, paddingTop: SPACE.gutter, paddingBottom: 32 }} alwaysBounceVertical={false}>
         <Text style={{ paddingHorizontal: 4, paddingBottom: SPACE.section, fontSize: TYPE.card, lineHeight: 25, color: INK }}>{SCORING_INTRO}</Text>
 
-        <View style={{ backgroundColor: STONE, borderRadius: 24, paddingTop: 20, paddingHorizontal: 20, paddingBottom: SPACE.text }}>
+        <View style={{ backgroundColor: STONE, borderRadius: RADIUS.panel, paddingTop: 20, paddingHorizontal: 20, paddingBottom: SPACE.text }}>
           <Text accessibilityRole="header" style={{ fontSize: TYPE.card, fontWeight: "600", color: INK }}>
             What the numbers mean
           </Text>

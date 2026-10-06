@@ -4,7 +4,7 @@ import { Animated, Easing, KeyboardAvoidingView, Modal, Platform, Pressable, Scr
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 
 import { reduceMotionNow } from "@/lib/reduce-motion";
-import { INK, SCRIM, SHEET_SHADOW, WHITE, withAlpha } from "@/lib/tokens";
+import { INK, SCRIM, SHEET_SHADOW, WHITE, withAlpha, RADIUS, SPACE } from "@/lib/tokens";
 
 const IN_MS = 280;
 const OUT_MS = 220;
@@ -12,9 +12,7 @@ const OUT_MS = 220;
 // over a lightly blurred screen. A bottom sheet's top corners are 38, with a
 // grabber.
 export const FLOAT_INSET = 10;
-export const FLOAT_RADIUS = 36;
 const FLOAT_BLUR = 4; // v9
-const SHEET_RADIUS = 38;
 // The room a sheet always leaves above itself, under the status bar, so a
 // long one stops short of the top and scrolls instead (its corner stays
 // reachable).
@@ -91,8 +89,8 @@ export function BottomSheet({
   const padding = bare
     ? {}
     : floating
-    ? { paddingTop: 24, paddingHorizontal: 16, paddingBottom: 24, gap: 8 }
-    : { paddingTop: 28, paddingHorizontal: 16, paddingBottom: Math.max(24, insets.bottom + 12), gap: 12 };
+    ? { paddingTop: SPACE.section, paddingHorizontal: SPACE.gutter, paddingBottom: SPACE.section, gap: SPACE.text }
+    : { paddingTop: 28, paddingHorizontal: SPACE.gutter, paddingBottom: Math.max(24, insets.bottom + 12), gap: SPACE.block };
 
   const body = (
       <KeyboardAvoidingView behavior={Platform.OS === "ios" ? "padding" : undefined} style={{ flex: 1, justifyContent: "flex-end" }}>
@@ -105,8 +103,8 @@ export function BottomSheet({
             testID="sheet-card"
             style={[
               floating
-                ? { marginHorizontal: FLOAT_INSET, marginBottom: FLOAT_INSET, borderRadius: FLOAT_RADIUS }
-                : { borderTopLeftRadius: SHEET_RADIUS, borderTopRightRadius: SHEET_RADIUS },
+                ? { marginHorizontal: FLOAT_INSET, marginBottom: FLOAT_INSET, borderRadius: RADIUS.sheet }
+                : { borderTopLeftRadius: RADIUS.sheet, borderTopRightRadius: RADIUS.sheet },
               { maxHeight, backgroundColor: WHITE, ...SHEET_SHADOW }, // v9: pure white sheets
             ]}
           >
@@ -115,8 +113,8 @@ export function BottomSheet({
             <View
               style={
                 floating
-                  ? { borderRadius: FLOAT_RADIUS, overflow: "hidden", flexShrink: 1 }
-                  : { borderTopLeftRadius: SHEET_RADIUS, borderTopRightRadius: SHEET_RADIUS, overflow: "hidden", flexShrink: 1 }
+                  ? { borderRadius: RADIUS.sheet, overflow: "hidden", flexShrink: 1 }
+                  : { borderTopLeftRadius: RADIUS.sheet, borderTopRightRadius: RADIUS.sheet, overflow: "hidden", flexShrink: 1 }
               }
             >
               <ScrollView

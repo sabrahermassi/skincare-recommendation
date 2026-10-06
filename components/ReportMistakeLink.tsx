@@ -7,7 +7,7 @@ import { CloseCross, IconCircle } from "@/components/IconCircle";
 import { Text } from "@/components/Text";
 import { mistakeReportUrl, type MistakeSubject } from "@/lib/report-mistake";
 import { supportEmail } from "@/lib/support-email";
-import { BUTTON, DESTRUCTIVE_OUTLINE, DISPLAY_FONT, FONT_SCALE, INK, MUTED, OPTION_LINE, PLACEHOLDER, STONE, TOUCH_TARGET, TYPE } from "@/lib/tokens";
+import { BUTTON, DESTRUCTIVE_OUTLINE, DISPLAY_FONT, FONT_SCALE, INK, MUTED, OPTION_LINE, PLACEHOLDER, STONE, TOUCH_TARGET, TYPE, RADIUS, SPACE } from "@/lib/tokens";
 import { BUTTON_HEIGHT } from "@/components/PrimaryButton";
 
 const REPORT_ART = require("@/assets/illustrations/report-mistake.webp");
@@ -103,12 +103,12 @@ export function ReportMistakeLink({ subject, button = false }: { subject: Mistak
           </IconCircle>
         }
       >
-        <View style={{ alignItems: "center", paddingHorizontal: 8 }}>
+        <View style={{ alignItems: "center", paddingHorizontal: SPACE.text }}>
           <Image source={REPORT_ART} contentFit="contain" accessibilityLabel="" style={{ width: 132, height: 132 }} />
-          <Text accessibilityRole="header" style={{ marginTop: 8, textAlign: "center", fontFamily: DISPLAY_FONT, fontSize: TYPE.heading, lineHeight: 28, letterSpacing: -0.5, color: INK }}>
+          <Text accessibilityRole="header" style={{ marginTop: SPACE.text, textAlign: "center", fontFamily: DISPLAY_FONT, fontSize: TYPE.heading, lineHeight: 28, letterSpacing: -0.5, color: INK }}>
             {sent ? "Thank you" : "Report a mistake"}
           </Text>
-          <Text style={{ marginTop: 8, maxWidth: 300, textAlign: "center", fontSize: TYPE.body, lineHeight: 21, color: MUTED }}>
+          <Text style={{ marginTop: SPACE.text, maxWidth: 300, textAlign: "center", fontSize: TYPE.body, lineHeight: 21, color: MUTED }}>
             {sent ? "We'll check this product and fix it if something's off." : "What looks wrong about this product?"}
           </Text>
           {sent ? null : (
@@ -123,10 +123,10 @@ export function ReportMistakeLink({ subject, button = false }: { subject: Mistak
               style={{
                 alignSelf: "stretch",
                 minHeight: 96,
-                marginTop: 16,
-                paddingVertical: 12,
-                paddingHorizontal: 16,
-                borderRadius: 16,
+                marginTop: SPACE.gutter,
+                paddingVertical: SPACE.block,
+                paddingHorizontal: SPACE.gutter,
+                borderRadius: RADIUS.card,
                 borderWidth: 1.5,
                 borderColor: ready ? BUTTON.primary.fill : OPTION_LINE,
                 backgroundColor: STONE,
@@ -137,7 +137,7 @@ export function ReportMistakeLink({ subject, button = false }: { subject: Mistak
               }}
             />
           )}
-          {failure ? <View style={{ marginTop: 12 }}>{failure}</View> : null}
+          {failure ? <View style={{ marginTop: SPACE.block }}>{failure}</View> : null}
           <Pressable
             onPress={() => {
               if (sent) return close();
@@ -149,8 +149,8 @@ export function ReportMistakeLink({ subject, button = false }: { subject: Mistak
             style={{
               alignSelf: "stretch",
               height: 48,
-              marginTop: 16,
-              borderRadius: 24,
+              marginTop: SPACE.gutter,
+              borderRadius: RADIUS.panel,
               alignItems: "center",
               justifyContent: "center",
               // Done is the filled sage button; Send report is the soft red one, grey until something is typed.

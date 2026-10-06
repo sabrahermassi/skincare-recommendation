@@ -35,7 +35,7 @@ export function ScreenHeader({
 
   return (
     <View
-      style={{ paddingTop: insets.top + 6, paddingHorizontal: SPACE.gutter, height: insets.top + 50, flexDirection: "row", alignItems: "center", justifyContent: "space-between", gap: 12 }}
+      style={{ paddingTop: insets.top + 6, paddingHorizontal: SPACE.gutter, height: insets.top + 50, flexDirection: "row", alignItems: "center", justifyContent: "space-between", gap: SPACE.block }}
     >
       {/* Back and the right-hand circles take equal shares, so the title sits
           at the screen's true centre however many circles there are (v9). */}
@@ -53,7 +53,7 @@ export function ScreenHeader({
         </Text>
       ) : null}
 
-      <View style={{ flex: 1, gap: 12, flexDirection: "row", alignItems: "center", justifyContent: "flex-end" }}>{right}</View>
+      <View style={{ flex: 1, gap: SPACE.block, flexDirection: "row", alignItems: "center", justifyContent: "flex-end" }}>{right}</View>
     </View>
   );
 }

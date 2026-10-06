@@ -15,7 +15,7 @@ import { ruleFor, type MatchResult } from "@/lib/matching";
 import { cloggerConfidence, isPoreClogging } from "@/lib/pore-clogging";
 import { isActiveRule } from "@/lib/rules";
 import { isOriginDependent, isVerified } from "@/lib/safety";
-import { BUTTON, INK, MUTED, MUTED_FAINT, SPACE, TYPE, WHITE } from "@/lib/tokens";
+import { BUTTON, INK, MUTED, MUTED_FAINT, SPACE, TYPE, WHITE, RADIUS } from "@/lib/tokens";
 import { BUTTON_HEIGHT } from "@/components/PrimaryButton";
 import { useAppStore } from "@/store/useAppStore";
 
@@ -26,7 +26,7 @@ export type IngredientFilter = "all" | "watch" | "actives" | "pore" | "unknown";
 // v9 (read off the hand-off): the first five rows, then "N more ingredients".
 const FIRST_ROWS = 5;
 const ROW_MIN_HEIGHT = 64;
-const BOX_RADIUS = 28;
+const BOX_RADIUS = RADIUS.panel;
 
 // What a filter with nothing in it says (v7).
 const EMPTY: Record<Exclude<IngredientFilter, "all">, string> = {
@@ -127,7 +127,7 @@ export function IngredientsCard({
   const moreLabel = `${rest.length} more${restIsFine ? ", no concerns" : rest.length === 1 ? " ingredient" : " ingredients"}`;
 
   return (
-    <View style={{ marginTop: SPACE.block, borderRadius: BOX_RADIUS, borderWidth: 1.5, borderColor: BUTTON.primary.fill, backgroundColor: WHITE, paddingTop: 12, paddingHorizontal: 20, paddingBottom: 20 }}>
+    <View style={{ marginTop: SPACE.block, borderRadius: BOX_RADIUS, borderWidth: 1.5, borderColor: BUTTON.primary.fill, backgroundColor: WHITE, paddingTop: SPACE.block, paddingHorizontal: 20, paddingBottom: 20 }}>
       <View style={{ minHeight: 52, flexDirection: "row", alignItems: "center", justifyContent: "space-between" }}>
         <Text accessibilityRole="header" style={{ fontSize: TYPE.title, fontWeight: "600", letterSpacing: -0.2, color: INK }}>
           Ingredients
@@ -150,7 +150,7 @@ export function IngredientsCard({
       </View>
 
       {rows.length === 0 && filter !== "all" ? (
-        <Text style={{ paddingTop: 12, paddingBottom: 4, fontSize: TYPE.body, color: MUTED }}>{EMPTY[filter]}</Text>
+        <Text style={{ paddingTop: SPACE.block, paddingBottom: 4, fontSize: TYPE.body, color: MUTED }}>{EMPTY[filter]}</Text>
       ) : (
         rows.map((ingredient) => {
           const label = labelOf(ingredient);
@@ -175,7 +175,7 @@ export function IngredientsCard({
           onPress={() => setShowAll(true)}
           accessibilityRole="button"
           accessibilityLabel={moreLabel}
-          style={{ marginTop: 12, height: BUTTON_HEIGHT, borderRadius: BUTTON_HEIGHT / 2, backgroundColor: BUTTON.primary.fill, flexDirection: "row", alignItems: "center", justifyContent: "center", gap: 8 }}
+          style={{ marginTop: SPACE.block, height: BUTTON_HEIGHT, borderRadius: BUTTON_HEIGHT / 2, backgroundColor: BUTTON.primary.fill, flexDirection: "row", alignItems: "center", justifyContent: "center", gap: SPACE.text }}
           className="active:opacity-90"
         >
           <Text style={{ fontSize: 16, fontWeight: "600", color: BUTTON.primary.label }}>{moreLabel}</Text>
@@ -185,8 +185,8 @@ export function IngredientsCard({
         </Pressable>
       ) : (
         <>
-          <Text style={{ marginTop: 12, fontSize: TYPE.caption, lineHeight: 19, color: MUTED_FAINT }}>* Scores for the same product can change, as brands sometimes update their formulas.</Text>
-          {afterAll ? <View style={{ marginTop: 16 }}>{afterAll}</View> : null}
+          <Text style={{ marginTop: SPACE.block, fontSize: TYPE.caption, lineHeight: 19, color: MUTED_FAINT }}>* Scores for the same product can change, as brands sometimes update their formulas.</Text>
+          {afterAll ? <View style={{ marginTop: SPACE.gutter }}>{afterAll}</View> : null}
         </>
       )}
     </View>
@@ -220,7 +220,7 @@ function IngredientRow({
       disabled={!onPress}
       accessibilityRole={onPress ? "button" : undefined}
       accessibilityLabel={`${name}, ${label ? (word ?? LABEL_META[label].label) : subtitle}${wordLine ? `. ${wordLine}` : ""}`}
-      style={{ minHeight: ROW_MIN_HEIGHT, flexDirection: "row", alignItems: "center", gap: 12, paddingVertical: 8 }}
+      style={{ minHeight: ROW_MIN_HEIGHT, flexDirection: "row", alignItems: "center", gap: SPACE.block, paddingVertical: SPACE.text }}
       className={onPress ? "active:opacity-70" : undefined}
     >
       {/* The verdict's dot in front of every row (owner): green, orange, red,

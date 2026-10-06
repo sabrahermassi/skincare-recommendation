@@ -19,7 +19,7 @@ import { ChoosePhotoInstead } from "@/components/ChoosePhotoInstead";
 import { ScanCamera } from "@/components/ScanCamera";
 import { LabelCamera } from "@/components/LabelCamera";
 import { CameraPermissionScreen } from "@/components/CameraPermissionScreen";
-import { FLOAT_INSET, FLOAT_RADIUS } from "@/components/BottomSheet";
+import { FLOAT_INSET } from "@/components/BottomSheet";
 import { barcodeBox, ScanViewfinder, type Box } from "@/components/ScanViewfinder";
 import { ProductThumbnail } from "@/components/ProductThumbnail";
 import { SafetyShield } from "@/components/SafetyShield";
@@ -66,6 +66,7 @@ import {
   VERDICT_NEUTRAL,
   WHITE,
   withAlpha,
+  RADIUS,
 } from "@/lib/tokens";
 import { TAB_BAR_HEIGHT } from "@/lib/tab-bar";
 
@@ -654,7 +655,7 @@ function ScanPopup({ onDismiss, light = false, children }: { onDismiss: () => vo
           bottom: FLOAT_INSET,
           transform: [{ translateY: lift }],
           backgroundColor: WHITE,
-          borderRadius: FLOAT_RADIUS,
+          borderRadius: RADIUS.sheet,
           paddingTop: SPACE.section,
           paddingHorizontal: SPACE.gutter,
           paddingBottom: SPACE.section,
@@ -761,8 +762,8 @@ function FoundSheet({
           <Text numberOfLines={2} style={{ fontSize: TYPE.card, fontWeight: "600", lineHeight: 21, color: INK }}>
             {product.name}
           </Text>
-          <View style={{ marginTop: 6, flexDirection: "row", alignItems: "center", gap: 8 }}>
-            <View testID="found-pill" style={{ height: 28, paddingHorizontal: 12, borderRadius: 14, justifyContent: "center", backgroundColor: colours.deep }}>
+          <View style={{ marginTop: 6, flexDirection: "row", alignItems: "center", gap: SPACE.text }}>
+            <View testID="found-pill" style={{ height: 28, paddingHorizontal: SPACE.block, borderRadius: 14, justifyContent: "center", backgroundColor: colours.deep }}>
               <Text style={{ fontSize: TYPE.caption, fontWeight: "600", color: WHITE }}>
                 {verdict ? verdict.headline : !match || match.score === null ? "See full result" : `${VERDICT_LABEL[match.verdict]} · ${match.score}/100`}
               </Text>
@@ -877,7 +878,7 @@ function BarcodeStage({
           left: STAGE_INSET,
           right: STAGE_INSET,
           bottom: needsPermission ? bottom : frameBottom(insets.bottom),
-          gap: 12,
+          gap: SPACE.block,
         }}
       >
         {status.kind !== "idle" && status.kind !== "found" && status.kind !== "missed" && (
@@ -893,8 +894,8 @@ function BarcodeStage({
             accessible
             accessibilityLabel={announcement}
             style={{
-              gap: 12,
-              borderRadius: 18,
+              gap: SPACE.block,
+              borderRadius: RADIUS.card,
               backgroundColor: withAlpha(CANVAS, 0.95),
             }}
             className="flex-row items-center px-4 py-3"
@@ -990,7 +991,7 @@ function BarcodeStage({
             onPress={onHint}
             accessibilityRole="button"
             accessibilityLabel={READY_BARCODE.link}
-            style={{ minHeight: TOUCH_TARGET, alignItems: "center", justifyContent: "center", paddingHorizontal: 12 }}
+            style={{ minHeight: TOUCH_TARGET, alignItems: "center", justifyContent: "center", paddingHorizontal: SPACE.block }}
             className="active:opacity-70"
           >
             {/* Centred like everything above it, also when it wraps to two lines. */}

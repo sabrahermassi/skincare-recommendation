@@ -242,7 +242,7 @@ function ProductScreen({ id, from, need, step, scanned }: { id: string; from?: s
     return (
       <View style={{ flex: 1, backgroundColor: CANVAS }}>
         <ScreenHeader />
-        <View style={{ flex: 1, alignItems: "center", justifyContent: "center", gap: 16, paddingHorizontal: 32 }}>
+        <View style={{ flex: 1, alignItems: "center", justifyContent: "center", gap: SPACE.gutter, paddingHorizontal: 32 }}>
           <Text style={{ fontFamily: DISPLAY_FONT, fontSize: TYPE.heading, color: INK }}>
             Couldn&apos;t load this product
           </Text>
@@ -259,7 +259,7 @@ function ProductScreen({ id, from, need, step, scanned }: { id: string; from?: s
     return (
       <View style={{ flex: 1, backgroundColor: CANVAS }}>
         <ScreenHeader />
-        <View style={{ flex: 1, alignItems: "center", justifyContent: "center", gap: 16, paddingHorizontal: 32 }}>
+        <View style={{ flex: 1, alignItems: "center", justifyContent: "center", gap: SPACE.gutter, paddingHorizontal: 32 }}>
           <Text style={{ fontFamily: DISPLAY_FONT, fontSize: TYPE.heading, color: INK }}>
             Product not found
           </Text>
@@ -413,7 +413,7 @@ function ProductScreen({ id, from, need, step, scanned }: { id: string; from?: s
  */
 function ProductHeader({ product }: { product: ProductWithIngredients }) {
   return (
-    <View style={{ flexDirection: "row", alignItems: "flex-start", gap: 16, paddingHorizontal: SPACE.gutter }}>
+    <View style={{ flexDirection: "row", alignItems: "flex-start", gap: SPACE.gutter, paddingHorizontal: SPACE.gutter }}>
       {/* v9: the bottle is 65 by 79 in a 72 by 83 box. */}
       <View style={{ width: 72, height: 83, alignItems: "center", justifyContent: "center" }}>
         <ProductThumbnail product={product} size={79} />

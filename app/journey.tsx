@@ -19,7 +19,7 @@ import { reduceMotionNow } from "@/lib/reduce-motion";
 import { encodeAnswers, familyOf, hiddenLine, holdsActive, optionsFor, safeOnly, storyLength, storyLengthLine, type NeedAnswers, type StoryActive } from "@/lib/skin-needs";
 import { useOwnProducts } from "@/lib/use-own-products";
 import { ACTIVES_IN_USE, GOAL_OPTIONS, type ActiveKey } from "@/lib/skin-needs-data";
-import { BUTTON, CANVAS, CANVAS_GLASS, CHOSEN, DISPLAY_FONT, ICON_SHADOW, INK, LINK, MUTED, MUTED_FAINT, SKIN_NEEDS, SPACE, STAR_ON, SURFACE, WHITE, TYPE } from "@/lib/tokens";
+import { BUTTON, CANVAS, CANVAS_GLASS, CHOSEN, DISPLAY_FONT, ICON_SHADOW, INK, LINK, MUTED, MUTED_FAINT, SKIN_NEEDS, SPACE, STAR_ON, SURFACE, WHITE, TYPE, RADIUS } from "@/lib/tokens";
 import { useAppStore } from "@/store/useAppStore";
 
 // The carousel (hand-off): 292 × 470 cards, 24pt in from the left, 12pt apart.
@@ -158,7 +158,7 @@ function Questions({ draft, onChange, onShow }: { draft: Draft; onChange: (next:
       <View
         pointerEvents="box-none"
         onLayout={(event) => setFooter({ width: event.nativeEvent.layout.width, height: event.nativeEvent.layout.height })}
-        style={{ position: "absolute", left: 0, right: 0, bottom: 0, paddingTop: 24, paddingHorizontal: SPACE.gutter, paddingBottom: Math.max(34, insets.bottom + 8) }}
+        style={{ position: "absolute", left: 0, right: 0, bottom: 0, paddingTop: SPACE.section, paddingHorizontal: SPACE.gutter, paddingBottom: Math.max(34, insets.bottom + 8) }}
       >
         <Fade width={footer.width} height={footer.height} />
         <Pressable
@@ -167,7 +167,7 @@ function Questions({ draft, onChange, onShow }: { draft: Draft; onChange: (next:
           accessibilityRole="button"
           accessibilityLabel="Show what helps"
           accessibilityState={{ disabled: !ready }}
-          style={{ height: BUTTON_HEIGHT, borderRadius: BUTTON_HEIGHT / 2, backgroundColor: ready ? BUTTON.primary.fill : BUTTON.disabled.fill, flexDirection: "row", alignItems: "center", justifyContent: "center", gap: 8 }}
+          style={{ height: BUTTON_HEIGHT, borderRadius: BUTTON_HEIGHT / 2, backgroundColor: ready ? BUTTON.primary.fill : BUTTON.disabled.fill, flexDirection: "row", alignItems: "center", justifyContent: "center", gap: SPACE.text }}
           className="active:opacity-90"
         >
           <Text style={{ fontSize: 16, fontWeight: "600", color: WHITE }}>Show what helps</Text>
@@ -180,8 +180,8 @@ function Questions({ draft, onChange, onShow }: { draft: Draft; onChange: (next:
 /** A white card: the question, "Pick one" or "Optional" on its right, the chips, and a note. */
 function QuestionCard({ title, tag, note, children }: { title: string; tag: string; note?: string; children: React.ReactNode }) {
   return (
-    <View style={{ backgroundColor: SURFACE, borderRadius: 24, padding: 20, gap: 16 }}>
-      <View style={{ flexDirection: "row", alignItems: "baseline", justifyContent: "space-between", gap: 8 }}>
+    <View style={{ backgroundColor: SURFACE, borderRadius: RADIUS.panel, padding: 20, gap: SPACE.gutter }}>
+      <View style={{ flexDirection: "row", alignItems: "baseline", justifyContent: "space-between", gap: SPACE.text }}>
         <Text accessibilityRole="header" style={{ flex: 1, fontSize: TYPE.title, fontWeight: "600", lineHeight: 24, color: INK }}>
           {title}
         </Text>
@@ -195,7 +195,7 @@ function QuestionCard({ title, tag, note, children }: { title: string; tag: stri
 
 function Chips({ accessibilityLabel, many = false, children }: { accessibilityLabel: string; many?: boolean; children: React.ReactNode }) {
   return (
-    <View accessibilityRole={many ? undefined : "radiogroup"} accessibilityLabel={accessibilityLabel} style={{ flexDirection: "row", flexWrap: "wrap", gap: 8 }}>
+    <View accessibilityRole={many ? undefined : "radiogroup"} accessibilityLabel={accessibilityLabel} style={{ flexDirection: "row", flexWrap: "wrap", gap: SPACE.text }}>
       {children}
     </View>
   );
@@ -217,7 +217,7 @@ function Chip({ label, accessibilityLabel, on, many = false, onPress }: { label:
         // Chosen, the tick takes room: the padding gives some of it back, so a
         // chip at the end of a row stays on it (owner: "Very" jumped a line).
         paddingHorizontal: on ? 10 : 14,
-        borderRadius: 12,
+        borderRadius: RADIUS.control,
         borderWidth: on ? 1.5 : 1,
         borderColor: on ? CHOSEN.border : SKIN_NEEDS.line,
         backgroundColor: on ? CHOSEN.fill : SURFACE,
@@ -265,7 +265,7 @@ function Options({ answers, onBack, onNotPregnant }: { answers: NeedAnswers; onB
         </IconCircle>
       </View>
       <FitScrollView contentContainerStyle={{ paddingBottom: insets.bottom + SPACE.section }}>
-        <View style={{ paddingTop: 16, paddingHorizontal: 24, gap: 12 }}>
+        <View style={{ paddingTop: SPACE.gutter, paddingHorizontal: SPACE.section, gap: SPACE.block }}>
           <Text accessibilityRole="header" style={{ fontFamily: DISPLAY_FONT, fontSize: TYPE.large, lineHeight: 34, letterSpacing: -0.6, color: INK }}>
             What can help with {GOAL_OPTIONS[answers.goal].about}?
           </Text>
@@ -274,15 +274,15 @@ function Options({ answers, onBack, onNotPregnant }: { answers: NeedAnswers; onB
               ? `Based on your answers, here is 1 ${safe ? "safe option" : "option worth knowing"}.`
               : `Based on your answers, here are ${count} ${safe ? "safe options" : "options worth knowing"}.`}
           </Text>
-          <View style={{ flexDirection: "row", flexWrap: "wrap", gap: 8 }}>
+          <View style={{ flexDirection: "row", flexWrap: "wrap", gap: SPACE.text }}>
             {[goal.label, sensitivity, pregnancy].map((label) => (
-              <View key={label} style={{ height: 28, paddingHorizontal: 12, borderRadius: 14, backgroundColor: SURFACE, justifyContent: "center" }}>
+              <View key={label} style={{ height: 28, paddingHorizontal: SPACE.block, borderRadius: 14, backgroundColor: SURFACE, justifyContent: "center" }}>
                 <Text style={{ fontSize: TYPE.caption, fontWeight: "500", color: MUTED }}>{label}</Text>
               </View>
             ))}
           </View>
           {safe ? (
-            <View style={{ flexDirection: "row", alignItems: "center", gap: 8 }}>
+            <View style={{ flexDirection: "row", alignItems: "center", gap: SPACE.text }}>
               <InfoIcon />
               {answers.pregnancy === "yes" ? (
                 <Text style={{ flex: 1, fontSize: TYPE.caption, lineHeight: 18, color: MUTED }}>{hiddenLine(hidden)}</Text>
@@ -316,7 +316,7 @@ function Options({ answers, onBack, onNotPregnant }: { answers: NeedAnswers; onB
           ))}
         </ScrollView>
 
-        <View style={{ paddingTop: 14, paddingHorizontal: 24, minHeight: 44, flexDirection: "row", alignItems: "center", justifyContent: "space-between" }}>
+        <View style={{ paddingTop: 14, paddingHorizontal: SPACE.section, minHeight: 44, flexDirection: "row", alignItems: "center", justifyContent: "space-between" }}>
           <View style={{ flexDirection: "row", gap: 6, alignItems: "center" }}>
             {actives.map((active, index) => (
               <Pressable
@@ -368,18 +368,18 @@ function FamilyCard({ active, width, best, safe, inRoutine, onOpen }: { active: 
       accessibilityRole="button"
       accessibilityLabel={`${active.name}, ${active.sub}. ${line} ${storyLengthLine(active)}.`}
       accessibilityHint="Opens its story"
-      style={{ width, height: CARD_HEIGHT, borderRadius: 32, backgroundColor: SKIN_NEEDS.family[active.family], ...SKIN_NEEDS.cardShadow }}
+      style={{ width, height: CARD_HEIGHT, borderRadius: RADIUS.panel, backgroundColor: SKIN_NEEDS.family[active.family], ...SKIN_NEEDS.cardShadow }}
       className="active:opacity-95"
     >
       <View style={{ height: 236 }}>
         <Image source={family.picture} contentFit="contain" accessibilityLabel="" style={{ position: "absolute", top: 14, alignSelf: "center", width: 230, height: 222 }} />
         {inRoutine ? (
-          <View style={{ position: "absolute", top: 16, left: 16, height: 28, paddingHorizontal: 12, borderRadius: 14, backgroundColor: BUTTON.primary.fill, flexDirection: "row", alignItems: "center", gap: 6 }}>
+          <View style={{ position: "absolute", top: 16, left: 16, height: 28, paddingHorizontal: SPACE.block, borderRadius: 14, backgroundColor: BUTTON.primary.fill, flexDirection: "row", alignItems: "center", gap: 6 }}>
             <Tick size={12} color={WHITE} />
             <Text style={{ fontSize: TYPE.caption, fontWeight: "600", color: WHITE }}>In your routine</Text>
           </View>
         ) : best ? (
-          <View style={{ position: "absolute", top: 16, left: 16, height: 28, paddingHorizontal: 12, borderRadius: 14, backgroundColor: SURFACE, justifyContent: "center" }}>
+          <View style={{ position: "absolute", top: 16, left: 16, height: 28, paddingHorizontal: SPACE.block, borderRadius: 14, backgroundColor: SURFACE, justifyContent: "center" }}>
             <Text style={{ fontSize: TYPE.caption, fontWeight: "600", color: LINK }}>Best first pick</Text>
           </View>
         ) : null}
@@ -398,12 +398,12 @@ function FamilyCard({ active, width, best, safe, inRoutine, onOpen }: { active: 
           <StarIcon filled={saved} color={saved ? STAR_ON : INK} />
         </Pressable>
       </View>
-      <View style={{ flex: 1, paddingTop: 16, paddingHorizontal: 24, paddingBottom: 24, gap: 4 }}>
+      <View style={{ flex: 1, paddingTop: SPACE.gutter, paddingHorizontal: SPACE.section, paddingBottom: SPACE.section, gap: 4 }}>
         <Text numberOfLines={1} adjustsFontSizeToFit style={{ fontFamily: DISPLAY_FONT, fontSize: TYPE.large, lineHeight: 34, letterSpacing: -0.6, color: INK }}>
           {active.name}
         </Text>
         <Text style={{ fontSize: TYPE.caption, color: MUTED_FAINT }}>{active.sub}</Text>
-        <Text style={{ marginTop: 8, fontSize: TYPE.card, lineHeight: 23, color: INK }}>{line}</Text>
+        <Text style={{ marginTop: SPACE.text, fontSize: TYPE.card, lineHeight: 23, color: INK }}>{line}</Text>
         <View style={{ marginTop: "auto", flexDirection: "row", alignItems: "center", justifyContent: "space-between" }}>
           <View style={{ gap: 6 }}>
             <Text style={{ fontSize: TYPE.caption, fontWeight: "600", color: MUTED_FAINT }}>{storyLengthLine(active)}</Text>
