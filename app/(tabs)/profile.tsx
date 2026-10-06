@@ -11,6 +11,7 @@ import { answeredWithoutSignal, isPersonalized, profileHeadline } from "@/lib/pr
 import { tabBarClearance, tabRootTop } from "@/lib/tab-bar";
 import { AVATAR_FILL, CANVAS, LINE, MUTED, SPACE, TYPE, WHITE } from "@/lib/tokens";
 import { useAppStore } from "@/store/useAppStore";
+import { useSafetyNoticeEnabled } from "@/lib/features";
 import { FitScrollView } from "@/components/FitScrollView";
 import { clearTestData, fillTestData } from "@/lib/dev-test-data";
 
@@ -28,6 +29,8 @@ const AVATAR_ART = require("@/assets/illustrations/avatar-empty.webp");
 export default function Profile() {
   const insets = useSafeAreaInsets();
   const profile = useAppStore((s) => s.profile);
+  const safetyNoticeEnabled = useSafetyNoticeEnabled();
+  const setSafetyNoticeEnabled = useAppStore((s) => s.setSafetyNoticeEnabled);
   // Tapping the Profile tab while it is already showing scrolls back to the top.
   const scrollRef = useRef<ScrollView>(null);
   useScrollToTop(scrollRef);
@@ -96,7 +99,8 @@ export default function Profile() {
             <MenuRow icon="chatbubbles" label="Support" onPress={() => router.push("/support")} />
           </MenuGroup>
           {/* Development builds only (owner): long lists and a ten-step
-              routine to test scrolling with. A release build has no such rows. */}
+              routine to test scrolling with, and the regulatory-safety flag
+              (#403). A release build has no such rows. */}
           {__DEV__ ? (
             <MenuGroup soft>
               <MenuRow
@@ -105,6 +109,13 @@ export default function Profile() {
                 onPress={() => void fillTestData().catch((err) => console.warn("fillTestData failed:", err))}
               />
               <MenuRow icon="trash" label="Remove all saved, history and starred" onPress={clearTestData} />
+              <MenuRow
+                icon="shield"
+                label="EU safety notice"
+                value={safetyNoticeEnabled ? "On" : "Off"}
+                chevron={false}
+                onPress={() => setSafetyNoticeEnabled(!safetyNoticeEnabled)}
+              />
             </MenuGroup>
           ) : null}
         </View>
