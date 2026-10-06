@@ -157,8 +157,9 @@ letter on the routine, and the "!" mark in the scanner's announcement.
 
 **Orphans.** A heading or short line never ends on a single word: pass it through
 `noOrphan` (`lib/text.ts`), which joins the last two words with a non-breaking
-space. It is used on page and quiz titles, empty states, confirm sheets and the
-result's title and summary.
+space. Every centred title and short line uses it: page, quiz and question-card
+titles, empty states (Saved's own included), pop-ups and sheets, error screens
+and the result's title and summary. A new centred heading should too.
 
 ## Spacing
 

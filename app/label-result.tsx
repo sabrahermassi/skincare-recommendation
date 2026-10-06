@@ -19,6 +19,7 @@ import { clearLabelRead, heldLabelRead, type HeldLabel } from "@/lib/pending-lab
 import { historyWarningCount, isVerified } from "@/lib/safety";
 import { CANVAS, INK, MUTED, SPACE, STONE, TYPE } from "@/lib/tokens";
 import { useAppStore } from "@/store/useAppStore";
+import { noOrphan } from "@/lib/text";
 
 /**
  * The verdict from a photographed label alone — score, reasons, confidence,
@@ -47,7 +48,7 @@ function NothingToShow() {
       <ScreenHeader />
       <View style={{ flex: 1, alignItems: "center", justifyContent: "center", gap: SPACE.block, paddingHorizontal: SPACE.gutter }}>
         <Text style={{ textAlign: "center", fontSize: TYPE.body, color: MUTED }}>
-          There&apos;s no ingredient list to show. Scan a product and photograph its ingredients to start.
+          {noOrphan("There's no ingredient list to show. Scan a product and photograph its ingredients to start.")}
         </Text>
         <PrimaryButton label="Back to the scanner" onPress={() => router.back()} />
       </View>

@@ -21,6 +21,7 @@ import { useOwnProducts } from "@/lib/use-own-products";
 import { ACTIVES_IN_USE, GOAL_OPTIONS, type ActiveKey } from "@/lib/skin-needs-data";
 import { BUTTON, CANVAS, CANVAS_GLASS, CHOSEN, DISPLAY_FONT, ICON_SHADOW, INK, LINK, MUTED, MUTED_FAINT, SKIN_NEEDS, SPACE, STAR_ON, SURFACE, WHITE, TYPE, RADIUS } from "@/lib/tokens";
 import { useAppStore } from "@/store/useAppStore";
+import { noOrphan } from "@/lib/text";
 
 // The carousel (hand-off): 292 × 470 cards, 24pt in from the left, 12pt apart.
 const CARD_WIDTH = 292;
@@ -183,12 +184,12 @@ function QuestionCard({ title, tag, note, children }: { title: string; tag: stri
     <View style={{ backgroundColor: SURFACE, borderRadius: RADIUS.panel, padding: 20, gap: SPACE.gutter }}>
       <View style={{ flexDirection: "row", alignItems: "baseline", justifyContent: "space-between", gap: SPACE.text }}>
         <Text accessibilityRole="header" style={{ flex: 1, fontSize: TYPE.title, fontWeight: "600", lineHeight: 24, color: INK }}>
-          {title}
+          {noOrphan(title)}
         </Text>
         <Text style={{ fontSize: TYPE.caption, fontWeight: "600", color: MUTED_FAINT }}>{tag}</Text>
       </View>
       {children}
-      {note ? <Text style={{ fontSize: TYPE.caption, lineHeight: 19, color: MUTED_FAINT }}>{note}</Text> : null}
+      {note ? <Text style={{ fontSize: TYPE.caption, lineHeight: 19, color: MUTED_FAINT }}>{noOrphan(note)}</Text> : null}
     </View>
   );
 }

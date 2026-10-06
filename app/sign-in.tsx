@@ -19,6 +19,7 @@ import {
   type SignInResult,
 } from "@/lib/auth";
 import { CANVAS, DISPLAY_FONT, INK, MUTED, SPACE, TYPE } from "@/lib/tokens";
+import { noOrphan } from "@/lib/text";
 
 /** The same height as every other button (v7: 48). */
 const APPLE_BUTTON_HEIGHT = 48;
@@ -102,7 +103,7 @@ export default function SignIn() {
         <Text accessibilityRole="header" style={{ textAlign: "center", fontFamily: DISPLAY_FONT, fontSize: TYPE.heading, lineHeight: 28, letterSpacing: -0.5, color: INK }}>
           Keep your shelf
         </Text>
-        <Text style={{ alignSelf: "center", maxWidth: 300, textAlign: "center", fontSize: TYPE.body, lineHeight: 21, color: MUTED }}>{ACCOUNT_PITCH}</Text>
+        <Text style={{ alignSelf: "center", maxWidth: 300, textAlign: "center", fontSize: TYPE.body, lineHeight: 21, color: MUTED }}>{noOrphan(ACCOUNT_PITCH)}</Text>
 
         <View style={{ gap: SPACE.block, paddingTop: SPACE.gutter, alignItems: "center" }}>
           {appleAvailable ? (

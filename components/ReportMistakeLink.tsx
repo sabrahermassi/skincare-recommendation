@@ -9,6 +9,7 @@ import { mistakeReportUrl, type MistakeSubject } from "@/lib/report-mistake";
 import { supportEmail } from "@/lib/support-email";
 import { BUTTON, DESTRUCTIVE_OUTLINE, DISPLAY_FONT, FONT_SCALE, INK, MUTED, OPTION_LINE, PLACEHOLDER, STONE, TOUCH_TARGET, TYPE, RADIUS, SPACE } from "@/lib/tokens";
 import { BUTTON_HEIGHT } from "@/components/PrimaryButton";
+import { noOrphan } from "@/lib/text";
 
 const REPORT_ART = require("@/assets/illustrations/report-mistake.webp");
 
@@ -109,7 +110,7 @@ export function ReportMistakeLink({ subject, button = false }: { subject: Mistak
             {sent ? "Thank you" : "Report a mistake"}
           </Text>
           <Text style={{ marginTop: SPACE.text, maxWidth: 300, textAlign: "center", fontSize: TYPE.body, lineHeight: 21, color: MUTED }}>
-            {sent ? "We'll check this product and fix it if something's off." : "What looks wrong about this product?"}
+            {noOrphan(sent ? "We'll check this product and fix it if something's off." : "What looks wrong about this product?")}
           </Text>
           {sent ? null : (
             <TextInput
