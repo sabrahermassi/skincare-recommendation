@@ -1,11 +1,12 @@
 import { useEffect } from "react";
-import { Pressable, View } from "react-native";
+import { Pressable, StyleSheet, View } from "react-native";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 
 import { ScreenReaderAnnouncer } from "@/components/ScreenReaderAnnouncer";
 import { Text } from "@/components/Text";
 import { SCAN_BUTTON_LIFT, TAB_BAR_HEIGHT, tabBarBottom } from "@/lib/tab-bar";
 import { SPACE, TOAST, TYPE } from "@/lib/tokens";
+import { Glass, hasLiquidGlass } from "@/components/Glass";
 
 /** How long the toast stays (v9: 4 s); a new one starts the count again. */
 const UNDO_MS = 4000;
@@ -44,15 +45,15 @@ export function UndoToast({ notice, onDone }: { notice: UndoNotice | null; onDon
             bottom: tabBarBottom(insets.bottom) + TAB_BAR_HEIGHT + SCAN_BUTTON_LIFT + SPACE.text,
             height: HEIGHT,
             borderRadius: HEIGHT / 2,
-            backgroundColor: TOAST.fill,
+            ...(hasLiquidGlass ? null : { backgroundColor: TOAST.fill, ...TOAST.shadow }),
             paddingLeft: 20,
             paddingRight: SPACE.text,
             flexDirection: "row",
             alignItems: "center",
             justifyContent: "space-between",
-            ...TOAST.shadow,
           }}
         >
+          {hasLiquidGlass ? <Glass tint={TOAST.fill} style={[StyleSheet.absoluteFill, { borderRadius: HEIGHT / 2 }]} /> : null}
           <Text numberOfLines={1} style={{ flex: 1, fontSize: TYPE.body, color: TOAST.label }}>
             {notice.message}
           </Text>

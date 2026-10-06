@@ -160,6 +160,14 @@ export const SWITCH_TRACK_GLASS = "rgba(47,44,42,0.07)";
 export const TAB_BAR_GLASS = "rgba(255,255,255,0.86)";
 
 /**
+ * The white let into a Liquid Glass that carries text (a pop-up, a menu, a toast):
+ * enough frosting that the words read over anything behind it, little enough that
+ * the glass still shows. Chrome with no text (a header, the tab bar, a round
+ * button) takes no tint, or its own colour.
+ */
+export const GLASS_FROST = withAlpha(WHITE, 0.6);
+
+/**
  * Every destructive or report action (v9, read off the hand-off): the soft
  * see-through style, a pale red fill with red words and no outline. There are
  * no solid red buttons; the red itself is only an icon or the Poor verdict.

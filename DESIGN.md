@@ -244,10 +244,17 @@ once (`hasLiquidGlass`); nothing else should call the native glass directly
 
 - **Where:** the navigation and control layer that floats over content: the fixed
   header (`GlassHeader`), the tab bar capsule, the round nav buttons
-  (`IconCircle`, interactive) and the raised scan button (tinted sage,
-  interactive).
+  (`IconCircle`, interactive), the raised scan button (tinted sage, interactive),
+  the segmented switch's thumb on the page looks (interactive), and the things
+  that float over a screen: floating pop-ups (`BottomSheet` floating), the filter
+  popover and both toasts. Anything that carries text takes `GLASS_FROST` (white
+  at 60%) so the words read over whatever is behind; the undo toast is tinted
+  ink.
+- **Not glass:** the long reading sheets (`SheetScreen`: How scoring works, the
+  ingredient sheet) and the camera's and the routine's coloured switch thumbs.
 - **Where not:** content. Cards, reason boxes, rows and reading text stay flat,
-  and glass is never put on glass.
+  and glass is never put on glass (the glass thumb inside the plain switch track
+  is the one nesting, as in iOS 26's own segmented control).
 - Light only (`colorScheme="light"`). Never set opacity 0 on glass or a parent of
   it: the glass stops drawing.
 

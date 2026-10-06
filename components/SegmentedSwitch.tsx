@@ -1,7 +1,8 @@
 import { useEffect, useRef, useState, type ReactNode } from "react";
-import { Pressable, View, type StyleProp, type ViewStyle } from "react-native";
+import { Pressable, StyleSheet, View, type StyleProp, type ViewStyle } from "react-native";
 import Animated, { useAnimatedStyle, useSharedValue, withSpring } from "react-native-reanimated";
 
+import { Glass, hasLiquidGlass } from "@/components/Glass";
 import { Text } from "@/components/Text";
 import { FLOW_LEAD, FLOW_TRAIL } from "@/lib/flow";
 import { INK, MUTED, SWITCH_TRACK_GLASS, TYPE, WHITE, withAlpha, SPACE } from "@/lib/tokens";
@@ -91,7 +92,15 @@ export function SegmentedSwitch<T extends string>({
     width: Math.max(segment / 2, right.value - left.value),
   }));
 
+  // The glass thumb is never faded (a glass at opacity 0 stops drawing): until the capsule has a width it waits off to the side.
+  const glassThumbStyle = useAnimatedStyle(() => ({
+    left: left.value < 0 ? -9999 : left.value,
+    width: Math.max(segment / 2, right.value - left.value),
+  }));
+
   const look = typeof tone === "string" ? TONES[tone] : tone;
+  // The white thumb of the two page looks is Liquid Glass where the phone has it, like iOS 26's own segmented control. The camera's and the routine's coloured thumbs stay as they are.
+  const glassThumb = hasLiquidGlass && (tone === "light" || tone === "stone");
 
   return (
     <View accessibilityRole="tablist" style={style}>
@@ -101,7 +110,15 @@ export function SegmentedSwitch<T extends string>({
         onLayout={(e) => setWidth(e.nativeEvent.layout.width)}
         style={{ height, borderRadius: height / 2, padding: SWITCH_PADDING, flexDirection: "row", backgroundColor: look.track }}
       >
-        {segment > 0 ? (
+        {segment > 0 && glassThumb ? (
+          <Animated.View
+            pointerEvents="none"
+            style={[{ position: "absolute", top: SWITCH_PADDING, bottom: SWITCH_PADDING, borderRadius: (height - 2 * SWITCH_PADDING) / 2 }, glassThumbStyle]}
+          >
+            <Glass interactive style={[StyleSheet.absoluteFill, { borderRadius: (height - 2 * SWITCH_PADDING) / 2 }]} />
+          </Animated.View>
+        ) : null}
+        {segment > 0 && !glassThumb ? (
           <Animated.View
             pointerEvents="none"
             style={[
