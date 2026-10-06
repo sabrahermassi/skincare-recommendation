@@ -492,15 +492,16 @@ const GROUP_LABEL = { green: "Working for you", orange: "Worth watching" } as co
 /**
  * The reason boxes, grouped by colour (the squint test: what works, then what to
  * watch, instead of one run of equal boxes). Boxes in a group sit close (8pt) and
- * the groups are a section apart, each opened by a small label once there are
- * both greens and oranges. The first box of the first group leads: set a size
+ * the groups are a section apart (a label's own top padding when labelled, the
+ * gap here when not), each opened by a small label once there are both greens
+ * and oranges. The first box of the first group leads: set a size
  * larger than the rest.
  */
 function ReasonGroups({ rows, order, colourOf }: { rows: Reason[]; order: ("red" | "green" | "orange")[]; colourOf: (row: Reason) => "red" | "green" | "orange" }) {
   const groups = order.map((colour) => ({ colour, rows: rows.filter((row) => colourOf(row) === colour) })).filter((group) => group.rows.length > 0);
   const labelled = groups.some((g) => g.colour === "green") && groups.some((g) => g.colour === "orange");
   return (
-    <View style={{ marginTop: labelled ? 0 : SPACE.gutter, gap: labelled ? 0 : SPACE.text }}>
+    <View style={{ marginTop: labelled ? 0 : SPACE.gutter, gap: labelled ? 0 : SPACE.section }}>
       {groups.map((group, groupIndex) => (
         <View key={group.colour} style={{ gap: SPACE.text }}>
           {labelled && group.colour !== "red" ? <SectionLabel title={GROUP_LABEL[group.colour]} /> : null}
