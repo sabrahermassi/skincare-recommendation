@@ -461,6 +461,8 @@ export const INGREDIENT_RULES: IngredientRule[] = [
     names: [
       /lavandula/, /mentha/, "peppermint oil", /eucalyptus/, /citrus .*(peel oil|oil)/,
       /cymbopogon/, /rosmarinus/, "clove oil", /eugenia caryophyllus/,
+      // Pine, fir and cypress oils (#407); not "pinus pinaster bark extract", an antioxidant.
+      /^(pinus|abies|cupressus)\b.* oil$/,
     ],
     category: "fragrance",
     hurts: { sensitive: true, concerns: ["redness", "atopic"] },
@@ -492,6 +494,34 @@ export const INGREDIENT_RULES: IngredientRule[] = [
     category: "irritants",
     hurts: { sensitive: true },
     reason: "Strongly alkaline; can push a formula away from skin's natural pH",
+    weight: 4,
+  },
+  {
+    names: ["hydrogen peroxide"],
+    category: "irritants",
+    hurts: { sensitive: true },
+    reason: "A strong oxidiser that can irritate skin, more so at higher strengths",
+    weight: 5,
+    source: {
+      label: "UK Health Security Agency: hydrogen peroxide toxicological overview",
+      url: "https://www.gov.uk/government/publications/hydrogen-peroxide-properties-incident-management-and-toxicology/hydrogen-peroxide-toxicological-overview",
+    },
+  },
+  {
+    names: ["benzalkonium chloride"],
+    category: "irritants",
+    hurts: { sensitive: true },
+    reason: "A quaternary ammonium preservative; a well-known skin irritant",
+    weight: 6,
+    source: { label: "DermNet: benzalkonium chloride contact dermatitis", url: "https://dermnetnz.org/topics/benzalkonium-chloride-contact-dermatitis" },
+  },
+  {
+    // No checked source: DermNet and a 2023 review of quaternary ammonium
+    // compounds (PMC10319159) name benzalkonium and cetrimonium, not these two.
+    names: ["stearalkonium chloride", "steartrimonium chloride"],
+    category: "irritants",
+    hurts: { sensitive: true },
+    reason: "A quaternary ammonium conditioning agent; compounds of this family can irritate reactive skin",
     weight: 4,
   },
   {

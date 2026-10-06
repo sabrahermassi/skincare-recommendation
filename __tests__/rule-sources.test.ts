@@ -28,6 +28,8 @@ const UNSOURCED_RULES = [
   // only, or disagreed with it — see the PR for #326.
   "tea tree oil",
   "sodium bicarbonate",
+  // Added with #407 on the owner's decision; no source found (see lib/rules.ts).
+  "stearalkonium chloride",
   "/hamamelis/",
   "benzoyl peroxide",
   "cocos nucifera oil",
@@ -78,7 +80,7 @@ const UNSOURCED_RULES = [
 const UNSOURCED_PREGNANCY = ["retinoid", "salicylic-acid", "essential-oil"];
 
 // Lower these as sources land; raising one is how an unsourced claim sneaks in.
-const MAX_UNSOURCED_RULES = 47;
+const MAX_UNSOURCED_RULES = 48;
 const MAX_UNSOURCED_PREGNANCY = 3;
 
 function expectWellFormed(source: RuleSource) {

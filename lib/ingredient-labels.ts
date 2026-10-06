@@ -3,7 +3,7 @@ import { ruleFor, RUNG_META, type Contraindication, type MatchResult } from "@/l
 import { cloggerConfidence, isWarnedPoreClogging } from "@/lib/pore-clogging";
 import { isSensitive, treatAsReactive } from "@/lib/profile";
 import { targetApplies, type RuleCategory } from "@/lib/rules";
-import { contraindications, groupByRisk, isVerified, SAFETY_NOTICE_COPY, safetyNoticeFor } from "@/lib/safety";
+import { contraindications, euAllergenFor, groupByRisk, isVerified, SAFETY_NOTICE_COPY, safetyNoticeFor } from "@/lib/safety";
 
 /**
  * The word on each row of a product's ingredient list (#324), so the few that
@@ -15,7 +15,8 @@ import { contraindications, groupByRisk, isVerified, SAFETY_NOTICE_COPY, safetyN
  * - **Avoid**: a hazard — `groupByRisk`'s `avoid`, a hazard-level warning
  *   for this person, or a pregnancy caution, with or without a skin profile.
  * - **Watch**: a caution or irritant for this person — `groupByRisk`'s
- *   `caution`, any warning, or anything the score counted against them
+ *   `caution` (an EU-labelled allergen, or a pore rating), any warning, or
+ *   anything the score counted against them
  *   (a negative reason, an irritation or pore-clogging charge) — and, for
  *   anyone, a name on the published pore-clogging lists (the row wears a
  *   CLOGGING tag, and "Good" beside it, or folding it under "no known
@@ -28,7 +29,9 @@ import { contraindications, groupByRisk, isVerified, SAFETY_NOTICE_COPY, safetyN
  *
  * With no skin profile there is no "you" to be good or risky for: only
  * Avoid, Unknown, and Watch for what is flagged for everyone (the EU's
- * caution list, the pore-clogging lists and the common irritants) are shown.
+ * allergen entries, the pore-clogging lists and the common irritants) are shown.
+ * An Annex III ingredient that is none of those is "allowed with limits",
+ * which says nothing about anyone's skin, so it has no label of its own.
  * A pregnancy answer is not a skin profile, but its cautions are still Avoid.
  * Those profile-free labels are also what a result's Safety tab shows everyone
  * (#345, #379).
@@ -68,7 +71,7 @@ export function ingredientLabel(ingredient: Ingredient, match: MatchResult, pers
   if (countedAgainst(ingredient, match) || isWarnedPoreClogging(ingredient)) return "watch";
   if (risk === "unknown") return "unknown";
 
-  if (!personalized) return ingredient.safety === "caution" || isCommonIrritant(ingredient) ? "watch" : null;
+  if (!personalized) return euAllergenFor(ingredient) !== null || isCommonIrritant(ingredient) ? "watch" : null;
 
   if (warnings.length > 0 || risk === "caution" || isCommonIrritant(ingredient)) return "watch";
   if (match.reasons.some((r) => r.ingredient === ingredient.name && r.effect > 0)) return "good";
@@ -77,7 +80,7 @@ export function ingredientLabel(ingredient: Ingredient, match: MatchResult, pers
 
 /**
  * The rule categories flagged for everyone, profile or not (#345): fragrance
- * (EU-labelled allergens and essential oils included), drying alcohol and
+ * (essential oils and the allergens a rule names), drying alcohol and
  * the known irritants. Actives that can also sting — acids, retinoids,
  * benzoyl peroxide — are left out: they are in a formula on purpose, and
  * whether they suit someone is the personal score's call.
@@ -183,7 +186,7 @@ export function labelWithoutProduct(ingredient: Ingredient, profile: SkinProfile
   if (cloggerConfidence(ingredient) === "high") return "avoid";
   if (!isVerified(ingredient)) return isWarnedPoreClogging(ingredient) ? "watch" : "unknown";
   if (ingredient.safety === "avoid") return "avoid";
-  if (warnings.length > 0 || ingredient.safety === "caution" || isCommonIrritant(ingredient) || isWarnedPoreClogging(ingredient)) return "watch";
+  if (warnings.length > 0 || euAllergenFor(ingredient) !== null || isCommonIrritant(ingredient) || isWarnedPoreClogging(ingredient)) return "watch";
   const { helps, hurts } = ruleTargets(ingredient, profile);
   if (hurts) return "watch";
   if (helps) return "good";
