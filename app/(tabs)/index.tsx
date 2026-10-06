@@ -9,6 +9,7 @@ import { FitScrollView } from "@/components/FitScrollView";
 import { HomeSkeleton } from "@/components/home/HomeSkeleton";
 import { StartRoutineCard, TodayRoutineCard } from "@/components/home/RoutineCard";
 import { TipEnvelope, TipNote } from "@/components/home/SkincareTip";
+import { SectionLabel } from "@/components/SectionLabel";
 import { Text } from "@/components/Text";
 import { EVENING_FROM_HOUR, timeOfDay, tipFor, todayIn } from "@/lib/home-today";
 import { openScanner } from "@/lib/open-scanner";
@@ -94,12 +95,10 @@ export default function Home() {
           {pending ? <HomeSkeleton part="card" /> : today ? <TodayRoutineCard today={today} onPress={openRoutine} /> : <StartRoutineCard onPress={openRoutine} />}
         </View>
 
-        <Text accessibilityRole="header" style={{ marginTop: SPACE.section, paddingHorizontal: 4, fontSize: TYPE.title, fontWeight: "600", color: INK }}>
-          Explore
-        </Text>
-        <View style={{ flexDirection: "row", gap: SPACE.block, marginTop: SPACE.block }}>
-          <Tile label="Scan Any Product" description="Barcode or label" art={SCAN_ART} fill={HOME_TILE.scan} onPress={() => openScanner()} />
-          <Tile label="Find Your Actives" description="Ingredients that suit you" art={ACTIVES_ART} fill={HOME_TILE.actives} onPress={() => router.push("/journey")} />
+        <SectionLabel title="Explore" />
+        <View style={{ flexDirection: "row", gap: SPACE.block }}>
+          <Tile label="Scan Any Product" description="Barcode or label" art={SCAN_ART} fill={HOME_TILE.tile} onPress={() => openScanner()} />
+          <Tile label="Find Your Actives" description="Ingredients that suit you" art={ACTIVES_ART} fill={HOME_TILE.tile} onPress={() => router.push("/journey")} />
         </View>
 
         {pending ? (
