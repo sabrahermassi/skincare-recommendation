@@ -139,6 +139,50 @@ function foundProduct(barcode: string): ProductWithIngredients {
   };
 }
 
+// #405: the shield on the found card, only when #404's own check applies.
+describe("the found card and the EU safety notice", () => {
+  const HICC: Ingredient = {
+    id: "hicc",
+    name: "hydroxyisohexyl 3-cyclohexene carboxaldehyde",
+    comedogenic: 0,
+    safety: "avoid",
+    verified: true,
+    note: "Prohibited in cosmetics (EU Annex II/1380: not allowed on the EU market since 23 August 2019 and not to be sold there since 23 August 2021; older stock may still be around)",
+  };
+  const HYDROQUINONE: Ingredient = { id: "hq", name: "hydroquinone", comedogenic: 0, safety: "avoid", verified: true, note: "Prohibited in cosmetics (EU Annex II/1339 III/14)" };
+  const SHIELD = "Contains an ingredient not permitted in EU cosmetics. Check the label.";
+  const withExtra = (extra: Ingredient): ProductWithIngredients => {
+    const base = foundProduct("8801234567890");
+    return { ...base, ingredients: [...base.ingredients, extra], ingredientIds: [...base.ingredientIds, extra.id] };
+  };
+  async function found(product: ProductWithIngredients) {
+    (fetchProductByBarcode as unknown as MockFn).mockResolvedValue({ ok: true, value: product });
+    await render(<Scan />);
+    await fireEvent.press(screen.getByRole("tab", { name: "Barcode" }));
+    await scan("8801234567890");
+  }
+  afterEach(() => useAppStore.setState({ safetyNoticeEnabled: false }, false));
+
+  it("shows the shield beside the pill, and says it in the card's hint, with the flag on", async () => {
+    useAppStore.setState({ safetyNoticeEnabled: true }, false);
+    await found(withExtra(HICC));
+    expect(screen.getByLabelText(SHIELD)).toBeTruthy();
+    expect(screen.getByRole("button", { name: "See the full result" }).props.accessibilityHint).toContain(SHIELD);
+  });
+
+  it("shows none with the flag off", async () => {
+    await found(withExtra(HICC));
+    expect(screen.queryByLabelText(SHIELD)).toBeNull();
+    expect(screen.getByRole("button", { name: "See the full result" }).props.accessibilityHint).toBe("Brand Toner");
+  });
+
+  it("shows none for hydroquinone, whose entry is not verified", async () => {
+    useAppStore.setState({ safetyNoticeEnabled: true }, false);
+    await found(withExtra(HYDROQUINONE));
+    expect(screen.queryByLabelText(SHIELD)).toBeNull();
+  });
+});
+
 // #195: the idle hint, and the permission gate on it (#260 review).
 describe("scanner idle hint", () => {
   afterEach(() => {

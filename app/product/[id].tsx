@@ -25,7 +25,8 @@ import { decodeNeed, needProfile, needVerdict } from "@/lib/journey";
 import { matchProduct } from "@/lib/matching";
 import { openScanner } from "@/lib/open-scanner";
 import { productIdParam } from "@/lib/route-params";
-import { historyWarningCount } from "@/lib/safety";
+import { safetyNoticeHitsNow } from "@/lib/features";
+import { historyWarningCount, SAFETY_NOTICE_COPY } from "@/lib/safety";
 import { saveFromTap, useCanJournal } from "@/lib/saving";
 import { CANVAS, DISPLAY_FONT, FONT_SCALE, INK, MUTED, MUTED_FAINT, SPACE, STONE, TYPE, VERDICT, WARN } from "@/lib/tokens";
 import { useAppStore } from "@/store/useAppStore";
@@ -309,7 +310,10 @@ function ProductScreen({ id, from, need, step, scanned }: { id: string; from?: s
   async function share() {
     if (!product) return;
     // A Skin needs result has no score to share: it shares its answer in words.
-    const line = journey
+    // When the EU safety notice applies (#405) the share says no score and no safety claim.
+    const line = safetyNoticeHitsNow(product.ingredients).length > 0
+      ? SAFETY_NOTICE_COPY.shareLine(product.brand, product.name)
+      : journey
       ? `${product.brand} ${product.name} - ${needVerdict(product.ingredients, journey).headline.toLowerCase()}, on for.me`
       : match.score === null
         ? `${product.brand} ${product.name} - checked on for.me`

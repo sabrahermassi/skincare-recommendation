@@ -187,6 +187,10 @@ export const SAFETY_NOTICE_COPY = {
   /** The same tab's other two words, for the two reasons "Avoid" used to cover. */
   clogWord: "May clog pores",
   pregnancyWord: "Best avoided while pregnant",
+  /** The small shield beside a verdict in lists, and what a screen reader says for it (#405). */
+  shieldLabel: "Contains an ingredient not permitted in EU cosmetics. Check the label.",
+  /** What sharing a product says when the notice applies: no score, no safety claim (#405). */
+  shareLine: (brand: string, name: string) => `${brand} ${name}, checked on for.me`,
   /** The ingredient sheet. */
   sheetHeadline: "Not permitted in EU cosmetics",
   sheetBody: (entry: number) =>

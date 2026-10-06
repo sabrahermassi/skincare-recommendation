@@ -25,7 +25,8 @@ import { displayIngredientName } from "@/lib/ingredient-name";
 import { shelfPairingNotes, type PairingNote } from "@/lib/active-pairings";
 import { relativeTime } from "@/lib/format";
 import { LABEL_META, labelWithoutProduct, type IngredientLabel } from "@/lib/ingredient-labels";
-import { isOriginDependent, ORIGIN_DEPENDENT_HEADLINE } from "@/lib/safety";
+import { useSafetyNoticeEnabled } from "@/lib/features";
+import { isOriginDependent, ORIGIN_DEPENDENT_HEADLINE, safetyNoticeHits } from "@/lib/safety";
 import { labelName, labelTitle } from "@/lib/label-title";
 import { openScanner } from "@/lib/open-scanner";
 import { matchProduct } from "@/lib/matching";
@@ -78,6 +79,12 @@ export default function Saved() {
   }));
 
   const profile = useAppStore((s) => s.profile);
+  // The EU safety notice (#405): a shield by a product's score, from the
+  // product as it is loaded now (the same batch Saved and History share), so
+  // a correction to its data shows in History too, and a product that could
+  // not be loaded has no shield. Nothing at all with the flag off.
+  const noticeOn = useSafetyNoticeEnabled();
+  const hasNotice = (product: ProductWithIngredients) => safetyNoticeHits(product.ingredients, noticeOn).length > 0;
   const savedProducts = useAppStore((s) => s.savedProducts);
   const savedIngredients = useAppStore((s) => s.savedIngredients);
   const history = useAppStore((s) => s.history);
@@ -312,7 +319,7 @@ export default function Saved() {
               const note = savedProducts.find((p) => p.id === id)?.note;
               return (
                 // Untapping the heart takes it off the shelf at once, with an Undo (v9).
-                <ProductListRow key={id} product={product} score={savedScores[id] ?? null} detail={productDetail(product)} onUnsave={() => unsave(id)}>
+                <ProductListRow key={id} product={product} score={savedScores[id] ?? null} detail={productDetail(product)} notice={hasNotice(product)} onUnsave={() => unsave(id)}>
                   {/* The person's own words, exactly as written (#228). */}
                   {note ? <NotePreview note={note} /> : null}
                 </ProductListRow>
@@ -358,7 +365,7 @@ export default function Saved() {
                       ) : product ? (
                         // The score it had when it was looked at, not a fresh one:
                         // re-scoring the log is exactly what this screen refuses to do.
-                        <ProductListRow product={product} score={entry.scoreAtView} detail={`${product.brand} · ${howOrWhen(entry)}`} />
+                        <ProductListRow product={product} score={entry.scoreAtView} detail={`${product.brand} · ${howOrWhen(entry)}`} notice={hasNotice(product)} />
                       ) : (
                         <UnknownRow entry={entry} />
                       )}

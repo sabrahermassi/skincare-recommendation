@@ -321,6 +321,13 @@ Ingredients tab names its reason (Check label, May clog pores, Best avoided
 while pregnant) and keeps "Avoid" only for an Annex II row or hazard the owner
 has not verified.
 
+The shield beside a score (ScorePill, list rows, the scanner's found card,
+routine picks, Saved and History) and the share line "{brand} {name}, checked on
+for.me" (#405) ask the same function. History does not store the shield: it is
+worked out from the product as it is loaded now (the same single batch Saved
+uses), so a correction to the data (#401, #402) changes old entries, and a
+product that cannot be loaded shows none.
+
 ### Skin needs is a path of its own (2 October 2026)
 
 Skin needs stands apart from the skin profile, by the owner's decision. What

@@ -176,6 +176,9 @@ const SAFETY_NOTICE_CLAIMS: OwnedClaim[] = [
   { source: "SAFETY_NOTICE_COPY.clogWord", text: SAFETY_NOTICE_COPY.clogWord },
   { source: "SAFETY_NOTICE_COPY.pregnancyWord", text: SAFETY_NOTICE_COPY.pregnancyWord },
   { source: "SAFETY_NOTICE_COPY.sheetHeadline", text: SAFETY_NOTICE_COPY.sheetHeadline },
+  // #405: the shield's label, and what sharing says.
+  { source: "SAFETY_NOTICE_COPY.shieldLabel", text: SAFETY_NOTICE_COPY.shieldLabel },
+  { source: "SAFETY_NOTICE_COPY.shareLine", text: SAFETY_NOTICE_COPY.shareLine("Brand", "Serum") },
   ...SAFETY_NOTICE_ENTRIES.map((entry) => ({
     source: `SAFETY_NOTICE_COPY.sheetBody.${entry.entry}`,
     text: `${SAFETY_NOTICE_COPY.sheetBody(entry.entry)}${entry.dates ? ` ${entry.dates}` : ""}`,
