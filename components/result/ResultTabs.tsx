@@ -499,17 +499,14 @@ const GROUP_LABEL = { green: "Working for you", orange: "Worth watching" } as co
 function ReasonGroups({ rows, order, colourOf }: { rows: Reason[]; order: ("red" | "green" | "orange")[]; colourOf: (row: Reason) => "red" | "green" | "orange" }) {
   const groups = order.map((colour) => ({ colour, rows: rows.filter((row) => colourOf(row) === colour) })).filter((group) => group.rows.length > 0);
   const labelled = groups.some((g) => g.colour === "green") && groups.some((g) => g.colour === "orange");
-  let first = true;
   return (
     <View style={{ marginTop: labelled ? 0 : SPACE.gutter, gap: labelled ? 0 : SPACE.text }}>
-      {groups.map((group) => (
+      {groups.map((group, groupIndex) => (
         <View key={group.colour} style={{ gap: SPACE.text }}>
           {labelled && group.colour !== "red" ? <SectionLabel title={GROUP_LABEL[group.colour]} /> : null}
-          {group.rows.map((row) => {
-            const lead = first;
-            first = false;
-            return <ReasonBox key={row.key} row={row} lead={lead} />;
-          })}
+          {group.rows.map((row, rowIndex) => (
+            <ReasonBox key={row.key} row={row} lead={groupIndex === 0 && rowIndex === 0} />
+          ))}
         </View>
       ))}
     </View>
