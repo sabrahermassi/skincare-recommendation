@@ -6,7 +6,6 @@ import { assert, assertEquals } from "jsr:@std/assert@1";
 
 import { handleLabelOcr, type LabelOcrDeps, VISION_ATTEMPTS, VISION_TIMEOUT_MS } from "../functions/label-ocr/handler.ts";
 import { MAX_IMAGE_CHARS } from "../functions/_shared/image-limits.ts";
-import { READ_TOKEN_TTL_MS, signReadToken, verifyReadToken } from "../functions/_shared/read-token.ts";
 import { resetRateLimits, resetVerifiedTokens } from "../functions/_shared/rate-limit.ts";
 import {
   allKnown,
@@ -22,7 +21,6 @@ import {
 // The limiter fingerprints callers with this; without it every request throws.
 Deno.env.set("RATE_LIMIT_SALT", "test-salt");
 
-const SECRET = "read-token-secret";
 const BARCODE = "8801234567890";
 const LABEL = "Ingredients: Water, Glycerin, Niacinamide, Butylene Glycol, Panthenol";
 const NAMES = ["water", "glycerin", "niacinamide", "butylene glycol", "panthenol"];
@@ -60,7 +58,7 @@ function setup(
   resetVerifiedTokens();
   const db = new FakeDb(answer, auth);
   const { fetch, calls: fetched } = fakeFetch(vision);
-  const deps: LabelOcrDeps = { db, fetch, visionApiKey, readTokenSecret: SECRET, visionDailyCeiling };
+  const deps: LabelOcrDeps = { db, fetch, visionApiKey, visionDailyCeiling };
   return { db, deps, fetched };
 }
 
@@ -455,7 +453,7 @@ Deno.test("a dictionary that can't be read is 502, logged as ours", async () => 
   assertEquals(outcomes(db), ["internal_error"]);
 });
 
-Deno.test("a good read returns the list and a token signed for exactly it, and writes nothing", async () => {
+Deno.test("a good read returns the list and no token, and writes nothing", async () => {
   const { db, deps, fetched } = setup(allKnown);
   const reply = await handleLabelOcr(post({ imageBase64: tinyJpeg() }), deps);
   assertEquals(reply.status, 200);
@@ -463,8 +461,7 @@ Deno.test("a good read returns the list and a token signed for exactly it, and w
   const names = body.ingredients.map((i: { inci_name: string }) => i.inci_name);
   assertEquals(names, NAMES);
   assertEquals(body.recognised, 5);
-  assert(await verifyReadToken(body.readToken, names, SECRET));
-  assert(!(await verifyReadToken(body.readToken, names.slice(1), SECRET)));
+  assertEquals("readToken" in body, false);
   assertEquals(outcomes(db), ["read_ok"]);
   assertEquals(db.rpcCalls("replace_product_with_ingredients"), []);
   assertEquals(fetched.length, 1);
@@ -475,12 +472,11 @@ Deno.test("a good read returns the list and a token signed for exactly it, and w
 Deno.test("a save is 410 saving_disabled, before the limiter, and nothing is written", async () => {
   const { db, deps } = setup(allKnown);
   const reply = await handleLabelOcr(
-    post({ barcode: BARCODE, name: "Calming Toner", brand: "Brand", ingredients: NAMES, readToken: await signReadToken(NAMES, SECRET) }),
+    post({ barcode: BARCODE, name: "Calming Toner", brand: "Brand", ingredients: NAMES }),
     deps,
   );
   assertEquals(reply.status, 410);
   assertEquals((await reply.json()).error, "saving_disabled");
   assertEquals(limiterBuckets(db), []);
-  assertEquals(db.rpcCalls("consume_read_token"), []);
   assertEquals(db.rpcCalls("replace_product_with_ingredients"), []);
 });

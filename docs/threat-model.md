@@ -11,7 +11,7 @@ this document is the source of truth behind it.
 
 When this was first written, the backend held a database but no user data (the account work since — #218 onward — is noted inline):
 
-- Eleven tables today (counted from `supabase/migrations/`, 26 September
+- Ten tables today (counted from `supabase/migrations/`, 6 October
   2026), every one with RLS enabled:
   - **Catalogue, public read** (`anon`/`authenticated` select, no write
     policy): `ingredients`, `products`, `product_ingredients` (migration
@@ -22,8 +22,8 @@ When this was first written, the backend held a database but no user data (the a
     only on the caller's own rows; `product_authors` (0026) — the caller may
     read only their own rows, and only the service role writes.
   - **Server only** (RLS on, no policy, so only the service role reaches
-    them): `sync_bookmarks` (0012), `rate_limits` (0016), `used_read_tokens`
-    (0023), `scan_log` (0024). `scan_tokens` (0015) was dropped in 0022.
+    them): `sync_bookmarks` (0012), `rate_limits` (0016), `scan_log` (0024).
+    `scan_tokens` (0015) was dropped in 0022, `used_read_tokens` (0023) in 0031.
   Apart from the owner-only shelf tables, every write goes through the
   service-role key, server-side only, never from the client.
 - *Superseded by #218:* there was no authentication anywhere in the app.
@@ -60,7 +60,7 @@ constraints below, not defaults that might slide.
 | Saved ingredients | starred ingredient names | Low sensitivity alone; a run of starred actives hints at concerns | AsyncStorage, on-device | `saved_ingredients` (migration 0025), owner-only under RLS | Same as saved products |
 | Journal note | up to 500 characters the user wrote about a saved product (#228) | Potentially health-adjacent — the prompt asks about the product, but people may write anything, and it is theirs | On a signed-in phone, inside the cached shelf (AsyncStorage), queued until it syncs (#228) | `saved_products.note`, owner-only under RLS; never shared, never in analytics | Same as saved products |
 | Routine step | the user's own step 1/2/3 for a saved product (#227) | Low | On a signed-in phone, inside the cached shelf (AsyncStorage) | `saved_products.routine_step` | Same as saved products |
-| Product author | which account added a catalogue product from a label photo (#241) — the first column tying a public catalogue row to a person | Low alone, but it links everything one person scanned and named; it must not be public | Does not exist before accounts: every existing and imported row has no author | `product_authors` (migration 0026), a table of its own because `products` is publicly readable. No new rows since saving was switched off (#374); existing ones were written only by `label-ocr` with the service role, after the caller's token was confirmed with Auth; readable only by the author (for the export) and the service role. Guests' saves leave no row | Until account deletion, when `user_id` is set to null and the product stays; the row goes with its product |
+| Product author | which account added a catalogue product from a label photo (#241) — the first column tying a public catalogue row to a person | Low alone, but it links everything one person scanned and named; it must not be public | Does not exist before accounts: every existing and imported row has no author | `product_authors` (migration 0026), a table of its own because `products` is publicly readable. No new rows since saving was switched off (#374); kept for existing authors' export and deletion. Existing ones were written only by `label-ocr` with the service role, after the caller's token was confirmed with Auth; readable only by the author (for the export) and the service role. Guests' saves leave no row | Until account deletion, when `user_id` is set to null and the product stays; the row goes with its product |
 | First-page flag | the date an account first saved a product, so the welcome shows once (#230) | Low. The person can edit their own `user_metadata`, so it is a nicety and must never gate anything | The account ids that have seen it on this phone, in `useAppStore` (`journalStarted`) | `auth.users` `user_metadata.journal_started_at`, written by the signed-in client | Until account deletion; in the export |
 | Account identifier | email and the Apple or Google subject id, from Sign in with Apple / Sign in with Google (#217, #218). Apple's email may be a Hide My Email relay address. No name is requested from Apple; Google's sign-in always includes the account's name and profile-picture URL, which Supabase keeps in the user's metadata (unused by the app) | PII | Supabase Auth `auth.users` and `auth.identities`, created on first sign-in (#218). Identities that share a verified email are linked into one user | Same, referenced by every owner column | Until account deletion |
 | Usage events (#225) | five funnel events with fixed-value properties, PostHog's lifecycle events and device facts; never content or profile fields | Low alone; **linked to the account id after sign-in**, which makes a guest's earlier events attributable to that account | PostHog SDK file on the phone; PostHog (EU region) once sent | Same, joined to the account id | PostHog project retention (operator-set). A new random id after sign-out. On account deletion the person and its events are deleted in PostHog too (#24), within the 30-day deletion SLA |
@@ -167,36 +167,15 @@ second table is planned; if that ever changes, it gets its own row.
   client strips before the upload — see the non-goals below for why the
   server pass is the control and the client pass is not.
 
-  **Saving a read list — switched off (#374).** The app no longer adds
-  products, so `label-ocr` answers any save with 410 `saving_disabled` before
-  the limiter, so `label-ocr` never calls `replace_product_with_ingredients`
-  (the imports and `product-lookup` still do). It still signs a `readToken` on
-  each read, which nothing checks; that and the token tables go in #377. What follows is how saving
-  worked, kept until then. `label-ocr` answered a photo with the parsed list and
-  a signed `readToken`; saving took that list back with a barcode and a name.
-  The token proves the list came out of a (rate-limited) read, was not edited,
-  and is under 30 minutes old. It is single-use: the first save records it
-  (`used_read_tokens`, migration 0023) and any later save with it is refused, so
-  one read cannot be replayed into many catalogue entries. The signature is keyed
-  with its own secret, `READ_TOKEN_SECRET` (#198); until that is set, the
-  service-role key signs it and the function logs a warning. It is deliberately not
-  bound to a barcode — the barcode is asked for after the photo — so the one save
-  it allows can go under any barcode nobody has claimed yet. The list is
-  still a real read, and an existing entry is never replaced by a later save:
-  `label-ocr` saves insert-only, and the database function leaves a product that
-  already has ingredients alone, serialising two saves on one barcode with an
-  advisory lock.
-
-  *The 30-minute window is about to be exercised differently (#214).* Today the
-  save follows the photo almost immediately, so the deadline is slack nobody
-  notices. #214 makes the label photo the main scan path and shows the verdict
-  **before** asking anything, which turns saving into an optional follow-up the
-  user reaches after reading a result — minutes later, not seconds. The security
-  properties are unchanged (single-use, unedited, rate-limited, not bound to a
-  barcode), and the window is deliberately not being widened here; what changes
-  is that an expired token becomes a case real users will hit rather than an
-  edge, so the save path has to fail as a plain "scan it again" rather than as
-  an error. #214's own body flags the same thing against `readTokenDeadline`.
+  **Saving a read list — switched off (#374), read token removed (#377).**
+  The app no longer adds products, so `label-ocr` answers any save with 410
+  `saving_disabled` before the limiter, and never calls
+  `replace_product_with_ingredients` (the imports and `product-lookup` still
+  do). It used to sign a `readToken` on each read and require it back on a
+  save, single-use through `used_read_tokens`. With no save left, the token,
+  its `READ_TOKEN_SECRET` secret and `consume_read_token`,
+  `release_read_token` and `used_read_tokens` (migration 0031) are gone. A
+  read now returns only the parsed list, and nothing is written.
 
   **What happens to the image once it's there (issue #16).** This was an
   open question — `.claude/claude-security-guidance.md`'s AI/LLM section says

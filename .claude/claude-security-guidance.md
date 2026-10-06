@@ -25,7 +25,7 @@ The per-item detail is in `docs/device-storage-policy.md` (on the phone) and
    script says. `scripts/lib/db.mjs` refuses a production write that isn't
    declared twice; the rule behind it is in `CLAUDE.md`. Reading production is
    fine.
-2. **RLS on every table, owner-only on every user table.** All 11 tables have
+2. **RLS on every table, owner-only on every user table.** All 10 tables have
    RLS on. User rows are readable and writable only where
    `user_id = auth.uid()` (`saved_products`, `saved_ingredients`; `product_authors`
    is read-own only). A new table ships with RLS and its policies in the same
@@ -44,7 +44,7 @@ The per-item detail is in `docs/device-storage-policy.md` (on the phone) and
    support address. Every other key is server-only.
 6. **Secrets live in the shell or gitignored files, never in the repo.** Edge
    Function secrets (`SUPABASE_SERVICE_ROLE_KEY`, `GOOGLE_VISION_API_KEY`,
-   `INCI_API_KEY`, `READ_TOKEN_SECRET`, `RATE_LIMIT_SALT`, the Apple and PostHog
+   `INCI_API_KEY`, `RATE_LIMIT_SALT`, the Apple and PostHog
    deletion keys) are set in Supabase. `.env` / `.env.staging` are gitignored.
    `secret-scan.yml` greps every built bundle for key names and formats.
 7. **The paid endpoints stay capped.** `product-lookup` and `label-ocr` keep
