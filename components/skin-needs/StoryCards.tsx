@@ -64,7 +64,7 @@ export function WhyCard({ active, goal }: { active: StoryActive; goal: string })
           {why.notes[1]}
         </Hand>
       </View>
-      <View style={{ marginTop: "auto", marginHorizontal: SPACE.gutter, backgroundColor: SURFACE, borderRadius: RADIUS.panel, padding: 20, gap: SPACE.block }}>
+      <View style={{ marginTop: "auto", marginHorizontal: SPACE.gutter, backgroundColor: SURFACE, borderRadius: RADIUS.panel, padding: SPACE.inset, gap: SPACE.block }}>
         <Hand color={LINK} says>
           for your goal
         </Hand>
@@ -87,7 +87,7 @@ export function StartCard({ active, answers }: { active: StoryActive; answers: P
   return (
     <View style={{ flex: 1 }}>
       <Heading title="How often do I use it?" line={startLine(nights)} />
-      <View style={{ marginTop: 32, marginHorizontal: SPACE.gutter, backgroundColor: SURFACE, borderRadius: RADIUS.panel, paddingTop: 20, paddingHorizontal: SPACE.gutter, paddingBottom: SPACE.block }}>
+      <View style={{ marginTop: 32, marginHorizontal: SPACE.gutter, backgroundColor: SURFACE, borderRadius: RADIUS.panel, paddingTop: SPACE.inset, paddingHorizontal: SPACE.gutter, paddingBottom: SPACE.block }}>
         <View style={{ flexDirection: "row", paddingBottom: SPACE.text }}>
           <View style={{ width: 84 }} />
           {DAY_LETTERS.map((letter, day) => (
@@ -123,7 +123,7 @@ export function StartCard({ active, answers }: { active: StoryActive; answers: P
           </Hand>
         </View>
       ) : null}
-      <View style={{ marginTop: "auto", marginHorizontal: SPACE.gutter, backgroundColor: SKIN_NEEDS.note, borderRadius: RADIUS.panel, paddingVertical: SPACE.gutter, paddingLeft: SPACE.block, paddingRight: 20, flexDirection: "row", alignItems: "center", gap: SPACE.block }}>
+      <View style={{ marginTop: "auto", marginHorizontal: SPACE.gutter, backgroundColor: SKIN_NEEDS.note, borderRadius: RADIUS.panel, paddingVertical: SPACE.gutter, paddingLeft: SPACE.block, paddingRight: SPACE.inset, flexDirection: "row", alignItems: "center", gap: SPACE.block }}>
         <Image source={SENSITIVITY_ART[sensitivity]} contentFit="contain" accessibilityLabel="" style={{ width: 64, height: 62 }} />
         <Text style={{ flex: 1, fontSize: TYPE.card, lineHeight: LEADING.card, fontWeight: "600", color: INK }}>{sensitivityNote(answers, nights)}</Text>
       </View>
@@ -235,7 +235,7 @@ export function PairsCard({ active }: { active: StoryActive }) {
           {pairs[1].label}
         </Hand>
       </View>
-      <View style={{ marginTop: "auto", marginHorizontal: SPACE.gutter, backgroundColor: SURFACE, borderRadius: RADIUS.panel, paddingVertical: 4, paddingHorizontal: 20 }}>
+      <View style={{ marginTop: "auto", marginHorizontal: SPACE.gutter, backgroundColor: SURFACE, borderRadius: RADIUS.panel, paddingVertical: 4, paddingHorizontal: SPACE.inset }}>
         {pairs.map((pair, index) => (
           <View key={pair.name} style={{ flexDirection: "row", alignItems: "center", gap: SPACE.block, minHeight: 60, borderTopWidth: index === 0 ? 0 : 0.5, borderTopColor: DIVIDER }}>
             <Text style={{ width: 132, fontSize: TYPE.card, fontWeight: "600", color: INK }}>{pair.name}</Text>
@@ -284,7 +284,7 @@ export function AvoidCard({ active }: { active: StoryActive }) {
           Not in the same routine.{"\n"}Alternate: <Text style={{ fontWeight: "600" }}>morning and evening</Text>, or <Text style={{ fontWeight: "600" }}>different days</Text>.
         </Text>
       </View>
-      <View style={{ paddingTop: 20, paddingHorizontal: SPACE.gutter, flexDirection: "row", gap: SPACE.text }}>
+      <View style={{ paddingTop: SPACE.inset, paddingHorizontal: SPACE.gutter, flexDirection: "row", gap: SPACE.text }}>
         {avoid.signs.map((sign) => (
           <View key={sign} style={{ flex: 1, minHeight: 96, borderRadius: RADIUS.panel, backgroundColor: SURFACE, alignItems: "center", justifyContent: "center", gap: 6, paddingVertical: SPACE.text }}>
             <Image source={SIGNS[sign].picture} contentFit="contain" accessibilityLabel="" style={{ width: 56, height: 56 }} />
@@ -315,7 +315,7 @@ export function ShopCard({ active, actions }: { active: StoryActive; /** "Add <a
           {"turn it\naround"}
         </Hand>
       </View>
-      <View style={{ marginTop: SPACE.text, marginHorizontal: SPACE.gutter, backgroundColor: SURFACE, borderRadius: RADIUS.panel, paddingTop: SPACE.gutter, paddingHorizontal: 20, paddingBottom: 4 }}>
+      <View style={{ marginTop: SPACE.text, marginHorizontal: SPACE.gutter, backgroundColor: SURFACE, borderRadius: RADIUS.panel, paddingTop: SPACE.gutter, paddingHorizontal: SPACE.inset, paddingBottom: 4 }}>
         <Text accessibilityRole="header" style={{ fontSize: TYPE.caption, fontWeight: "600", letterSpacing: TRACKING.caption, textTransform: "uppercase", color: MUTED_FAINT }}>
           Look for
         </Text>

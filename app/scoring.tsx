@@ -44,7 +44,7 @@ export default function HowScoringWorks() {
       <ScrollView style={{ flexShrink: 1 }} contentContainerStyle={{ paddingHorizontal: SPACE.gutter, paddingTop: SPACE.gutter, paddingBottom: 32 }} alwaysBounceVertical={false}>
         <Text style={{ paddingHorizontal: 4, paddingBottom: SPACE.section, fontSize: TYPE.card, lineHeight: 25, color: INK }}>{SCORING_INTRO}</Text>
 
-        <View style={{ backgroundColor: STONE, borderRadius: RADIUS.panel, paddingTop: 20, paddingHorizontal: 20, paddingBottom: SPACE.text }}>
+        <View style={{ backgroundColor: STONE, borderRadius: RADIUS.panel, paddingTop: SPACE.inset, paddingHorizontal: SPACE.inset, paddingBottom: SPACE.text }}>
           <Text accessibilityRole="header" style={{ fontSize: TYPE.card, fontWeight: "600", color: INK }}>
             What the numbers mean
           </Text>

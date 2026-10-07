@@ -656,7 +656,7 @@ function NeedMatch({ ingredients, match, profile, need }: { ingredients: Ingredi
   return (
     <View style={{ gap: SPACE.gutter }}>
       {/* Where the score ring's verdict pill sits on any other result: the answer, in words. */}
-      <View testID="need-verdict" style={{ alignSelf: "center", minHeight: 40, borderRadius: RADIUS.control, paddingHorizontal: 20, justifyContent: "center", backgroundColor: tone.deep }}>
+      <View testID="need-verdict" style={{ alignSelf: "center", minHeight: 40, borderRadius: RADIUS.control, paddingHorizontal: SPACE.inset, justifyContent: "center", backgroundColor: tone.deep }}>
         <Text accessibilityRole="header" style={{ fontSize: TYPE.card, lineHeight: LEADING.card, fontWeight: "600", color: WHITE }}>
           {verdict.headline}
         </Text>
@@ -779,7 +779,7 @@ function ProfileTeaser({ visible, onClose, onQuiz }: { visible: boolean; onClose
       }
     >
       {/* The top half: a ring with no score yet, and the verdict as a question. */}
-      <View style={{ alignItems: "center", gap: SPACE.block, backgroundColor: HOME_CARD_FILL, paddingTop: 32, paddingHorizontal: 20, paddingBottom: SPACE.section }}>
+      <View style={{ alignItems: "center", gap: SPACE.block, backgroundColor: HOME_CARD_FILL, paddingTop: 32, paddingHorizontal: SPACE.inset, paddingBottom: SPACE.section }}>
         <View style={{ width: 96, height: 96, borderRadius: 48, backgroundColor: WHITE, alignItems: "center", justifyContent: "center" }}>
           <Svg width={80} height={80} style={{ position: "absolute" }}>
             <Circle cx={40} cy={40} r={34} stroke={SEGMENT_TRACK} strokeWidth={6} fill="none" />
@@ -789,11 +789,11 @@ function ProfileTeaser({ visible, onClose, onQuiz }: { visible: boolean; onClose
             ?
           </Text>
         </View>
-        <View style={{ height: 36, paddingHorizontal: 20, borderRadius: RADIUS.control, backgroundColor: TEASER_INK, justifyContent: "center" }}>
+        <View style={{ height: 36, paddingHorizontal: SPACE.inset, borderRadius: RADIUS.control, backgroundColor: TEASER_INK, justifyContent: "center" }}>
           <Text style={{ fontSize: TYPE.card, fontWeight: "600", color: WHITE }}>Good match?</Text>
         </View>
       </View>
-      <View style={{ alignItems: "center", gap: SPACE.text, paddingTop: SPACE.section, paddingHorizontal: 20, paddingBottom: 20 }}>
+      <View style={{ alignItems: "center", gap: SPACE.text, paddingTop: SPACE.section, paddingHorizontal: SPACE.inset, paddingBottom: SPACE.inset }}>
         <Text accessibilityRole="header" style={{ textAlign: "center", fontFamily: DISPLAY_FONT, fontSize: TYPE.heading, lineHeight: LEADING.heading, letterSpacing: TRACKING.heading, color: INK }}>
           Is it right for your skin?
         </Text>

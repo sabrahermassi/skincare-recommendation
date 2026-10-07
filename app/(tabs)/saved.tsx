@@ -315,8 +315,11 @@ export default function Saved() {
       const shown = savedIds.filter((id) => byId[id] && (activeFilter === "all" || groupOf(id) === activeFilter));
       return (
         <FitScrollView ref={live ? listRef : undefined} contentContainerStyle={listStyle} onScroll={onScroll.saved} {...underHeader}>
-          <StepFilter groups={presentGroups} selected={activeFilter} onSelect={setStepFilter} />
-          <GroupLabel title={`${shown.length} ${shown.length === 1 ? "product" : "products"}`} onClearAll={() => setConfirmingClear(t)} />
+          <GroupLabel
+            title={`${shown.length} ${shown.length === 1 ? "product" : "products"}`}
+            onClearAll={() => setConfirmingClear(t)}
+            filter={<StepFilter groups={presentGroups} selected={activeFilter} onSelect={setStepFilter} />}
+          />
           <View style={{ gap: ROW_GAP }}>
             {shown.slice(0, savedShown).map((id) => {
               const product = byId[id];
@@ -478,13 +481,20 @@ function TextLink({ label, onPress }: { label: string; onPress: () => void }) {
 }
 
 /** A group's caps label ("3 PRODUCTS", "TODAY"), and "Clear all" beside the first one. */
-function GroupLabel({ title, onClearAll }: { title: string; onClearAll?: () => void }) {
+function GroupLabel({ title, onClearAll, filter }: { title: string; onClearAll?: () => void; filter?: ReactNode }) {
   return (
-    <View style={{ minHeight: TOUCH_TARGET, paddingTop: SPACE.text, paddingBottom: 4, paddingLeft: 4, flexDirection: "row", alignItems: "center", justifyContent: "space-between", gap: SPACE.block }}>
+    <View style={{ minHeight: TOUCH_TARGET, paddingTop: SPACE.text, paddingBottom: 4, paddingLeft: 4, flexDirection: "row", flexWrap: "wrap", alignItems: "center", justifyContent: "space-between", columnGap: SPACE.block }}>
       <Text accessibilityRole="header" style={{ fontSize: TYPE.caption, fontWeight: "600", letterSpacing: TRACKING.caption, textTransform: "uppercase", color: MUTED }}>
         {title}
       </Text>
-      {onClearAll ? <TextLink label="Clear all" onPress={onClearAll} /> : null}
+      {/* The filter and Clear all share the count's row (a filter row of its own pushed the first product down).
+          Where they do not fit (a long filter name, larger text) they drop to a line of their own. */}
+      {filter || onClearAll ? (
+        <View style={{ marginLeft: "auto", flexDirection: "row", flexWrap: "wrap", alignItems: "center", justifyContent: "flex-end", columnGap: SPACE.block }}>
+          {filter}
+          {onClearAll ? <TextLink label="Clear all" onPress={onClearAll} /> : null}
+        </View>
+      ) : null}
     </View>
   );
 }
@@ -915,6 +925,7 @@ function StepFilter({
   if (groups.length < 2) return null;
   return (
     <FilterDropdown
+      align="end"
       options={[{ value: "all", label: "All" }, ...groups.map((group) => ({ value: String(group), label: STEP_LABEL[group] }))]}
       selected={String(selected)}
       onSelect={(value) => onSelect(value === "all" ? "all" : (groups.find((g) => String(g) === value) ?? "all"))}

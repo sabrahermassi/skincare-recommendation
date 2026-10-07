@@ -43,7 +43,7 @@ function Bar({ width, height = 14, style }: { width: number | `${number}%`; heig
 /** The routine card: its two title lines, the time line, the active, and a row of pills. */
 function CardShape() {
   return (
-    <View style={{ height: SKELETON_CARD_HEIGHT, borderRadius: CARD_RADIUS, backgroundColor: DIVIDER, padding: 20, justifyContent: "space-between" }}>
+    <View style={{ height: SKELETON_CARD_HEIGHT, borderRadius: CARD_RADIUS, backgroundColor: DIVIDER, padding: SPACE.inset, justifyContent: "space-between" }}>
       <View style={{ gap: 10 }}>
         <Bar width="52%" height={22} />
         <Bar width="40%" height={14} />
