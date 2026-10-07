@@ -70,6 +70,8 @@ it("shows the pregnancy card, with no source on it", async () => {
   await show(["hydroquinone"], { ...EMPTY_PROFILE, pregnancyStatus: "pregnant" });
   await openIngredients();
   expect(screen.getByText("Best avoided while pregnant")).toBeTruthy();
+  // #475: worded for the one question the quiz asks, pregnant or breastfeeding.
+  expect(screen.getByText(/If you're pregnant or breastfeeding and unsure, ask your doctor or midwife\./)).toBeTruthy();
   expect(screen.queryByLabelText(/^Source:/)).toBeNull();
 });
 

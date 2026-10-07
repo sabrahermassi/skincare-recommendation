@@ -17,9 +17,16 @@ import {
  * regardless of who's asking, so detection takes no profile and every
  * ingredient is checked with no truncation.
  *
- * Scope is deliberately narrow: the four categories with real clinical
- * consensus (ACOG and dermatology guidance agree on all four) rather than a
- * long list padded with contested or low-risk entries. Concentration is not
+ * Scope is deliberately narrow: the three categories that dermatology guidance
+ * names (the American Academy of Dermatology page each one cites) rather than a
+ * long list padded with contested or low-risk entries. Essential oils were a
+ * fourth until #475: the only guidance found was from NHS trusts and an
+ * aromatherapists' body whose text could not be read, none a professional body's
+ * statement that could be opened and read as supporting the claim, so the group
+ * was removed rather than kept without a source. Arbutin is deliberately not
+ * here either (#475, owner, 7 October 2026): Skin needs hides it from pregnant
+ * users (`lib/skin-needs-data.ts`), but there is no source to warn on a scan, and
+ * this list does not warn without one. Revisit when an expert answers. Concentration is not
  * something an INCI name carries — salicylic acid at 0.5% (a rinse-off
  * cleanser) and at 2% (a leave-on treatment) are the same string on a label —
  * so these flag *presence*, and the reason text says so rather than implying
@@ -34,7 +41,7 @@ import {
 
 type PregnancyCautionEntry = {
   names: (string | RegExp)[];
-  category: "retinoid" | "salicylic-acid" | "hydroquinone" | "essential-oil";
+  category: "retinoid" | "salicylic-acid" | "hydroquinone";
   reason: string;
   /** Where the caution comes from (#326) — same rules as `IngredientRule.source`. */
   source?: RuleSource;
@@ -44,32 +51,32 @@ export const PREGNANCY_CAUTION: PregnancyCautionEntry[] = [
   {
     names: [...RETINOID_NAMES, ...RETINOID_PRESCRIPTION_NAMES, RETINYL_ESTER_PATTERN, RETINYL_RETINOATE_NAME],
     category: "retinoid",
-    reason:
-      "A vitamin A derivative — commonly advised against in pregnancy and while breastfeeding",
+    reason: "A vitamin A derivative — commonly advised against in pregnancy",
+    // "Avoid … retinoids", prescription and over-the-counter alike (read 7 October 2026).
+    source: {
+      label: "American Academy of Dermatology: pregnancy skin care",
+      url: "https://www.aad.org/public/everyday-care/skin-care-secrets/routine/pregnancy-skin-care",
+    },
   },
   {
     names: [...SALICYLATE_NAMES, SALICYLATE_SALT_PATTERN, ...SALICYLATE_FALLBACK_NAMES],
     category: "salicylic-acid",
     reason:
-      "Salicylic acid — commonly flagged in pregnancy at leave-on concentrations; a label alone can't say how much is in this formula",
+      "Salicylic acid — guidance is to limit strengths above 2% in pregnancy; a label alone can't say how much is in this formula",
+    // "Salicylic acid at high doses (greater than 2%)" is to be used sparingly, after talking to a dermatologist (read 7 October 2026).
+    source: {
+      label: "American Academy of Dermatology: pregnancy skin care",
+      url: "https://www.aad.org/public/everyday-care/skin-care-secrets/routine/pregnancy-skin-care",
+    },
   },
   {
     names: ["hydroquinone"],
     category: "hydroquinone",
-    reason: "Hydroquinone — commonly advised against in pregnancy and while breastfeeding",
+    reason: "Hydroquinone — commonly advised against in pregnancy",
     source: {
       label: "NSW Health MotherSafe",
       url: "https://www.seslhd.health.nsw.gov.au/sites/default/files/groups/Royal_Hospital_for_Women/Mothersafe/documents/skinhaircareandcosmetictreatmentsapril2021.pdf",
     },
-  },
-  {
-    names: [
-      /essential oil$/,
-      /^(lavandula|citrus|mentha|rosmarinus|eucalyptus|melaleuca|cinnamomum|origanum|thymus|salvia) .*oil$/,
-    ],
-    category: "essential-oil",
-    reason:
-      "An essential oil — several common ones are advised against in pregnancy in concentrated form",
   },
 ];
 
@@ -86,7 +93,7 @@ export type PregnancyCautionHit = {
   source?: RuleSource;
 };
 
-/** Every pregnancy/breastfeeding-caution ingredient in a formula, label order. */
+/** Every pregnancy-caution ingredient in a formula, label order. */
 export function pregnancyCautionHits(ingredients: Ingredient[]): PregnancyCautionHit[] {
   const hits: PregnancyCautionHit[] = [];
   for (const ingredient of ingredients) {

@@ -75,11 +75,11 @@ const UNSOURCED_RULES = [
 ];
 
 /** Pregnancy cautions still waiting for a checked source. Never add to this list. */
-const UNSOURCED_PREGNANCY = ["retinoid", "salicylic-acid", "essential-oil"];
+const UNSOURCED_PREGNANCY: string[] = [];
 
 // Lower these as sources land; raising one is how an unsourced claim sneaks in.
 const MAX_UNSOURCED_RULES = 47;
-const MAX_UNSOURCED_PREGNANCY = 3;
+const MAX_UNSOURCED_PREGNANCY = 0;
 
 function expectWellFormed(source: RuleSource) {
   expect(source.label.trim()).not.toBe("");
@@ -106,6 +106,17 @@ describe("rule sources", () => {
   it("only ever shrinks the list", () => {
     expect(new Set(UNSOURCED_RULES).size).toBe(UNSOURCED_RULES.length);
     expect(UNSOURCED_RULES.length).toBeLessThanOrEqual(MAX_UNSOURCED_RULES);
+  });
+
+  // #475: only what a source supports. Breastfeeding is not claimed, and an essential-oil group with no
+  // professional body's statement behind it is gone.
+  it("words each pregnancy caution for pregnancy, with a source, and has no essential-oil group", () => {
+    for (const entry of PREGNANCY_CAUTION) {
+      expect(entry.reason).not.toMatch(/breastfeeding/i);
+      expect(entry.source).toBeDefined();
+    }
+    expect(PREGNANCY_CAUTION.map((entry) => entry.category)).toEqual(["retinoid", "salicylic-acid", "hydroquinone"]);
+    expect(PREGNANCY_CAUTION.find((entry) => entry.category === "salicylic-acid")?.reason).toMatch(/limit strengths above 2%/);
   });
 
   it("gives every pregnancy caution a source, or lists it, and only shrinks that list", () => {

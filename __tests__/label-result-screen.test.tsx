@@ -147,7 +147,7 @@ describe("the label result", () => {
     // Pregnant, breastfeeding or not said: nothing in its place.
     mockParams = { from: "journey", need: "lines.." };
     await openOnly(["water", "tretinoin", "glycerin"]);
-    expect(screen.getByText(/usually avoided while pregnant or breastfeeding/)).toBeTruthy();
+    expect(screen.getByText(/usually avoided while pregnant\. Ask your doctor or midwife/)).toBeTruthy();
     expect(screen.queryByRole("button", { name: /Learn about/ })).toBeNull();
     await act(async () => screen.unmount());
 

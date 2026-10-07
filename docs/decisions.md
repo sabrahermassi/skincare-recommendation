@@ -169,6 +169,20 @@ writes `.eu-annexes.json` with `--apply`. It writes no database row: step 3 adds
   © European Union, https://eur-lex.europa.eu/, 1998-2026. A documentation tool with no legal effect: only
   the Official Journal text is authentic." It is written into the output file and nowhere in the app yet.
 
+**Pregnancy notes match what the sources say (7 October 2026, #475).** The scan's pregnancy cautions
+now say "pregnancy" and nothing the sources do not: the retinoid and hydroquinone lines no longer say
+"and while breastfeeding" (the American Academy of Dermatology page says nothing on breastfeeding), and
+salicylic acid is worded as the AAD words it, limit strengths above 2%. Retinoids and salicylic acid now
+carry the AAD page as their source. The quiz still asks one question, "pregnant or breastfeeding?", so
+the cards that follow it say "If you're pregnant or breastfeeding and unsure, ask your doctor or midwife."
+
+- **The essential-oil group is removed.** The guidance found was NHS trust leaflets and an aromatherapists'
+  body whose guidelines could not be read; none was a professional body's statement that could be opened
+  and read as supporting "advised against in pregnancy". Without that the claim had no source, so it
+  went rather than stayed softened. Add it back when a professional body's own text is found.
+- **Arbutin is unchanged:** hidden from pregnant users in Skin needs, no warning on a scan, until an expert
+  answers (the reason is written beside both in the code).
+
 ## Routing
 
 **Never navigate from a layout file.** This is not theoretical caution —

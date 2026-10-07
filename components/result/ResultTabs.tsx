@@ -738,7 +738,7 @@ function PregnancyCard({ match }: { match: MatchResult }) {
           Best avoided while pregnant
         </Text>
         <Text style={{ fontSize: TYPE.body, lineHeight: LEADING.body, color: INK }}>
-          It contains {listNames(pregnancy.map((w) => displayIngredientName(w.ingredient.name)))}. If you&apos;re unsure, ask your doctor or midwife.
+          It contains {listNames(pregnancy.map((w) => displayIngredientName(w.ingredient.name)))}. If you&apos;re pregnant or breastfeeding and unsure, ask your doctor or midwife.
         </Text>
       </View>
     </View>
