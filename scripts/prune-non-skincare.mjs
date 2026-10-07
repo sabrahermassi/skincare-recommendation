@@ -5,7 +5,7 @@
  * The OBF import now refuses these (`nonSkincareReason` in
  * `scripts/lib/non-skincare.mjs`); this removes the ones already imported.
  * The `products` table doesn't keep OBF's category tags, so existing rows are
- * judged by name alone.
+ * judged by name and, for hair-dye kits (#420), by their ingredient list.
  *
  * Reads and prints first; nothing is deleted unless `--apply` is passed. The
  * dry run lists every row it would remove, with the reason, so the list can
@@ -36,12 +36,15 @@ async function main() {
   const { db } = connect({ write: apply });
 
   const rows = await paginateOrdered(db, "products", {
-    select: "id, source, brand, name",
+    select: "id, source, brand, name, product_ingredients(inci_name)",
     cursorColumn: "id",
   });
 
   const doomed = rows
-    .map((row) => ({ row, reason: nonSkincareReason({ name: row.name }) }))
+    .map((row) => ({
+      row,
+      reason: nonSkincareReason({ name: row.name, ingredients: (row.product_ingredients ?? []).map((i) => i.inci_name) }),
+    }))
     .filter((entry) => entry.reason !== null);
 
   console.log(`${rows.length} products; ${doomed.length} not skincare, ${rows.length - doomed.length} kept.\n`);
