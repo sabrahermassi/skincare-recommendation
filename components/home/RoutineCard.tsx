@@ -27,7 +27,7 @@ export function StartRoutineCard({ onPress }: { onPress: () => void }) {
       onPress={onPress}
       pressedScale={0.97}
       accessibilityLabel="Start your routine. Build my routine"
-      style={{ minHeight: CARD_HEIGHT, borderRadius: CARD_RADIUS, backgroundColor: HOME_TILE.start, paddingVertical: 11, paddingLeft: SPACE.inset, paddingRight: SPACE.text, flexDirection: "row", alignItems: "center", gap: SPACE.text, overflow: "hidden" }}
+      style={{ minHeight: CARD_HEIGHT, borderRadius: CARD_RADIUS, backgroundColor: HOME_TILE.start, paddingVertical: SPACE.block, paddingLeft: SPACE.inset, paddingRight: SPACE.text, flexDirection: "row", alignItems: "center", gap: SPACE.text, overflow: "hidden" }}
     >
       <View style={{ flex: 1, gap: SPACE.text }}>
         <Text maxFontSizeMultiplier={CARD_TEXT_SCALE} style={{ fontFamily: DISPLAY_FONT, fontSize: TYPE.heading, lineHeight: LEADING.heading, color: INK }}>

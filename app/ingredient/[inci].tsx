@@ -336,7 +336,7 @@ function IngredientDetail({
               {facts.length > 0 ? (
                 facts.map((fact, i) => (
                   <View key={fact.key} style={{ paddingHorizontal: SPACE.gutter }}>
-                    <View style={{ flexDirection: "row", gap: SPACE.block, paddingVertical: 13, borderTopWidth: i === 0 ? 0 : 1, borderTopColor: HAIRLINE }}>
+                    <View style={{ flexDirection: "row", gap: SPACE.block, paddingVertical: SPACE.block, borderTopWidth: i === 0 ? 0 : 1, borderTopColor: HAIRLINE }}>
                       <Text style={{ width: 120, fontSize: TYPE.label, color: MUTED }}>{fact.key}</Text>
                       <Text style={{ flex: 1, fontSize: TYPE.body, lineHeight: LEADING.body, color: INK }}>{fact.value}</Text>
                     </View>

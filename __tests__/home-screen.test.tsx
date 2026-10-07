@@ -6,7 +6,7 @@ import * as api from "@/data/api";
 import { openScanner } from "@/lib/open-scanner";
 import { forgetRoutine } from "@/lib/routine-builder";
 import { EVENING_TIPS, MORNING_TIPS } from "@/lib/skin-tips";
-import { HOME_TILE } from "@/lib/tokens";
+import { HOME_TILE, SPACE } from "@/lib/tokens";
 import { EMPTY_PROFILE, useAppStore } from "@/store/useAppStore";
 
 /**
@@ -49,6 +49,8 @@ it("shows Start your routine, the two tiles and the tip, and nothing of the old 
   await render(<Home />);
   expect(screen.getByRole("header", { name: "Hi there!" })).toBeTruthy();
   expect(screen.getByRole("button", { name: "Start your routine. Build my routine" })).toBeTruthy();
+  // Its padding keeps to the spacing grid (it had been 11).
+  expect(screen.getByRole("button", { name: "Start your routine. Build my routine" }).children[0]).toHaveStyle({ paddingVertical: SPACE.block });
   expect(screen.queryByText("Your skincare routine")).toBeNull();
   expect(screen.getByRole("header", { name: "Explore" })).toBeTruthy();
   for (const tile of ["Scan Any Product", "Find Your Actives"]) expect(screen.getByRole("button", { name: tile })).toBeTruthy();
