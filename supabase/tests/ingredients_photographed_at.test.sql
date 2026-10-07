@@ -10,7 +10,7 @@ do $$
 declare
   v_product jsonb := jsonb_build_object(
     'id', 'obf-4460000000001', 'barcode', '4460000000001', 'brand', 'B', 'name', 'Old list',
-    'type', 'serum', 'area', 'face', 'source', 'obf');
+    'type', 'serum', 'area', 'face', 'in_stock', true, 'suitable_for', '[]'::jsonb, 'targets', '[]'::jsonb, 'source', 'obf');
   v_ingredients jsonb := '[{"inci_name": "ci-446-aqua", "position": 0}]';
   v_stored timestamptz;
 begin
