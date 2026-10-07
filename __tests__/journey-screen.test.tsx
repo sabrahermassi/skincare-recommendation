@@ -200,6 +200,16 @@ it("stars an option to Saved › Ingredients, and marks one already in the routi
   expect(screen.getByText("add another?")).toBeTruthy();
 });
 
+// The deck's dots follow the scroll position (7 October 2026); before any swipe the first is the current one.
+it("shows a dot for each option, the first one current", async () => {
+  await render(<Journey />);
+  await pick("Control oil");
+  await pick("Pregnant or breastfeeding: No");
+  await show();
+  expect(screen.getByLabelText(/^Option 1: /).props.accessibilityState.selected).toBe(true);
+  expect(screen.getByLabelText(/^Option 2: /).props.accessibilityState.selected).toBe(false);
+});
+
 it("goes back from the options to the questions with the answers kept", async () => {
   await render(<Journey />);
   await pick("Clear pimples");
