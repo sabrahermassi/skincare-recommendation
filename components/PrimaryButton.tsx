@@ -3,7 +3,7 @@ import { Animated, Pressable, type StyleProp, type ViewStyle } from "react-nativ
 
 import { usePressScale } from "@/components/PressableCard";
 import { Text } from "@/components/Text";
-import { BUTTON, FONT_SCALE, TYPE } from "@/lib/tokens";
+import { BUTTON, FONT_SCALE, TRACKING, TYPE } from "@/lib/tokens";
 
 /**
  * Every button in the app (v7 design, 29 September 2026): a terracotta pill
@@ -109,7 +109,7 @@ export function PrimaryButton({
           style={{
             fontSize: TYPE.card,
             fontWeight: "600",
-            letterSpacing: -0.17,
+            letterSpacing: TRACKING.card,
             lineHeight: twoLines ? TWO_LINE_HEIGHT : LABEL_LINE_HEIGHT,
             textAlign: "center",
             includeFontPadding: false,

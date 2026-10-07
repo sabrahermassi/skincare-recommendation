@@ -921,7 +921,7 @@ function BarcodeStage({
               {status.kind === "looking" ? (
                 <ActivityIndicator size="small" color={INK} />
               ) : (
-                <Text style={{ fontSize: 14, fontWeight: "bold", color: INK }}>!</Text>
+                <Text style={{ fontSize: 14, fontWeight: "700", color: INK }}>!</Text>
               )}
             </View>
             <View className="flex-1">

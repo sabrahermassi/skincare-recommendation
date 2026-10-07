@@ -96,7 +96,8 @@ right set; never pick by hand.
 | Unknown (`VERDICT_NEUTRAL`) | | `MUTED` | `MUTED` | `#F2F1F0` / `#F4F2EE` |
 
 - `WARN` is `VERDICT.medium.deep` (cautions that are not a verdict). `DANGER` is
-  `VERDICT.low.deep` (erase my profile, and nothing else).
+  `VERDICT.low.deep`: the red words of a text action that takes something away
+  (Skin profile's Reset, a note's Delete). Nothing else is written in red.
 - **Fair's `deep` is `#A85A14`, not the hand-off's `#C26E1E`.** Computed on 6
   October 2026: the hand-off's read 3.4 to 3.8:1 on white, the page and the
   tint; `#A85A14` reads 5.1:1 on white and 4.55:1 on the tint. White on it as a
@@ -146,8 +147,8 @@ coloured word:
 | Card | 17 semibold system | headings inside cards | none |
 
 Button labels are 17 semibold (`TYPE.card`), the same step as a card heading. Text
-actions are 15 semibold in `LINK`, never underlined. A group label (`SectionLabel`) is 13 semibold, capitals, 0.78
-letter-spacing, in `MUTED`.
+actions are 15 semibold in `LINK`, never underlined. A group label (`SectionLabel`) is 13 semibold, capitals,
+`TRACKING.caption` letter-spacing, in `MUTED`.
 
 **Larger text** (`FONT_SCALE`, applied in `components/Text.tsx`): display 1.3,
 UI 1.5, reading text 3.6, icons beside reading text 2. The onboarding intro caps
@@ -415,6 +416,11 @@ the scanner, How scoring works and the ingredient sheet slide up.
   The picture is in layers for this (`tip-envelope-open`, `tip-letter`,
   `tip-envelope-front`, and `tip-letter-open` for the page); `tip-envelope` is
   the three put together, and a new drawing needs all of them redone.
+- **The score arrives** (`ScoreRing`): the arc draws round from 12 o'clock and
+  the number comes up, 700ms the first time a result opens and 350ms after. The
+  number is the real one throughout; only its opacity moves.
+- **School's turns arrive** (`Arrive` in `app/(tabs)/school.tsx`): a question
+  comes up into place and its answer 180ms after it. The greeting is just there.
 - Tap targets follow `TOUCH_TARGET` (44). One known exception: `ReferenceLink`
   is 36pt tall. Icon buttons carry a spoken label.
 - Contrast ratios are noted beside tokens in `lib/tokens.ts`. Nothing computed is
@@ -455,6 +461,13 @@ the scanner, How scoring works and the ingredient sheet slide up.
   for you" under a headline that already says "Nothing against it". Every other
   foot line stays. A search for unused tokens, components and `lib` files found
   none, so there was no dead code to remove.
+- **Second pass, 7 October 2026:** the last near-misses went onto the scales
+  (four 17pt line heights under a 15pt label, two paddings of 11 and 13, three
+  spelled-out trackings), and three animations that skipped Reduce Motion now
+  check it. Left alone on purpose: the story cards' own sizes, the scoring
+  sheet's reading leading (25), and the foot of Find your actives' deck,
+  which was cut off on a 6.1 inch phone before the deck's motion landed and has
+  not been looked at since.
 - **Icons are two sets, not SF Symbols:** Ionicons (`@expo/vector-icons`: menu rows,
   routine, scoring sheet, camera, saved) and the app's own SVG marks (tab bar,
   hearts, stars, ticks, shield). Each screen keeps to one. Moving to SF Symbols

@@ -37,6 +37,10 @@ describe("Skincare School screen", () => {
     expect(screen.getByLabelText(`Answer: ${first.answer}`)).toBeTruthy();
     expect(screen.getByText(first.answer)).toBeTruthy();
     expect(screen.queryByRole("button", { name: `Ask: ${first.question}` })).toBeNull();
+    // The turn arrives: the question, then its answer, each from clear.
+    const arriving = screen.getAllByTestId("arrive");
+    expect(arriving).toHaveLength(2);
+    for (const bubble of arriving) expect(bubble).toHaveStyle({ opacity: 0 });
   });
 
   it("finds a question as you type, and answers it when tapped", async () => {

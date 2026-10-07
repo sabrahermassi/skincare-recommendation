@@ -1,5 +1,6 @@
 import { act, fireEvent, render, screen, waitFor } from "@testing-library/react-native";
 import { router, useLocalSearchParams } from "expo-router";
+import { Animated } from "react-native";
 
 import JourneyStory from "@/app/journey-story";
 import { fetchProductsByIds } from "@/data/api";
@@ -49,6 +50,17 @@ const open = async (active: string, answers = "oil.some.no.") => {
 const toLast = async (cards: number) => {
   for (let i = 1; i < cards; i++) await fireEvent.press(screen.getByText("Tap to continue"));
 };
+
+it("drops back into place without a spring when a swipe is let go with Reduce Motion on", async () => {
+  const spring = jest.spyOn(Animated, "spring");
+  await open("bha");
+  const story = screen.root;
+  await act(async () => {
+    story!.props.onResponderTerminate({ nativeEvent: {}, touchHistory: { touchBank: [], numberActiveTouches: 0, indexOfSingleActiveTouch: -1, mostRecentTimeStamp: 0 } });
+  });
+  expect(spring).not.toHaveBeenCalled();
+  spring.mockRestore();
+});
 
 it("tells the BHA story in six cards, the start plan set by the sensitivity", async () => {
   await open("bha");

@@ -43,6 +43,7 @@ import {
   type StoryActive,
 } from "@/lib/skin-needs";
 import type { ActiveKey } from "@/lib/skin-needs-data";
+import { reduceMotionNow } from "@/lib/reduce-motion";
 import { useOwnProducts } from "@/lib/use-own-products";
 import { BUTTON, CANVAS, ICON_SHADOW, INK, MUTED, MUTED_FAINT, SKIN_NEEDS, SPACE, SURFACE, WHITE, TYPE } from "@/lib/tokens";
 import { useSkinNeedsEnabled } from "@/lib/features";
@@ -219,15 +220,20 @@ function Story({ active, answers }: { active: StoryActive; answers: NeedAnswers 
 
   // Swipe down closes: the story follows the finger, and springs back if let go early.
   const [drag] = useState(() => new Animated.Value(0));
+  // Back to rest: sprung, or at once with Reduce Motion on.
+  const settle = () => {
+    if (reduceMotionNow()) drag.setValue(0);
+    else Animated.spring(drag, { toValue: 0, useNativeDriver: true, bounciness: 0 }).start();
+  };
   const [responder] = useState(() =>
     PanResponder.create({
       onMoveShouldSetPanResponder: (_, g) => g.dy > 12 && Math.abs(g.dy) > Math.abs(g.dx) * 1.5,
       onPanResponderMove: (_, g) => drag.setValue(Math.max(0, g.dy)),
       onPanResponderRelease: (_, g) => {
         if (g.dy > CLOSE_DRAG) goBackOrHome();
-        else Animated.spring(drag, { toValue: 0, useNativeDriver: true, bounciness: 0 }).start();
+        else settle();
       },
-      onPanResponderTerminate: () => Animated.spring(drag, { toValue: 0, useNativeDriver: true, bounciness: 0 }).start(),
+      onPanResponderTerminate: settle,
     }),
   );
 

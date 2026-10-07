@@ -390,7 +390,7 @@ function ProductScreen({ id, from, need, step, scanned }: { id: string; from?: s
                 saved (step 8): WARN, so a trust-relevant claim never reads as
                 furniture. */}
             {listAge?.kind === "dated" ? (
-              <Text style={{ fontSize: TYPE.label, lineHeight: 17, color: MUTED }}>{listAgeSentence(listAge)}</Text>
+              <Text style={{ fontSize: TYPE.label, lineHeight: LEADING.label, color: MUTED }}>{listAgeSentence(listAge)}</Text>
             ) : listAge ? (
               <ListAgeLine
                 notice={listAge}
@@ -399,7 +399,7 @@ function ProductScreen({ id, from, need, step, scanned }: { id: string; from?: s
               />
             ) : null}
             {formulaChangedNotice ? (
-              <Text style={{ fontSize: TYPE.label, lineHeight: 17, fontWeight: "600", color: WARN }}>{formulaChangedNotice}</Text>
+              <Text style={{ fontSize: TYPE.label, lineHeight: LEADING.label, fontWeight: "600", color: WARN }}>{formulaChangedNotice}</Text>
             ) : null}
           </>
         }
@@ -428,9 +428,9 @@ function ListAgeLine({ notice, onScanLabel }: { notice: Extract<ListAgeNotice, {
       style={{ minHeight: TOUCH_TARGET, justifyContent: "center" }}
       className="active:opacity-70"
     >
-      <Text style={{ fontSize: TYPE.label, lineHeight: 17, fontWeight: "600", color: WARN }}>
+      <Text style={{ fontSize: TYPE.label, lineHeight: LEADING.label, fontWeight: "600", color: WARN }}>
         {`${lead} `}
-        <Text style={{ fontSize: TYPE.label, lineHeight: 17, fontWeight: "600", color: WARN, textDecorationLine: "underline" }}>{action}</Text>
+        <Text style={{ fontSize: TYPE.label, lineHeight: LEADING.label, fontWeight: "600", color: WARN, textDecorationLine: "underline" }}>{action}</Text>
         {ending}
       </Text>
     </Pressable>

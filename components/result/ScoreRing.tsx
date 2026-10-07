@@ -1,10 +1,12 @@
 import { router } from "expo-router";
-import { Pressable, View } from "react-native";
+import { useEffect, useState } from "react";
+import { Animated, Easing, Pressable, View } from "react-native";
 import Svg, { Circle } from "react-native-svg";
 
 import { Text, useRingScale } from "@/components/Text";
 import type { MatchResult } from "@/lib/matching";
-import { DISPLAY_FONT, INK, scoreColours, VERDICT_LABEL, WHITE, withAlpha, RADIUS, SPACE } from "@/lib/tokens";
+import { reduceMotionNow } from "@/lib/reduce-motion";
+import { DISPLAY_FONT, INK, scoreColours, VERDICT_LABEL, WHITE, withAlpha, RADIUS, SPACE, LEADING, TRACKING, TYPE } from "@/lib/tokens";
 
 /**
  * The score number's size in the ring. The hand-off says PT Serif Bold 34 (30
@@ -15,12 +17,22 @@ const SCORE_SIZE = 32;
 const SCORE_SIZE_FULL = 27;
 
 /** The verdict pill's words (v9: 17/600). */
-export const VERDICT_TEXT_SIZE = 17;
+export const VERDICT_TEXT_SIZE = TYPE.card;
 
 /** The big score ring's drawn size (v7), before it grows with large text. */
 export const RING_SIZE = 96;
 /** The white disc the ring sits on where it straddles the result's sheet (v9). */
 const RING_DISC = 108;
+
+// The score arrives: the arc draws round from 12 o'clock while the number
+// comes up. In full the first time a result is opened, then at half the length,
+// so someone scanning a shelf is not kept waiting. The number is the real one
+// from the first frame; only its opacity moves.
+const DRAW_MS = 700;
+const DRAW_AGAIN_MS = 350;
+const DRAW_DELAY_MS = 120;
+let drawnOnce = false;
+const AnimatedCircle = Animated.createAnimatedComponent(Circle);
 
 /**
  * The big score (v9): the band's tint as the track, its colour as the arc from
@@ -38,12 +50,29 @@ function ScoreRing({ match }: { match: Pick<MatchResult, "score" | "verdict"> })
   const numberSize = (score !== null && score >= 100 ? SCORE_SIZE_FULL : SCORE_SIZE) * scale;
   const circumference = 2 * Math.PI * radius;
   const filled = score === null ? 0 : (score / 100) * circumference;
+  // 0 is nothing drawn, 1 the whole score. With Reduce Motion on it is just there.
+  const [drawn] = useState(() => new Animated.Value(reduceMotionNow() ? 1 : 0));
+  useEffect(() => {
+    const animation = Animated.timing(drawn, {
+      toValue: 1,
+      duration: drawnOnce ? DRAW_AGAIN_MS : DRAW_MS,
+      delay: DRAW_DELAY_MS,
+      easing: Easing.out(Easing.cubic),
+      // An SVG stroke is not a style the native driver can move.
+      useNativeDriver: false,
+    });
+    animation.start(({ finished }) => {
+      if (finished) drawnOnce = true;
+    });
+    return () => animation.stop();
+  }, [drawn]);
   return (
     <View testID="score-ring" style={{ width: size, height: size, alignItems: "center", justifyContent: "center" }}>
       <Svg width={size} height={size} style={{ position: "absolute" }}>
         <Circle cx={size / 2} cy={size / 2} r={radius} stroke={colours.tint} strokeWidth={stroke} fill="none" />
         {score !== null ? (
-          <Circle
+          <AnimatedCircle
+            testID="score-arc"
             cx={size / 2}
             cy={size / 2}
             r={radius}
@@ -51,13 +80,17 @@ function ScoreRing({ match }: { match: Pick<MatchResult, "score" | "verdict"> })
             strokeWidth={stroke}
             strokeLinecap="round"
             fill="none"
-            strokeDasharray={`${filled} ${circumference - filled}`}
+            // One dash as long as the score, slid back out of sight and drawn in.
+            strokeDasharray={`${filled} ${circumference}`}
+            strokeDashoffset={drawn.interpolate({ inputRange: [0, 1], outputRange: [filled, 0] })}
+            // The round cap would show as a dot before anything is drawn.
+            strokeOpacity={drawn.interpolate({ inputRange: [0, 0.04], outputRange: [0, 1], extrapolate: "clamp" })}
             transform={`rotate(-90 ${size / 2} ${size / 2})`}
           />
         ) : null}
       </Svg>
       {/* The number in the title face, "/100" small beside it on the same baseline. */}
-      <View style={{ flexDirection: "row", alignItems: "baseline", gap: 1 }}>
+      <Animated.View style={{ flexDirection: "row", alignItems: "baseline", gap: 1, opacity: drawn.interpolate({ inputRange: [0.15, 0.7], outputRange: [0, 1], extrapolate: "clamp" }) }}>
         <Text maxFontSizeMultiplier={1} style={{ fontFamily: DISPLAY_FONT, fontSize: numberSize, lineHeight: numberSize + 4, letterSpacing: -0.5, color: colours.deep }}>
           {score ?? "–"}
         </Text>
@@ -66,7 +99,7 @@ function ScoreRing({ match }: { match: Pick<MatchResult, "score" | "verdict"> })
             /100
           </Text>
         ) : null}
-      </View>
+      </Animated.View>
     </View>
   );
 }
@@ -120,7 +153,7 @@ export function VerdictLink({ match, onOpen }: { match: Pick<MatchResult, "score
       style={{ minHeight: 40, borderRadius: RADIUS.control, paddingLeft: SPACE.inset, paddingRight: SPACE.block, flexDirection: "row", alignItems: "center", gap: SPACE.text, backgroundColor: colours.deep }}
       className="active:opacity-80"
     >
-      <Text style={{ flexShrink: 1, fontSize: VERDICT_TEXT_SIZE, lineHeight: 22, fontWeight: "600", letterSpacing: -0.17, color: WHITE }}>{VERDICT_LABEL[match.verdict]}</Text>
+      <Text style={{ flexShrink: 1, fontSize: VERDICT_TEXT_SIZE, lineHeight: LEADING.card, fontWeight: "600", letterSpacing: TRACKING.card, color: WHITE }}>{VERDICT_LABEL[match.verdict]}</Text>
       <View style={{ width: 20, height: 20, borderRadius: 10, borderWidth: 1.5, borderColor: withAlpha(WHITE, 0.75), alignItems: "center", justifyContent: "center" }}>
         <Text maxFontSizeMultiplier={1} style={{ fontSize: 12, fontWeight: "700", color: WHITE }}>
           i

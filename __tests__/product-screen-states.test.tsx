@@ -7,6 +7,7 @@ import ResultRoute from "@/app/result/[id]";
 import { fetchProduct } from "@/data/api";
 import type { Ingredient } from "@/data/types";
 import { EMPTY_PROFILE, useAppStore } from "@/store/useAppStore";
+import { LEADING, TYPE } from "@/lib/tokens";
 
 /** With no skin profile a sheet rises over the result (v9) and nothing behind it can be reached: put it away. */
 async function putTeaserAway() {
@@ -795,6 +796,8 @@ describe("the product screen's notice about the ingredient list's age", () => {
     useAppStore.setState({ savedProducts: [{ id: "obf-8801234567890", savedAt: Date.parse("2026-01-01T00:00:00Z") }] as never });
     await open(productWith({ formulaChangedAt: "2026-06-01T00:00:00Z" }));
     expect(screen.getByText(/This formula has changed since you saved it/)).toBeTruthy();
+    // On the type scale's own line height, like every other label (it had been 17).
+    expect(screen.getByText(/This formula has changed since you saved it/)).toHaveStyle({ fontSize: TYPE.label, lineHeight: LEADING.label });
     expect(dated(2018)).toBeTruthy();
   });
 });

@@ -8,6 +8,7 @@ import { EU_ALLERGEN_COPY, EU_ALLERGEN_SOURCE } from "@/lib/eu-allergens";
 import { PREGNANCY_CAUTION } from "@/lib/pregnancy-caution";
 import { EU_PROHIBITED_SOURCE, SAFETY_NOTICE_COPY } from "@/lib/safety";
 import { EMPTY_PROFILE, useAppStore } from "@/store/useAppStore";
+import { SPACE } from "@/lib/tokens";
 
 /**
  * #324: opened from a product, the ingredient page gives the verdict the
@@ -97,6 +98,8 @@ describe("the ingredient page, opened from a product", () => {
     await open("petrolatum", {});
     // "Good to know": the fact's key, then its value.
     expect(screen.getByText("EU status")).toBeTruthy();
+    // A fact's row keeps to the spacing grid (it had been 13).
+    expect(screen.getByText("EU status").parent).toHaveStyle({ paddingVertical: SPACE.block });
     expect(screen.getByText("Allowed when refined")).toBeTruthy();
     expect(screen.queryByText("No restriction")).toBeNull();
   });
