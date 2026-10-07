@@ -181,6 +181,8 @@ function IngredientDetail({
   // label. Without one, the rule's own targets (`ruleTargets`).
   const helps = match ? fit === "good" : ruleTargets(ingredient, profile).helps;
   const hurts = match ? countedAgainst(ingredient, match) : ruleTargets(ingredient, profile).hurts;
+  // The line at the foot of "For your skin": absent when it would only repeat the headline.
+  const foot = undecided ? "Not in your score" : fitTag(fit, helps, hurts, warning, match);
 
   // The Sources card: the page each claim on this sheet was checked against
   // (the rule's, then each warning's), then the two reference databases for a
@@ -306,7 +308,7 @@ function IngredientDetail({
                     {fitBody(fit, helps, hurts, verified, Boolean(rule), isCommonIrritant(ingredient), match !== null, cloggerConfidence(ingredient) === "high")}
                   </Text>
                 )}
-                <Text style={{ marginTop: SPACE.tight, fontSize: TYPE.caption, fontWeight: "500", color: tone.word }}>{undecided ? "Not in your score" : fitTag(fit, helps, hurts, warning, match)}</Text>
+                {foot ? <Text style={{ marginTop: SPACE.tight, fontSize: TYPE.caption, fontWeight: "500", color: tone.word }}>{foot}</Text> : null}
               </View>
             ) : null}
 
@@ -536,7 +538,7 @@ function fitBody(
 }
 
 /** The pill under the verdict: what it does to this person's score, where there is one. */
-function fitTag(fit: Fit, helps: boolean, hurts: boolean, warning: Contraindication | undefined, match: MatchResult | null): string {
+function fitTag(fit: Fit, helps: boolean, hurts: boolean, warning: Contraindication | undefined, match: MatchResult | null): string | null {
   if (fit === "unknown") return "Not in your score";
   // Only a score that exists can be lowered or raised: without a skin profile
   // the match refuses and holds none (#383 review). A pregnancy caution never
@@ -549,5 +551,6 @@ function fitTag(fit: Fit, helps: boolean, hurts: boolean, warning: Contraindicat
   if (helps) return "Good for your goals";
   if (fit === "avoid") return "Best avoided generally";
   if (fit === "watch") return "Worth knowing";
-  return "Neutral for you";
+  // Neutral: the headline above already says so ("Nothing against it"), so no third line.
+  return null;
 }

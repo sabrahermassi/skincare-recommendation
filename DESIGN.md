@@ -433,6 +433,12 @@ the scanner, How scoring works and the ingredient sheet slide up.
   Skin needs story cards, which follow the hand-off. Reviewed and unchanged:
   Home, School, Saved, Profile, Skin profile, Scoring, Quiz, Onboarding, Sign-in,
   Account, Support, Privacy, Scanner.
+- **Distilled 7 October 2026:** the routine's steps header lost its "good morning" /
+  "wind down" caption (the Morning | Evening switch above already says which),
+  and the ingredient sheet's "For your skin" card no longer closes with "Neutral
+  for you" under a headline that already says "Nothing against it". Every other
+  foot line stays. A search for unused tokens, components and `lib` files found
+  none, so there was no dead code to remove.
 - **Icons are two sets, not SF Symbols:** Ionicons (`@expo/vector-icons`: menu rows,
   routine, scoring sheet, camera, saved) and the app's own SVG marks (tab bar,
   hearts, stars, ticks, shield). Each screen keeps to one. Moving to SF Symbols
