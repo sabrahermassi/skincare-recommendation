@@ -1,4 +1,4 @@
-import type { Ingredient, SkinProfile } from "@/data/types";
+import type { Ingredient, MatchConfidence, SkinProfile } from "@/data/types";
 import { EU_ALLERGEN_CONDITION, EU_ALLERGEN_COPY, EU_ALLERGEN_SOURCE, euAllergenEntry, type EuAllergenEntry } from "./eu-allergens";
 import { displayIngredientName } from "./ingredient-name";
 import { pregnancyCautionHits } from "./pregnancy-caution";
@@ -13,6 +13,16 @@ import type { RuleSource } from "./rules";
 
 /** Comedogenic rating at or above which we consider an ingredient pore-clogging. */
 export const COMEDOGENIC_FLAG_THRESHOLD = 3;
+
+/**
+ * Whether a name was read off the label as the dictionary holds it (#458): printed as the
+ * dictionary's own name (`exact`) or as a known synonym of it (`alias`). A name the parser had to
+ * correct or rebuild is a guess, and a regulatory claim must not rest on a guess. `null` and
+ * `undefined` are "not known", and read as low.
+ */
+export function isHighConfidenceMatch(match: MatchConfidence | null | undefined): boolean {
+  return match === "exact" || match === "alias";
+}
 
 /**
  * Whether a name was matched to an authoritative dictionary. `undefined` means

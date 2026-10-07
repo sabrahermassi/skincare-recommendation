@@ -55,10 +55,10 @@ function product(id: string, type: ProductWithIngredients["type"]): ProductWithI
 
 const WATERMARK: CatalogueWatermark = { count: 3, newest: "2026-09-14T00:00:00Z", ingredientCount: 0, ingredientNewest: null };
 
-const PRODUCTS_KEY = "forme-catalogue-v4";
-const META_KEY = "forme-catalogue-meta-v4";
-const MANIFEST_KEY = "forme-catalogue-manifest-v4";
-const CHUNK_PREFIX = "forme-catalogue-chunk-v4-";
+const PRODUCTS_KEY = "forme-catalogue-v5";
+const META_KEY = "forme-catalogue-meta-v5";
+const MANIFEST_KEY = "forme-catalogue-manifest-v5";
+const CHUNK_PREFIX = "forme-catalogue-chunk-v5-";
 
 /**
  * Run a test body as a given platform.
@@ -229,6 +229,21 @@ describe("disk layer", () => {
     expect(await AsyncStorage.getItem("forme-catalogue-meta-v3")).toBeNull();
     expect(await AsyncStorage.getItem("forme-catalogue-manifest-v3")).toBeNull();
     expect(await AsyncStorage.getItem("forme-catalogue-chunk-v3-abc-0")).toBeNull();
+  });
+
+  /** v4 -> v5 (#458): a v4 blob has no key for `ingredientMatches`, so every name would read as low confidence. */
+  it("deletes the v4 blobs the match-confidence schema bump left behind", async () => {
+    await AsyncStorage.setItem("forme-catalogue-v4", JSON.stringify([{ id: "old" }]));
+    await AsyncStorage.setItem("forme-catalogue-meta-v4", "{}");
+    await AsyncStorage.setItem("forme-catalogue-manifest-v4", "{}");
+    await AsyncStorage.setItem("forme-catalogue-chunk-v4-abc-0", "stranded");
+
+    await dropLegacyBlobs();
+
+    expect(await AsyncStorage.getItem("forme-catalogue-v4")).toBeNull();
+    expect(await AsyncStorage.getItem("forme-catalogue-meta-v4")).toBeNull();
+    expect(await AsyncStorage.getItem("forme-catalogue-manifest-v4")).toBeNull();
+    expect(await AsyncStorage.getItem("forme-catalogue-chunk-v4-abc-0")).toBeNull();
   });
 
   /**

@@ -181,6 +181,8 @@ Deno.test("an Open Beauty Facts hit is written in one transaction and read back"
   assertEquals(body.expires_at, null);
   const [write] = db.rpcCalls("replace_product_with_ingredients");
   assertEquals((write.p_ingredients as unknown[]).length, 5);
+  // #458: every parsed name goes to the database with the way it was matched, untouched.
+  for (const row of write.p_ingredients as Record<string, unknown>[]) assert("match" in row);
   assertEquals(outcomes(db), ["resolved"]);
 });
 

@@ -109,7 +109,7 @@ export async function readLabelPhoto(
       if (heldLabelRead() === heldBeforeSend) clearLabelRead();
       return { kind: "read" };
     }
-    holdLabelRead({ ingredients: result.ingredients });
+    holdLabelRead({ ingredients: result.ingredients, matches: result.matches });
     return { kind: "read" };
   }
 

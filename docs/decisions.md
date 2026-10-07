@@ -135,6 +135,39 @@ entry 157 does not print. Left out (5), four because CosIng has no record under 
 Beauty Facts name CosIng does not use: recognising that is the owner's call. The effect on
 scores is in the #439 PR.
 
+**How each ingredient name was matched (7 October 2026, #458).** A regulatory notice must not rest
+on a name the parser guessed, so each stored ingredient now says how its name was reached:
+`product_ingredients.match_confidence` (migration 0036), one of `exact` (the dictionary's own
+name), `alias` (a known synonym or common name), `corrected` (one letter fixed), `rebuilt` (the
+parser decided where the name starts or ends), or null for "not known". `isHighConfidenceMatch`
+in `lib/safety.ts` is the one place that says which are high: `exact` and `alias`. Nothing on
+screen changes yet (step 7), and existing rows stay null until step 6 reads them again.
+
+- **`rebuilt` means the parser chose a boundary,** not only the no-delimiter path the issue named.
+  That covers a list with no delimiters, two names run together, a name salvaged from a heading
+  fragment ("preservatives: panthenol") and a name the comma-mender joined. In each the letters
+  are right but the claim that the label lists this name rests on the parser's cut. The importers'
+  copy of the parser has no fuzzy reconstruction of a list with no delimiters, so it never
+  returns `rebuilt` from that path; the shared fixture marks that one case for the other two copies only.
+- **A spacing repair that had to choose between several dictionary spellings is `corrected`;**
+  with one candidate, or through a synonym, common name, fixed spelling variant, slash or
+  `&` join, it is `alias`.
+- **A name printed twice keeps its first position and the weaker of its matches,** so a corrected
+  copy cannot hide behind an exact one.
+- **A read with no dictionary (the first read in `label-ocr` and `product-lookup`) repairs
+  nothing, so a printed name is `exact`** — "not changed", not "known". A name the dictionary does not
+  hold at all is null. `isHighConfidenceMatch` only says how a name was reached; whether it
+  is a real dictionary entry is `isVerified`, and a notice needs both.
+- **It is carried on the product (`Product.ingredientMatches`, line for line with `ingredientIds`),
+  not on `Ingredient`.** `Ingredient` objects are shared by every product holding the name, so one
+  label's typo-fix would read as every other product's. An unset field and a null entry both read as low.
+- **The writers send it by passing the parser's own objects** (`{ inci_name, position, match }`) to
+  `replace_product_with_ingredients`, which reads the `match` key and ignores it in an older
+  version of the function, so the code can deploy before the migration without breaking a write.
+  The reads that ask for the column (`product-lookup`, the app) need the migration first.
+- **Not done here:** the scripts that rename stored names in place (`clean-ingredient-stubs.mjs`,
+  `fix-duplicate-ingredients.mjs`) leave the stored match next to a name that has changed.
+
 ## Routing
 
 **Never navigate from a layout file.** This is not theoretical caution —

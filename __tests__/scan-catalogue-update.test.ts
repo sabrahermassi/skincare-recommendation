@@ -167,6 +167,51 @@ describe("a rescan whose lookup source came back undefined", () => {
   });
 });
 
+/**
+ * #458: how each name was matched is held on the product. A `product-lookup` deployed before the
+ * column existed answers without it, and that must neither look like a change nor wipe what is held.
+ */
+describe("a rescan and the matches held for a product", () => {
+  it("is not a change on its own when the rescan carries no matches", async () => {
+    const matched = product("matched", [WATER, RETINOL], { ingredientMatches: ["exact", "corrected"] });
+    putCatalogue([matched], WATERMARK);
+    await writesSettled();
+
+    const entry = peekCatalogue();
+    addScannedToCatalogue(rescan(matched, { ingredientMatches: undefined }));
+    await writesSettled();
+
+    expect(peekCatalogue()).toBe(entry);
+  });
+
+  it("keeps the held matches while the formula is the same one, if something else changed", () => {
+    const matched = product("matched-2", [WATER, RETINOL], { ingredientMatches: ["exact", "corrected"] });
+    putCatalogue([matched], WATERMARK);
+
+    addScannedToCatalogue(rescan(matched, { ingredientMatches: undefined, volume: "50ml" }));
+
+    expect(peekCatalogue()!.byId.get("matched-2")!.ingredientMatches).toEqual(["exact", "corrected"]);
+  });
+
+  it("does not carry held matches onto a changed formula", () => {
+    const matched = product("matched-3", [WATER, RETINOL], { ingredientMatches: ["exact", "corrected"] });
+    putCatalogue([matched], WATERMARK);
+
+    addScannedToCatalogue(rescan(matched, { ingredientMatches: undefined, ingredientIds: ["water", "glycerin"], ingredients: [WATER, GLYCERIN] }));
+
+    expect(peekCatalogue()!.byId.get("matched-3")!.ingredientMatches).toBeUndefined();
+  });
+
+  it("takes fresh matches when the rescan has them, and counts a different match as a change", () => {
+    const matched = product("matched-4", [WATER, RETINOL], { ingredientMatches: ["exact", "corrected"] });
+    putCatalogue([matched], WATERMARK);
+
+    addScannedToCatalogue(rescan(matched, { ingredientMatches: ["exact", "exact"] }));
+
+    expect(peekCatalogue()!.byId.get("matched-4")!.ingredientMatches).toEqual(["exact", "exact"]);
+  });
+});
+
 describe("the disk write after a scan", () => {
   it("waits, then lands, and several scans share one write", async () => {
     jest.useFakeTimers();
@@ -189,7 +234,7 @@ describe("the disk write after a scan", () => {
 
   // #268 review round 2: a current watermark must not land beside pre-scan products.
   it("holds back a metadata-only write while a scan write is waiting, then lands both together", async () => {
-    const META_KEY = "forme-catalogue-meta-v4";
+    const META_KEY = "forme-catalogue-meta-v5";
     const before = await AsyncStorage.getItem(META_KEY);
 
     addScannedToCatalogue(product("new-4", [WATER]));
@@ -206,7 +251,7 @@ describe("the disk write after a scan", () => {
   // right after would otherwise stamp the current watermark beside a
   // products blob still missing the scan.
   it("keeps a metadata-only write held back even after an unrelated write lands while the scan write is still pending", async () => {
-    const META_KEY = "forme-catalogue-meta-v4";
+    const META_KEY = "forme-catalogue-meta-v5";
 
     addScannedToCatalogue(product("new-5", [WATER]));
 
@@ -237,8 +282,8 @@ describe("the disk write after a scan", () => {
   // metadata-only write (count 42) would land right after the unrelated one
   // (count 11), instead of waiting for the scan write to actually finish.
   it("keeps a metadata-only write held back while it's queued behind an unrelated write, with the scan write already flushed behind both", async () => {
-    const META_KEY = "forme-catalogue-meta-v4";
-    const PRODUCTS_KEY = "forme-catalogue-v4";
+    const META_KEY = "forme-catalogue-meta-v5";
+    const PRODUCTS_KEY = "forme-catalogue-v5";
     // Structural cast rather than `jest.Mock` — the jest namespace is not in
     // scope here (see jest-globals.d.ts).
     const setItemMock = AsyncStorage.setItem as unknown as {

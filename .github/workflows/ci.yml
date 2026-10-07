@@ -212,7 +212,7 @@ jobs:
       # database and fake upstreams, so no network. `--allow-env`: the
       # limiter's salt and the CORS allowlist are read from the environment.
       - name: Scan function handlers
-        run: deno test --node-modules-dir=none --allow-env supabase/tests/product_lookup.test.ts supabase/tests/label_ocr.test.ts supabase/tests/scan_shared.test.ts
+        run: deno test --node-modules-dir=none --allow-env supabase/tests/product_lookup.test.ts supabase/tests/label_ocr.test.ts supabase/tests/scan_shared.test.ts supabase/tests/inci_match_confidence.test.ts
 
       - name: The limiter, end to end
         run: deno test --allow-net --allow-env supabase/tests/rate_limit_e2e.test.ts

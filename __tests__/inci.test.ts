@@ -554,9 +554,9 @@ describe("parseIngredientBlock", () => {
   it("splits on commas and preserves order", () => {
     const parsed = parseIngredientBlock("Water, Glycerin, Niacinamide");
     expect(parsed).toEqual([
-      { inci_name: "water", position: 0 },
-      { inci_name: "glycerin", position: 1 },
-      { inci_name: "niacinamide", position: 2 },
+      { inci_name: "water", position: 0, match: "exact" },
+      { inci_name: "glycerin", position: 1, match: "exact" },
+      { inci_name: "niacinamide", position: 2, match: "exact" },
     ]);
   });
 

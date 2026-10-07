@@ -52,7 +52,7 @@ type PersistedCatalogue = {
  * definition into every product that contained it, so they are both a
  * different shape and several times larger.
  */
-const SCHEMA_VERSION = 4;
+const SCHEMA_VERSION = 5;
 
 const PRODUCTS_KEY = `forme-catalogue-v${SCHEMA_VERSION}`;
 const META_KEY = `forme-catalogue-meta-v${SCHEMA_VERSION}`;
@@ -157,6 +157,10 @@ function nextGeneration(): string {
  * v3 -> v4 (#446): the same again for `ingredientsPhotographedAt`. A v3 blob
  * has no key for it, and the product screen reads a missing key as "nobody
  * asked", so a device left on v3 would never show how old a list is.
+ *
+ * v4 -> v5 (#458): the same again for `ingredientMatches`. A v4 blob has no key for it, and a
+ * missing key reads as "not known", so a device left on v4 would show every name as low confidence
+ * until each product happened to be read again.
  */
 const LEGACY_KEYS = [
   "forme-catalogue-v1",
@@ -167,6 +171,9 @@ const LEGACY_KEYS = [
   "forme-catalogue-v3",
   "forme-catalogue-meta-v3",
   "forme-catalogue-manifest-v3",
+  "forme-catalogue-v4",
+  "forme-catalogue-meta-v4",
+  "forme-catalogue-manifest-v4",
 ];
 
 let legacyDropped = false;
@@ -1583,6 +1590,14 @@ export function addScannedToCatalogue(product: ProductWithIngredients): void {
     source: product.source ?? held?.source,
     ingredientsPhotographedAt:
       product.ingredientsPhotographedAt !== undefined ? product.ingredientsPhotographedAt : held?.ingredientsPhotographedAt,
+    // The matches fall back the same way (#458), but only while the list is the same one: a held
+    // match belongs to the name it was read for, and must not be carried onto a changed formula.
+    ingredientMatches:
+      product.ingredientMatches !== undefined
+        ? product.ingredientMatches
+        : held && sameValue(held.ingredientIds, product.ingredientIds)
+          ? held.ingredientMatches
+          : undefined,
     ingredients,
   };
   const withDefinitions = (p: ProductWithIngredients) =>
@@ -1633,7 +1648,8 @@ function sameDefinition(a: Ingredient, b: Ingredient): boolean {
  * Comparing it like any other field would make every re-scan of an
  * already-known, catalogue-sourced product look changed, defeating the fast
  * path this function exists for (#268 review, CodeRabbit).
- * `ingredientsPhotographedAt` gets the same exception for the same reason (#446).
+ * `ingredientsPhotographedAt` gets the same exception for the same reason (#446), and so does
+ * `ingredientMatches` (#458).
  */
 function sameProduct(a: ProductWithIngredients, b: ProductWithIngredients): boolean {
   const sameFormula =
@@ -1644,7 +1660,7 @@ function sameProduct(a: ProductWithIngredients, b: ProductWithIngredients): bool
   const fieldsB = b as unknown as Record<string, unknown>;
   for (const key of new Set([...Object.keys(fieldsA), ...Object.keys(fieldsB)])) {
     if (key === "fetchedAt" || key === "ingredients") continue;
-    if ((key === "source" || key === "ingredientsPhotographedAt") && fieldsB[key] === undefined) continue;
+    if ((key === "source" || key === "ingredientsPhotographedAt" || key === "ingredientMatches") && fieldsB[key] === undefined) continue;
     if (!sameValue(fieldsA[key], fieldsB[key])) return false;
   }
   return true;

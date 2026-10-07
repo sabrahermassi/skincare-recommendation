@@ -87,7 +87,7 @@ const SELECT = `
   id, barcode, brand, name, type, area, description, image_url, volume,
   price_krw, in_stock, suitable_for, targets, source, attribution, fetched_at,
   formula_changed_at, ingredients_photographed_at,
-  product_ingredients ( position, ingredients ( inci_name, comedogenic, safety, note, verified, functions ) )
+  product_ingredients ( position, match_confidence, ingredients ( inci_name, comedogenic, safety, note, verified, functions ) )
 `;
 
 export async function handleProductLookup(req: Request, deps: ProductLookupDeps): Promise<Response> {

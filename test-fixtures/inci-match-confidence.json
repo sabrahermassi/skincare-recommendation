@@ -1,0 +1,376 @@
+{
+ "about": "#458: one label text, the matches each parser returns. The three parser copies (lib/inci.ts, supabase/functions/_shared/inci-parse.ts, scripts/lib/inci-parse.mjs) must all give `expected`; a case lists `parsers` only when a copy cannot (the importers' parser has no fuzzy reconstruction of a list with no delimiters). Read by __tests__/inci-match-confidence.test.ts and supabase/tests/inci_match_confidence.test.ts.",
+ "dictionary": [
+  "aqua",
+  "glycerin",
+  "niacinamide",
+  "parfum",
+  "paraffinum liquidum",
+  "helianthus annuus seed oil",
+  "potassium cetyl phosphate",
+  "caprylyl glycol",
+  "isohexadecane",
+  "sodium hyaluronate",
+  "panthenol",
+  "tocopherol"
+ ],
+ "aliases": [
+  [
+   "glycérine",
+   "glycerin"
+  ],
+  [
+   "water",
+   "aqua"
+  ]
+ ],
+ "cases": [
+  {
+   "name": "a label that prints the dictionary's own names",
+   "text": "Aqua, Glycerin, Niacinamide, Parfum",
+   "expected": [
+    {
+     "inci_name": "aqua",
+     "position": 0,
+     "match": "exact"
+    },
+    {
+     "inci_name": "glycerin",
+     "position": 1,
+     "match": "exact"
+    },
+    {
+     "inci_name": "niacinamide",
+     "position": 2,
+     "match": "exact"
+    },
+    {
+     "inci_name": "parfum",
+     "position": 3,
+     "match": "exact"
+    }
+   ]
+  },
+  {
+   "name": "synonyms and common names are aliases",
+   "text": "Aqua, Glycérine, Mineral Oil, Fragrance, Niacinamide",
+   "expected": [
+    {
+     "inci_name": "aqua",
+     "position": 0,
+     "match": "exact"
+    },
+    {
+     "inci_name": "glycerin",
+     "position": 1,
+     "match": "alias"
+    },
+    {
+     "inci_name": "paraffinum liquidum",
+     "position": 2,
+     "match": "alias"
+    },
+    {
+     "inci_name": "parfum",
+     "position": 3,
+     "match": "alias"
+    },
+    {
+     "inci_name": "niacinamide",
+     "position": 4,
+     "match": "exact"
+    }
+   ]
+  },
+  {
+   "name": "a one-letter typo in a long name comes back corrected",
+   "text": "Aqua, Glycerin, Helianthus Annus Seed Oil, Niacinamide",
+   "expected": [
+    {
+     "inci_name": "aqua",
+     "position": 0,
+     "match": "exact"
+    },
+    {
+     "inci_name": "glycerin",
+     "position": 1,
+     "match": "exact"
+    },
+    {
+     "inci_name": "helianthus annuus seed oil",
+     "position": 2,
+     "match": "corrected"
+    },
+    {
+     "inci_name": "niacinamide",
+     "position": 3,
+     "match": "exact"
+    }
+   ]
+  },
+  {
+   "name": "the same name spelled right comes back exact",
+   "text": "Aqua, Glycerin, Helianthus Annuus Seed Oil, Niacinamide",
+   "expected": [
+    {
+     "inci_name": "aqua",
+     "position": 0,
+     "match": "exact"
+    },
+    {
+     "inci_name": "glycerin",
+     "position": 1,
+     "match": "exact"
+    },
+    {
+     "inci_name": "helianthus annuus seed oil",
+     "position": 2,
+     "match": "exact"
+    },
+    {
+     "inci_name": "niacinamide",
+     "position": 3,
+     "match": "exact"
+    }
+   ]
+  },
+  {
+   "name": "two names run together with no comma between them are rebuilt",
+   "text": "Aqua, Glycerin, Niacinamide, Caprylyl Glycol Isohexadecane",
+   "expected": [
+    {
+     "inci_name": "aqua",
+     "position": 0,
+     "match": "exact"
+    },
+    {
+     "inci_name": "glycerin",
+     "position": 1,
+     "match": "exact"
+    },
+    {
+     "inci_name": "niacinamide",
+     "position": 2,
+     "match": "exact"
+    },
+    {
+     "inci_name": "caprylyl glycol",
+     "position": 3,
+     "match": "rebuilt"
+    },
+    {
+     "inci_name": "isohexadecane",
+     "position": 4,
+     "match": "rebuilt"
+    }
+   ]
+  },
+  {
+   "name": "a whole list with no delimiters is rebuilt",
+   "text": "Aqua Glycerin Niacinamide Parfum Panthenol",
+   "expected": [
+    {
+     "inci_name": "aqua",
+     "position": 0,
+     "match": "rebuilt"
+    },
+    {
+     "inci_name": "glycerin",
+     "position": 1,
+     "match": "rebuilt"
+    },
+    {
+     "inci_name": "niacinamide",
+     "position": 2,
+     "match": "rebuilt"
+    },
+    {
+     "inci_name": "parfum",
+     "position": 3,
+     "match": "rebuilt"
+    },
+    {
+     "inci_name": "panthenol",
+     "position": 4,
+     "match": "rebuilt"
+    }
+   ]
+  },
+  {
+   "name": "a typo inside a list with no delimiters is rebuilt too (fuzzy reconstruction)",
+   "text": "Aqua Glycerin Niacinamide Parfum Potasium Cetyl Phosphate Panthenol",
+   "parsers": [
+    "client",
+    "deno"
+   ],
+   "expected": [
+    {
+     "inci_name": "aqua",
+     "position": 0,
+     "match": "rebuilt"
+    },
+    {
+     "inci_name": "glycerin",
+     "position": 1,
+     "match": "rebuilt"
+    },
+    {
+     "inci_name": "niacinamide",
+     "position": 2,
+     "match": "rebuilt"
+    },
+    {
+     "inci_name": "parfum",
+     "position": 3,
+     "match": "rebuilt"
+    },
+    {
+     "inci_name": "potassium cetyl phosphate",
+     "position": 4,
+     "match": "rebuilt"
+    },
+    {
+     "inci_name": "panthenol",
+     "position": 5,
+     "match": "rebuilt"
+    }
+   ]
+  },
+  {
+   "name": "a name printed twice keeps its first position and its weaker match",
+   "text": "Aqua, Glycerin, Niacinamide, Glycérine, Parfum",
+   "expected": [
+    {
+     "inci_name": "aqua",
+     "position": 0,
+     "match": "exact"
+    },
+    {
+     "inci_name": "glycerin",
+     "position": 1,
+     "match": "alias"
+    },
+    {
+     "inci_name": "niacinamide",
+     "position": 2,
+     "match": "exact"
+    },
+    {
+     "inci_name": "parfum",
+     "position": 3,
+     "match": "exact"
+    }
+   ]
+  },
+  {
+   "name": "a name the dictionary does not hold is not known",
+   "text": "Aqua, Glycerin, Niacinamide, Zzyzx Extract, Parfum",
+   "expected": [
+    {
+     "inci_name": "aqua",
+     "position": 0,
+     "match": "exact"
+    },
+    {
+     "inci_name": "glycerin",
+     "position": 1,
+     "match": "exact"
+    },
+    {
+     "inci_name": "niacinamide",
+     "position": 2,
+     "match": "exact"
+    },
+    {
+     "inci_name": "zzyzx extract",
+     "position": 3,
+     "match": null
+    },
+    {
+     "inci_name": "parfum",
+     "position": 4,
+     "match": "exact"
+    }
+   ]
+  },
+  {
+   "name": "two names the label joins with a slash are one alias",
+   "text": "Aqua/Water, Glycerin, Niacinamide, Parfum",
+   "expected": [
+    {
+     "inci_name": "aqua",
+     "position": 0,
+     "match": "alias"
+    },
+    {
+     "inci_name": "glycerin",
+     "position": 1,
+     "match": "exact"
+    },
+    {
+     "inci_name": "niacinamide",
+     "position": 2,
+     "match": "exact"
+    },
+    {
+     "inci_name": "parfum",
+     "position": 3,
+     "match": "exact"
+    }
+   ]
+  },
+  {
+   "name": "a name salvaged from a heading fragment is rebuilt",
+   "text": "Aqua, Glycerin, Niacinamide, preservatives: panthenol",
+   "expected": [
+    {
+     "inci_name": "aqua",
+     "position": 0,
+     "match": "exact"
+    },
+    {
+     "inci_name": "glycerin",
+     "position": 1,
+     "match": "exact"
+    },
+    {
+     "inci_name": "niacinamide",
+     "position": 2,
+     "match": "exact"
+    },
+    {
+     "inci_name": "panthenol",
+     "position": 3,
+     "match": "rebuilt"
+    }
+   ]
+  },
+  {
+   "name": "without a dictionary nothing is repaired, so a printed name is exact",
+   "text": "Aqua, Glycerin, Niacinamide, Parfum",
+   "dictionary": false,
+   "expected": [
+    {
+     "inci_name": "aqua",
+     "position": 0,
+     "match": "exact"
+    },
+    {
+     "inci_name": "glycerin",
+     "position": 1,
+     "match": "exact"
+    },
+    {
+     "inci_name": "niacinamide",
+     "position": 2,
+     "match": "exact"
+    },
+    {
+     "inci_name": "parfum",
+     "position": 3,
+     "match": "exact"
+    }
+   ]
+  }
+ ]
+}
