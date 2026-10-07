@@ -1,4 +1,4 @@
-import type { ComedogenicRating, SafetyLevel } from "@/data/types";
+import type { ComedogenicRating } from "@/data/types";
 import { COMEDOGENIC_FLAG_THRESHOLD } from "./safety";
 
 /** Prices are in Korean won; format for the Korean locale, not en-US. */
@@ -13,12 +13,6 @@ export function comedogenicLabel(rating: ComedogenicRating): string {
     return `Moderate pore risk (${rating}/5)`;
   return `High pore risk (${rating}/5)`;
 }
-
-export const SAFETY_LABEL: Record<SafetyLevel, string> = {
-  safe: "Safe",
-  caution: "Caution",
-  avoid: "Avoid",
-};
 
 /**
  * Coarse "when did I look at this" label for the history log. Deliberately

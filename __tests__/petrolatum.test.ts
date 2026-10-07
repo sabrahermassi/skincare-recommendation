@@ -86,7 +86,7 @@ describe("its EU status on the ingredient page (#362)", () => {
     expect(regulatoryStatus(row("safe"))).toBe("Allowed when refined");
   });
 
-  it("leaves every other safe ingredient at 'No restriction listed'", () => {
-    expect(regulatoryStatus(OTHERS[1])).toBe("No restriction listed");
+  it("leaves every other safe ingredient at 'No EU listing found'", () => {
+    expect(regulatoryStatus(OTHERS[1])).toBe("No EU listing found");
   });
 });

@@ -117,6 +117,15 @@ describe("the ingredient page, opened from a product", () => {
     }
   });
 
+  // #469: finding no EU entry is not a finding that something is safe, so the page never says "safe".
+  it("says 'No EU listing found' as the EU status of an ingredient no annex cites, never 'safe'", async () => {
+    await open("butylene glycol", {});
+    expect(screen.getByText("EU status")).toBeTruthy();
+    expect(screen.getByText("No EU listing found")).toBeTruthy();
+    expect(screen.queryByText(/restriction listed/i)).toBeNull();
+    expect(screen.queryByText(/\bsafe\b/i)).toBeNull();
+  });
+
   it("says a neutral ingredient is neutral once, not in a headline and again at the foot", async () => {
     await open("butylene glycol", { baseSkinType: "dry" as const });
     expect(screen.getByText("Nothing against it")).toBeTruthy();

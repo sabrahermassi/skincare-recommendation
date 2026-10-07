@@ -302,11 +302,26 @@ describe("allowed with limits (#407)", () => {
     expect(groups.clean).toEqual([sodiumHydroxide, benzylAlcohol]);
   });
 
-  it("says 'Allowed with limits' for Annex III, and 'No restriction listed' for no entry", () => {
+  it("says 'Allowed with limits' for Annex III, and 'No EU listing found' for no entry", () => {
     expect(regulatoryStatus(sodiumHydroxide)).toBe("Allowed with limits");
     expect(regulatoryStatus(benzylAlcohol)).toBe("Allowed with limits");
     expect(regulatoryStatus(hexylCinnamal)).toBe("Allowed with limits");
-    expect(regulatoryStatus(safe)).toBe("No restriction listed");
+    expect(regulatoryStatus(safe)).toBe("No EU listing found");
+  });
+
+  // #469: the dictionary finding no entry is not a finding that a substance is safe.
+  it("never says 'safe' in an ingredient's EU status or in the words the status draws on", () => {
+    const named = (name: string, overrides: Partial<Ingredient> = {}): Ingredient => ({ id: name, name, comedogenic: 0, safety: "safe", verified: true, functions: [], ...overrides });
+    const statuses = [
+      regulatoryStatus(safe),
+      regulatoryStatus(named("hydroquinone", { safety: "avoid" })),
+      regulatoryStatus(named("mystery", { verified: false })),
+      regulatoryStatus(named("petrolatum", { note: "Allowed when fully refined. The EU bans it only when its refining history isn't known (EU Annex II/904)" })),
+      regulatoryStatus(named("cannabidiol", { note: "EU rules depend on how it's made." })),
+      regulatoryStatus(sodiumHydroxide),
+      ...Object.values(EU_ALLERGEN_COPY).flatMap((value) => (typeof value === "string" ? [value] : [])),
+    ];
+    for (const status of statuses) expect(status).not.toMatch(/\bsafe\b/i);
   });
 
   it("gives the condition we hold: an allergen's label duty, else the cited entry number", () => {

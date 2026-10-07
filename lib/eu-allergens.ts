@@ -376,7 +376,8 @@ export const EU_ALLERGEN_COPY = {
   unsetNote: " Judged at the middle setting because your sensitivity isn't set.",
   /** The ingredient sheet's EU status, where "Restricted" and "No restriction" used to be. */
   limits: "Allowed with limits",
-  noneListed: "No restriction listed",
+  /** Not "safe": the dictionary finding no entry is not a finding that the substance is safe (#469). */
+  noneListed: "No EU listing found",
   /** The Safety tab's irritation card, where "restricted" used to be counted. */
   noneFlagged: "Nothing flagged",
   entries: (count: number) => `${count} EU-flagged ${count === 1 ? "entry" : "entries"}`,
