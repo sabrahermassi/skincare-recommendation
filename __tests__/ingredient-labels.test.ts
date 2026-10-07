@@ -41,11 +41,14 @@ function product(ingredients: Ingredient[]): ProductWithIngredients {
 // Glycerin helps dehydrated skin; fragrance works against sensitive skin.
 const GLYCERIN = ingredient("glycerin");
 const FRAGRANCE = ingredient("parfum");
-const RESTRICTED = ingredient("some restricted preservative", { safety: "caution" });
+// An EU-labelled fragrance allergen (Annex III entry 346), with no rule of its own.
+const ALLERGEN = ingredient("vanillin");
+// Annex III for another reason: allowed with limits, which says nothing about anyone's skin (#407).
+const RESTRICTED_ONLY = ingredient("sodium hydroxide", { safety: "caution" });
 const BANNED = ingredient("some banned dye", { safety: "avoid" });
 const MYSTERY = ingredient("mystery extract", { verified: false });
 const PLAIN = ["water", "xanthan gum", "butylene glycol", "1,2-hexanediol"].map((name) => ingredient(name));
-const ALL = [...PLAIN, GLYCERIN, FRAGRANCE, RESTRICTED, BANNED, MYSTERY];
+const ALL = [...PLAIN, GLYCERIN, FRAGRANCE, ALLERGEN, RESTRICTED_ONLY, BANNED, MYSTERY];
 
 const WITH_PROFILE = profile({ concerns: ["dehydrated"], baseSkinType: "dry", sensitivity: "high" });
 
@@ -58,9 +61,13 @@ describe("ingredientLabel, with a skin profile", () => {
     expect(label(GLYCERIN)).toBe("good");
   });
 
-  it("says Watch for what the score counted against them, and for a restricted ingredient", () => {
+  it("says Watch for what the score counted against them, and for an EU allergen", () => {
     expect(label(FRAGRANCE)).toBe("watch");
-    expect(label(RESTRICTED)).toBe("watch");
+    expect(label(ALLERGEN)).toBe("watch");
+  });
+
+  it("leaves an ingredient that is only restricted unlabelled (#407)", () => {
+    expect(label(RESTRICTED_ONLY)).toBeNull();
   });
 
   it("says Avoid for a hazard and Unknown for a name we don't know", () => {
@@ -84,10 +91,11 @@ describe("ingredientLabel, with no skin profile", () => {
   const match = matchProduct(product(ALL), EMPTY_PROFILE);
   const label = (i: Ingredient) => ingredientLabel(i, match, false);
 
-  it("shows only what's true for everyone: Avoid, Unknown, and Watch for a restricted ingredient", () => {
+  it("shows only what's true for everyone: Avoid, Unknown, and Watch for an EU allergen", () => {
     expect(label(BANNED)).toBe("avoid");
     expect(label(MYSTERY)).toBe("unknown");
-    expect(label(RESTRICTED)).toBe("watch");
+    expect(label(ALLERGEN)).toBe("watch");
+    expect(label(RESTRICTED_ONLY)).toBeNull();
   });
 
   it("never says Good, and never a Watch that depends on the person", () => {
@@ -177,7 +185,7 @@ describe("sortForGlance", () => {
   it("keeps the printed order within each group", () => {
     const { labelled, unlabelled } = sortForGlance(ALL, match, true);
     const watch = labelled.filter((row) => row.label === "watch").map((row) => row.ingredient.name);
-    expect(watch).toEqual(["parfum", "some restricted preservative"]);
+    expect(watch).toEqual(["parfum", "vanillin"]);
     const unlabelledNames = unlabelled.map((row) => row.ingredient.name);
     expect(unlabelledNames).toEqual(ALL.map((i) => i.name).filter((name) => unlabelledNames.includes(name)));
   });

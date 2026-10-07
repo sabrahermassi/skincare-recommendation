@@ -20,7 +20,7 @@ const profile = (over: Partial<SkinProfile>): SkinProfile => ({ ...EMPTY_PROFILE
 /**
  * The product page's irritation card and the ingredient list must agree. An active
  * the score charged as an irritant for this profile shows as Avoid in the list, so
- * the card cannot read "Low — Nothing restricted" above it.
+ * the card cannot read "Low — Nothing flagged" above it.
  */
 describe("irritationRisk", () => {
   const retinolSerum = product(["water", "retinol", ...FILLER]);
@@ -34,7 +34,7 @@ describe("irritationRisk", () => {
   it("stays Low for a tolerant profile", () => {
     const tolerant = profile({ concerns: ["fine-lines"], sensitivity: "none" });
     const risk = irritationRisk(retinolSerum, matchProduct(retinolSerum, tolerant));
-    expect(risk).toMatchObject({ level: "Low", note: "Nothing restricted", hasEntries: false });
+    expect(risk).toMatchObject({ level: "Low", note: "Nothing flagged", hasEntries: false });
   });
 
   it("counts an ingredient once when it is both warned about and charged as an irritant", () => {
@@ -56,28 +56,28 @@ describe("irritationRisk", () => {
     expect(irritationRisk(pregnancyOnly, match).hasEntries).toBe(false);
   });
 
-  it("does not claim 'Nothing restricted' when the only hit is a pregnancy caution", () => {
+  it("does not claim 'Nothing flagged' when the only hit is a pregnancy caution", () => {
     const pregnancyOnly = product(["water", "tretinoin", ...FILLER]);
     const pregnant = profile({ concerns: ["fine-lines"], pregnancyStatus: "pregnant" });
     const risk = irritationRisk(pregnancyOnly, matchProduct(pregnancyOnly, pregnant));
     expect(risk.level).toBe("Low");
-    expect(risk.note).not.toBe("Nothing restricted");
+    expect(risk.note).not.toBe("Nothing flagged");
     // Both result screens render the pregnancy section *before* this card,
     // so the pointer says "above" (#257 review — it used to say "below").
     expect(risk.note).toBe("See the pregnancy note below");
   });
 
-  it("still reads 'Nothing restricted' when there is truly nothing to report", () => {
+  it("still reads 'Nothing flagged' when there is truly nothing to report", () => {
     const clean = product(["water", ...FILLER]);
     const pregnant = profile({ concerns: ["fine-lines"], pregnancyStatus: "pregnant" });
     const risk = irritationRisk(clean, matchProduct(clean, pregnant));
-    expect(risk.note).toBe("Nothing restricted");
+    expect(risk.note).toBe("Nothing flagged");
   });
 });
 
 // #379 review (Codex): a read that recognised too little can't be called Low.
 describe("irritationRisk on a list too little of which was recognised", () => {
-  it("says Unknown, not 'Nothing restricted'", () => {
+  it("says Unknown, not 'Nothing flagged'", () => {
     const read = {
       type: "serum",
       ingredients: [ingredient("glycerin"), ...["mystery one", "mystery two", "mystery three"].map((name) => ({ ...ingredient(name), verified: false }))],
@@ -90,7 +90,7 @@ describe("irritationRisk on a list too little of which was recognised", () => {
 // #290: the browse row reads these same counts, so it can't say "1 flagged"
 // above a product page that says "3 flagged for your skin".
 describe("irritationCounts", () => {
-  it("counts what this profile is charged for, not only the EU-restricted entries", () => {
+  it("counts what this profile is charged for, not only the EU-flagged entries", () => {
     const scented = product(["water", "parfum", "alcohol denat", ...FILLER]);
     const reactive = profile({ baseSkinType: "dry", sensitivity: "high" });
     const match = matchProduct(scented, reactive);
@@ -103,29 +103,29 @@ describe("irritationCounts", () => {
     const clean = product(["water", ...FILLER]);
     expect(irritationCounts(clean, matchProduct(clean, profile({ sensitivity: "high", baseSkinType: "dry" })))).toEqual({
       personal: 0,
-      restricted: 0,
+      euFlagged: 0,
       common: 0,
     });
   });
 
-  it("does not count an unrecognised name as restricted — it is unassessed, not flagged", () => {
+  it("does not count an unrecognised name as flagged — it is unassessed", () => {
     const unread = {
       type: "serum",
       ingredients: [{ ...ingredient("mystery extract"), safety: "caution", verified: false }, ...FILLER.map(ingredient)],
     } as unknown as ProductWithIngredients;
-    expect(irritationCounts(unread, matchProduct(unread, EMPTY_PROFILE)).restricted).toBe(0);
+    expect(irritationCounts(unread, matchProduct(unread, EMPTY_PROFILE)).euFlagged).toBe(0);
   });
 });
 
 // #345: the Ingredient check puts fragrance and the common irritants "to
-// watch" for everyone, so the card beside it can't say "Nothing restricted".
+// watch" for everyone, so the card beside it can't say "Nothing flagged".
 describe("irritationRisk beside the Ingredient check", () => {
   const scented = product(["water", "parfum", ...FILLER]);
   const tolerant = profile({ baseSkinType: "normal", sensitivity: "none" });
 
-  it("names a common irritant the person isn't warned about, instead of 'Nothing restricted'", () => {
+  it("names a common irritant the person isn't warned about, instead of 'Nothing flagged'", () => {
     const match = matchProduct(scented, tolerant);
-    expect(irritationCounts(scented, match)).toEqual({ personal: 0, restricted: 0, common: 1 });
+    expect(irritationCounts(scented, match)).toEqual({ personal: 0, euFlagged: 0, common: 1 });
     expect(irritationRisk(scented, match)).toMatchObject({
       level: "Low",
       note: "1 common irritant",
@@ -143,38 +143,46 @@ describe("irritationRisk beside the Ingredient check", () => {
     expect(irritationRisk(both, matchProduct(both, tolerant)).note).toBe("2 common irritants");
   });
 
-  it("leaves a restricted fragrance to the restricted count, not both", () => {
-    const restrictedScent = {
+  it("leaves an EU-labelled allergen to the EU-flagged count, not both", () => {
+    const allergenScent = {
       type: "serum",
-      ingredients: [{ ...ingredient("parfum"), safety: "caution" }, ...FILLER.map(ingredient)],
+      ingredients: [{ ...ingredient("limonene"), safety: "caution" }, ...FILLER.map(ingredient)],
     } as unknown as ProductWithIngredients;
-    const counts = irritationCounts(restrictedScent, matchProduct(restrictedScent, tolerant));
-    expect(counts).toMatchObject({ restricted: 1, common: 0 });
+    const counts = irritationCounts(allergenScent, matchProduct(allergenScent, tolerant));
+    expect(counts).toMatchObject({ euFlagged: 1, common: 0 });
   });
 
-  it("no longer counts sodium hydroxide, a pH adjuster", () => {
-    const adjusted = product(["water", "sodium hydroxide", ...FILLER]);
-    expect(irritationRisk(adjusted, matchProduct(adjusted, tolerant)).note).toBe("Nothing restricted");
+  // #407: Annex III alone is "allowed with limits", not a flag.
+  it("does not count sodium hydroxide, a pH adjuster, or exempt benzyl alcohol", () => {
+    const adjusted = {
+      type: "serum",
+      ingredients: ["water", "sodium hydroxide", "benzyl alcohol", ...FILLER].map((name) => ({ ...ingredient(name), safety: name === "water" ? "safe" : "caution" })),
+    } as unknown as ProductWithIngredients;
+    expect(irritationRisk(adjusted, matchProduct(adjusted, tolerant)).note).toBe("Nothing flagged");
+  });
+
+  it("counts an EU allergen the dictionary calls safe", () => {
+    const hexyl = product(["water", "hexyl cinnamal", ...FILLER]);
+    expect(irritationCounts(hexyl, matchProduct(hexyl, tolerant))).toMatchObject({ euFlagged: 1, common: 0 });
   });
 });
 
 describe("irritationRisk wording", () => {
-  const withRestricted = (count: number) =>
+  // Names from Annex III's allergen entries, with no rule of their own to add a count.
+  const ALLERGENS = ["vanillin", "linalyl acetate", "terpineol"];
+  const withAllergens = (count: number) =>
     ({
       type: "serum",
-      ingredients: [
-        ...Array.from({ length: count }, (_, i) => ({ ...ingredient(`restricted ${i}`), safety: "caution" })),
-        ...FILLER.map(ingredient),
-      ],
+      ingredients: [...ALLERGENS.slice(0, count).map(ingredient), ...FILLER.map(ingredient)],
     }) as unknown as ProductWithIngredients;
 
-  // #294: "1 restricted entries".
+  // #294: "1 EU-flagged entries".
   it.each([
-    [1, "1 restricted entry"],
-    [2, "2 restricted entries"],
-  ])("says %i restricted as %s", (count: number, note: string) => {
+    [1, "1 EU-flagged entry"],
+    [2, "2 EU-flagged entries"],
+  ])("says %i EU-flagged as %s", (count: number, note: string) => {
     const tolerant = profile({ baseSkinType: "normal", sensitivity: "none" });
-    const product = withRestricted(count);
+    const product = withAllergens(count);
     expect(irritationRisk(product, matchProduct(product, tolerant)).note).toBe(note);
   });
 });

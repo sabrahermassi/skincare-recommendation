@@ -129,8 +129,9 @@ describe("'very sensitive' and a fragranced product (#301, #363)", () => {
     expect(nivea.type).toBe("moisturizer");
     expect(byLevel("moisturizer", ingredients)).toEqual({
       none: { score: 65, penalty: 4.13 },
-      some: { score: 45, penalty: 24.5 },
-      unset: { score: 44, penalty: 24.5 },
+      // 24.5 and 45/44 before #407: the four allergens a fragrance rule already charged were charged a second time.
+      some: { score: 49, penalty: 20.61 },
+      unset: { score: 48, penalty: 20.61 },
       high: { score: 36, penalty: 34 },
     });
   });
