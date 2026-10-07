@@ -85,6 +85,10 @@ export function regulatoryStatus(ingredient: Ingredient): string {
   // Two entries are written this way: 358 limits furocoumarins, 360 limits safrole (#468).
   if (ingredient.note?.startsWith(NATURAL_ESSENCE_NOTE_START)) return ingredient.note.includes("safrole") ? "Allowed, with a limit on safrole" : "Allowed, with a limit on furocoumarins";
   if (isOriginDependent(ingredient)) return ORIGIN_DEPENDENT_HEADLINE;
+  // Annex IV (colourants), V (preservatives) and VI (UV filters) are positive lists: an ingredient the
+  // dictionary cites there is listed, with limits, even though its rating is `safe` (phenyl mercuric borate, #419).
+  const positiveList = /\bEU Annex (IV|V|VI)\b/.exec(ingredient.note ?? "")?.[1];
+  if (positiveList) return `Listed in EU Annex ${positiveList}`;
   return EU_ALLERGEN_COPY.noneListed;
 }
 
