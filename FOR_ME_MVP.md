@@ -219,7 +219,7 @@ Available options:
 - Prefer not to say
 
 This affects the personalized score: `lib/safety.ts` flags retinoids,
-salicylic acid and hydroquinone as a caution when the
+salicylic acid, hydroquinone, and essential oils as a caution when the
 answer is "Pregnant" or "Breastfeeding" (`lib/pregnancy-caution.ts`).
 
 ## Information explicitly removed

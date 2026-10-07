@@ -170,16 +170,17 @@ writes `.eu-annexes.json` with `--apply`. It writes no database row: step 3 adds
   the Official Journal text is authentic." It is written into the output file and nowhere in the app yet.
 
 **Pregnancy notes match what the sources say (7 October 2026, #475).** The scan's pregnancy cautions
-now say "pregnancy" and nothing the sources do not: the retinoid and hydroquinone lines no longer say
-"and while breastfeeding" (the American Academy of Dermatology page says nothing on breastfeeding), and
-salicylic acid is worded as the AAD words it, limit strengths above 2%. Retinoids and salicylic acid now
-carry the AAD page as their source. The quiz still asks one question, "pregnant or breastfeeding?", so
+say what their source says and no more. The American Academy of Dermatology page (read 7 October 2026)
+covers pregnancy and has nothing on breastfeeding, so the retinoid line, the Skin needs line and the
+Frequently-asked answer no longer say "and while breastfeeding". Hydroquinone keeps it: its MotherSafe source
+says "hydroquinone should be avoided [while breastfeeding] as the absorption is high". Salicylic acid is worded as
+the AAD words it, limit strengths above 2%. The quiz still asks one question, "pregnant or breastfeeding?", so
 the cards that follow it say "If you're pregnant or breastfeeding and unsure, ask your doctor or midwife."
 
-- **The essential-oil group is removed.** The guidance found was NHS trust leaflets and an aromatherapists'
-  body whose guidelines could not be read; none was a professional body's statement that could be opened
-  and read as supporting "advised against in pregnancy". Without that the claim had no source, so it
-  went rather than stayed softened. Add it back when a professional body's own text is found.
+- **Essential oils stay, softened, with the AAD page as their source.** It lists essential oils, including rosemary,
+  basil, jasmine and sage, among the ingredients to discuss with a dermatologist and limit during pregnancy. It says
+  limit, not avoid, so the line says "best limited". An earlier version of this change removed the group for lack of
+  a source; a review found the AAD page already held one.
 - **Arbutin is unchanged:** hidden from pregnant users in Skin needs, no warning on a scan, until an expert
   answers (the reason is written beside both in the code).
 

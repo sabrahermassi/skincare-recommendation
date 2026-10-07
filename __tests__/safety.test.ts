@@ -169,19 +169,21 @@ describe("contraindications", () => {
     // ingredient once" expectation (was toHaveLength(1)): that invariant
     // held only while there was a single combined count, and this ticket's
     // fix is exactly what removes that count.
-    // Essential oils were the one ingredient that was both an EU-labelled allergen and a pregnancy
-    // caution, so the only real example of this; #475 removed that group (no source from a
-    // professional body was found). What stays true: each origin reports on its own.
-    const retinol: Ingredient = { id: "retinol", name: "retinol", comedogenic: 0, safety: "safe", verified: true };
-    const result = contraindications([retinol], profile({ sensitivity: "high", pregnancyStatus: "pregnant" }));
-    expect(result.map((r) => r.origin)).toEqual(["pregnancy"]);
-  });
-
-  // #475: an essential oil is no longer a pregnancy caution; the group had no source from a professional body.
-  it("no longer flags an essential oil as a pregnancy caution", () => {
-    const lavenderOil: Ingredient = { id: "lavandula angustifolia oil", name: "lavandula angustifolia oil", comedogenic: 0, safety: "safe", verified: true };
-    const result = contraindications([lavenderOil], profile({ sensitivity: "some", pregnancyStatus: "pregnant" }));
-    expect(result.map((r) => r.origin)).toEqual(["eu-allergen"]);
+    // Lavender oil is an EU-labelled allergen (entry 360) and an essential oil
+    // advised against in pregnancy.
+    const lavenderOil: Ingredient = {
+      id: "lavandula angustifolia oil",
+      name: "lavandula angustifolia oil",
+      comedogenic: 0,
+      safety: "safe",
+      verified: true,
+    };
+    const result = contraindications(
+      [lavenderOil],
+      profile({ sensitivity: "some", pregnancyStatus: "pregnant" })
+    );
+    expect(result).toHaveLength(2);
+    expect(result.map((r) => r.origin).sort()).toEqual(["eu-allergen", "pregnancy"]);
   });
 
   // #186: names added to close a gap between the scoring rule and the

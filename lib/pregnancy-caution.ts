@@ -17,14 +17,13 @@ import {
  * regardless of who's asking, so detection takes no profile and every
  * ingredient is checked with no truncation.
  *
- * Scope is deliberately narrow: the three categories that dermatology guidance
- * names (the American Academy of Dermatology page each one cites) rather than a
- * long list padded with contested or low-risk entries. Essential oils were a
- * fourth until #475: the only guidance found was from NHS trusts and an
- * aromatherapists' body whose text could not be read, none a professional body's
- * statement that could be opened and read as supporting the claim, so the group
- * was removed rather than kept without a source. Arbutin is deliberately not
- * here either (#475, owner, 7 October 2026): Skin needs hides it from pregnant
+ * Scope is deliberately narrow: the four categories that dermatology guidance
+ * names (each cites the page that was opened and read, #475) rather than a
+ * long list padded with contested or low-risk entries. Each says only what its
+ * source says: the American Academy of Dermatology page covers pregnancy and
+ * nothing on breastfeeding, so only hydroquinone, whose MotherSafe source also
+ * says to avoid it while breastfeeding, says so. Arbutin is deliberately not
+ * here (#475, owner, 7 October 2026): Skin needs hides it from pregnant
  * users (`lib/skin-needs-data.ts`), but there is no source to warn on a scan, and
  * this list does not warn without one. Revisit when an expert answers. Concentration is not
  * something an INCI name carries — salicylic acid at 0.5% (a rinse-off
@@ -41,7 +40,7 @@ import {
 
 type PregnancyCautionEntry = {
   names: (string | RegExp)[];
-  category: "retinoid" | "salicylic-acid" | "hydroquinone";
+  category: "retinoid" | "salicylic-acid" | "hydroquinone" | "essential-oil";
   reason: string;
   /** Where the caution comes from (#326) — same rules as `IngredientRule.source`. */
   source?: RuleSource;
@@ -72,10 +71,26 @@ export const PREGNANCY_CAUTION: PregnancyCautionEntry[] = [
   {
     names: ["hydroquinone"],
     category: "hydroquinone",
-    reason: "Hydroquinone — commonly advised against in pregnancy",
+    // MotherSafe: avoid hydroquinone in pregnancy, and "while breastfeeding … as the absorption is high" (read 7 October 2026).
+    reason: "Hydroquinone — commonly advised against in pregnancy and while breastfeeding",
     source: {
       label: "NSW Health MotherSafe",
       url: "https://www.seslhd.health.nsw.gov.au/sites/default/files/groups/Royal_Hospital_for_Women/Mothersafe/documents/skinhaircareandcosmetictreatmentsapril2021.pdf",
+    },
+  },
+  {
+    names: [
+      /essential oil$/,
+      /^(lavandula|citrus|mentha|rosmarinus|eucalyptus|melaleuca|cinnamomum|origanum|thymus|salvia|ocimum|jasminum) .*oil$/,
+    ],
+    category: "essential-oil",
+    // The AAD page lists "essential oils, including rosemary, basil, jasmine, and sage oils" among the ingredients to
+    // "discuss with your dermatologist and limit how often you use them during pregnancy" (read 7 October 2026). It says
+    // limit, not avoid, so this does not say "advised against". Softened from the earlier wording by the owner, 7 October 2026.
+    reason: "An essential oil — some, such as rosemary, basil, jasmine and sage, are best limited in pregnancy; ask your doctor or midwife",
+    source: {
+      label: "American Academy of Dermatology: pregnancy skin care",
+      url: "https://www.aad.org/public/everyday-care/skin-care-secrets/routine/pregnancy-skin-care",
     },
   },
 ];

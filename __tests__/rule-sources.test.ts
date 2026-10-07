@@ -108,15 +108,17 @@ describe("rule sources", () => {
     expect(UNSOURCED_RULES.length).toBeLessThanOrEqual(MAX_UNSOURCED_RULES);
   });
 
-  // #475: only what a source supports. Breastfeeding is not claimed, and an essential-oil group with no
-  // professional body's statement behind it is gone.
-  it("words each pregnancy caution for pregnancy, with a source, and has no essential-oil group", () => {
+  // #475: each caution says only what its source says. The AAD page covers pregnancy and nothing on
+  // breastfeeding; only hydroquinone, whose MotherSafe source says to avoid it while breastfeeding, says so.
+  it("words each pregnancy caution for what its source says, and keeps all four groups sourced", () => {
+    expect(PREGNANCY_CAUTION.map((entry) => entry.category)).toEqual(["retinoid", "salicylic-acid", "hydroquinone", "essential-oil"]);
     for (const entry of PREGNANCY_CAUTION) {
-      expect(entry.reason).not.toMatch(/breastfeeding/i);
       expect(entry.source).toBeDefined();
+      expect(/breastfeeding/i.test(entry.reason)).toBe(entry.category === "hydroquinone");
     }
-    expect(PREGNANCY_CAUTION.map((entry) => entry.category)).toEqual(["retinoid", "salicylic-acid", "hydroquinone"]);
     expect(PREGNANCY_CAUTION.find((entry) => entry.category === "salicylic-acid")?.reason).toMatch(/limit strengths above 2%/);
+    // "limit how often you use them", not "avoid": the essential-oil line must not say advised against.
+    expect(PREGNANCY_CAUTION.find((entry) => entry.category === "essential-oil")?.reason).not.toMatch(/advised against/);
   });
 
   it("gives every pregnancy caution a source, or lists it, and only shrinks that list", () => {
