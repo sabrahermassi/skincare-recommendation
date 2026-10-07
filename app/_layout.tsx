@@ -26,6 +26,11 @@ export { RouteErrorScreen as ErrorBoundary } from "@/components/RouteErrorScreen
 // brings its own slide.
 // How long a pushed screen takes to slide in.
 const PUSH_MS = 250;
+// Home and the intro fade into each other rather than sliding: finishing the
+// intro replaces it with Home, and a replaced screen came in from the left,
+// like going back. Nothing is pushed over either, so the fade is only ever
+// seen there and at "Erase my profile".
+const ARRIVE = { headerShown: false, animation: "fade", animationDuration: 320 } as const;
 const SHEET_ROUTE = { headerShown: false, presentation: "transparentModal", animation: "fade", contentStyle: { backgroundColor: "transparent" } } as const;
 
 export default function RootLayout() {
@@ -138,8 +143,8 @@ export default function RootLayout() {
         }}
       >
         {/* Titled as a fallback for anything that ignores the display mode. */}
-        <Stack.Screen name="(tabs)" options={{ headerShown: false, title: "for.me" }} />
-        <Stack.Screen name="onboarding" options={{ headerShown: false }} />
+        <Stack.Screen name="(tabs)" options={{ ...ARRIVE, title: "for.me" }} />
+        <Stack.Screen name="onboarding" options={ARRIVE} />
         {/* The skin quiz, over whatever screen asked for it, so finishing or
             closing it returns exactly there (#346). Swiping it down keeps the
             answers given so far: each is saved as it's tapped. */}
