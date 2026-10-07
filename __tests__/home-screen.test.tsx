@@ -37,12 +37,25 @@ const BHA_MONDAYS = [{ active: "bha" as const, time: "evening" as const, days: [
 
 beforeEach(() => {
   jest.useFakeTimers({ now: MONDAY_9AM, doNotFake: ["nextTick", "setImmediate"] });
+  // Skin needs is behind a dev-only switch (#467); on here, as the tests below were written with it.
+  useAppStore.setState({ skinNeedsEnabled: true });
 });
 afterEach(() => {
   forgetRoutine();
   jest.useRealTimers();
-  useAppStore.setState({ profile: EMPTY_PROFILE, routineActives: [], routinePicks: {}, routineStarted: false, routineBuilt: false, tipRead: null });
+  useAppStore.setState({ profile: EMPTY_PROFILE, routineActives: [], routinePicks: {}, routineStarted: false, routineBuilt: false, tipRead: null, skinNeedsEnabled: false });
   jest.mocked(router.push).mockClear();
+});
+
+it("has no Skin needs tile, and warms nothing of it, while the switch is off (#467)", async () => {
+  useAppStore.setState({ skinNeedsEnabled: false });
+  await render(<Home />);
+  expect(screen.getByRole("button", { name: "Scan Any Product" })).toBeTruthy();
+  expect(screen.queryByRole("button", { name: "Find Your Actives" })).toBeNull();
+  // Alone in its row it is a wide card, not a square the width of the screen.
+  expect(screen.getByRole("button", { name: "Scan Any Product" }).children[0]).toHaveStyle({ aspectRatio: 2 });
+  await act(async () => jest.runOnlyPendingTimers());
+  expect(router.prefetch).not.toHaveBeenCalledWith("/journey");
 });
 
 it("shows Start your routine, the two tiles and the tip, and nothing of the old Home", async () => {

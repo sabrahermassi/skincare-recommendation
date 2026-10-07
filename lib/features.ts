@@ -5,7 +5,8 @@ import { safetyNoticeHits, type SafetyNoticeHit } from "@/lib/safety";
 import { useAppStore } from "@/store/useAppStore";
 
 /**
- * Feature flags (#403). One today: the regulatory-safety notice (#404, #405).
+ * Feature flags (#403). Two today: the regulatory-safety notice (#404, #405)
+ * and Skin needs (#467, at the foot of this file).
  *
  * Off by default, so with it off every screen is exactly what it was. It is a
  * persisted boolean in the store (`safetyNoticeEnabled`), switched by a
@@ -38,4 +39,16 @@ export function useSafetyNoticeHits(ingredients: readonly Ingredient[]): SafetyN
 /** The same outside a component (#405's share text): reads the flag now. */
 export function safetyNoticeHitsNow(ingredients: readonly Ingredient[]): SafetyNoticeHit[] {
   return safetyNoticeHits(ingredients, safetyNoticeEnabled());
+}
+
+/**
+ * Skin needs (#467): hidden until an expert has checked its advice. The copy
+ * in `lib/skin-needs-data.ts` is placeholder, and it used to tell pregnant
+ * people which actives were "safe". Same shape as the flag above: a persisted
+ * boolean (`skinNeedsEnabled`), a development-only Profile row, and
+ * `__DEV__ && saved`, so a release build has no Skin needs at all. Home drops
+ * its tile and both routes send anyone who reaches them back to Home.
+ */
+export function useSkinNeedsEnabled(): boolean {
+  return useAppStore((state) => __DEV__ && state.skinNeedsEnabled);
 }

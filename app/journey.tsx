@@ -1,5 +1,5 @@
 import { Image } from "expo-image";
-import { router } from "expo-router";
+import { Redirect, router } from "expo-router";
 import { useRef, useState } from "react";
 import { Animated, Pressable, ScrollView, View, useWindowDimensions } from "react-native";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
@@ -16,10 +16,11 @@ import { goBackOrHome } from "@/lib/go-back";
 import { haptic } from "@/lib/haptics";
 import { GOALS, type GoalKey } from "@/lib/journey";
 import { reduceMotionNow } from "@/lib/reduce-motion";
-import { encodeAnswers, familyOf, hiddenLine, holdsActive, optionsFor, safeOnly, storyLength, storyLengthLine, type NeedAnswers, type StoryActive } from "@/lib/skin-needs";
+import { encodeAnswers, familyOf, hiddenLine, holdsActive, optionsFor, pregnancyFilterOn, storyLength, storyLengthLine, type NeedAnswers, type StoryActive } from "@/lib/skin-needs";
 import { useOwnProducts } from "@/lib/use-own-products";
 import { ACTIVES_IN_USE, GOAL_OPTIONS, type ActiveKey } from "@/lib/skin-needs-data";
 import { BUTTON, CANVAS, CANVAS_GLASS, CHOSEN, DISPLAY_FONT, ICON_SHADOW, INK, LINK, MUTED, MUTED_FAINT, SKIN_NEEDS, SPACE, STAR_ON, SURFACE, TOUCH_TARGET, WHITE, TYPE, RADIUS, LEADING, TRACKING } from "@/lib/tokens";
+import { useSkinNeedsEnabled } from "@/lib/features";
 import { useAppStore } from "@/store/useAppStore";
 import { noOrphan } from "@/lib/text";
 
@@ -80,7 +81,12 @@ function usesOf(used: readonly string[]): ActiveKey[] {
  * nothing is saved back to the profile. The goal and the actives in use are
  * always asked fresh.
  */
-export default function Journey() {
+export default function JourneyGate() {
+  // Hidden until an expert has checked the advice (#467): with the switch off, nothing here can be reached.
+  return useSkinNeedsEnabled() ? <Journey /> : <Redirect href="/" />;
+}
+
+function Journey() {
   const profile = useAppStore((state) => state.profile);
   const [draft, setDraft] = useState<Draft>(() => ({ goal: null, ...fromProfile(profile), used: [] }));
   // Which of the profile's two answers were changed here: one that was says so no longer, even if picked again.
@@ -163,7 +169,7 @@ function Questions({ draft, edited, onChange, onShow }: { draft: Draft; edited: 
         <QuestionCard
           title="Pregnant or breastfeeding?"
           tag={pregnancyTag}
-          note="We leave out ingredients commonly advised against while pregnant or breastfeeding. Skipped: we show only the safe ones."
+          note="We leave out ingredients commonly advised against in pregnancy. If you skip this, we leave them out too."
         >
           <Chips accessibilityLabel="Pregnant or breastfeeding?">
             {PREGNANCY_OPTIONS.map(({ value, label }) => (
@@ -298,7 +304,7 @@ function Options({ answers, onBack, onNotPregnant }: { answers: NeedAnswers; onB
   const cardWidth = stride - CARD_GAP;
 
   const goal = GOALS.find((g) => g.key === answers.goal)!;
-  const safe = safeOnly(answers) && hidden.length > 0;
+  const filtered = pregnancyFilterOn(answers) && hidden.length > 0;
   const count = actives.length;
   const sensitivity = SENSITIVITY_OPTIONS.find((o) => o.value === answers.sensitivity)?.chip ?? "Sensitivity: skipped";
   const pregnancy = PREGNANCY_OPTIONS.find((o) => o.value === answers.pregnancy)?.chip ?? "Pregnancy: skipped";
@@ -318,9 +324,7 @@ function Options({ answers, onBack, onNotPregnant }: { answers: NeedAnswers; onB
             What can help with {GOAL_OPTIONS[answers.goal].about}?
           </Text>
           <Text style={{ fontSize: TYPE.body, lineHeight: LEADING.body, color: MUTED }}>
-            {count === 1
-              ? `Based on your answers, here is 1 ${safe ? "safe option" : "option worth knowing"}.`
-              : `Based on your answers, here are ${count} ${safe ? "safe options" : "options worth knowing"}.`}
+            {count === 1 ? "Based on your answers, here is 1 option worth knowing." : `Based on your answers, here are ${count} options worth knowing.`}
           </Text>
           <View style={{ flexDirection: "row", flexWrap: "wrap", gap: SPACE.text }}>
             {[goal.label, sensitivity, pregnancy].map((label) => (
@@ -329,14 +333,14 @@ function Options({ answers, onBack, onNotPregnant }: { answers: NeedAnswers; onB
               </View>
             ))}
           </View>
-          {safe ? (
+          {filtered ? (
             <View style={{ flexDirection: "row", alignItems: "center", gap: SPACE.text }}>
               <InfoIcon />
               {answers.pregnancy === "yes" ? (
                 <Text style={{ flex: 1, fontSize: TYPE.caption, lineHeight: LEADING.caption, color: MUTED }}>{hiddenLine(hidden)}</Text>
               ) : (
                 <Text style={{ flex: 1, fontSize: TYPE.caption, lineHeight: LEADING.caption, color: MUTED }}>
-                  Showing pregnancy-safe options. Not pregnant?{" "}
+                  Showing options often used during pregnancy. Check with your doctor or midwife. Not pregnant?{" "}
                   <Text onPress={onNotPregnant} accessibilityRole="button" accessibilityLabel="Not pregnant: show every option" style={{ fontWeight: "600", color: BUTTON.primary.fill }}>
                     Change
                   </Text>
@@ -360,7 +364,7 @@ function Options({ answers, onBack, onNotPregnant }: { answers: NeedAnswers; onB
           onScroll={(event) => setCurrent(Math.max(0, Math.min(count - 1, Math.round(event.nativeEvent.contentOffset.x / stride))))}
         >
           {actives.map((active, index) => (
-            <FamilyCard key={active.key} active={active} width={cardWidth} best={index === 0} safe={safeOnly(answers)} inRoutine={inRoutine(active)} onOpen={() => open(active)} />
+            <FamilyCard key={active.key} active={active} width={cardWidth} best={index === 0} inRoutine={inRoutine(active)} onOpen={() => open(active)} />
           ))}
         </ScrollView>
 
@@ -404,8 +408,8 @@ function Options({ answers, onBack, onNotPregnant }: { answers: NeedAnswers; onB
  * ingredient to Saved › Ingredients, the name, the line, and how long its
  * story is. Tapping it opens the story.
  */
-function FamilyCard({ active, width, best, safe, inRoutine, onOpen }: { active: StoryActive; width: number; best: boolean; /** Only the safe ones are showing: each says so (hand-off 1p). */ safe: boolean; inRoutine: boolean; onOpen: () => void }) {
-  const line = safe ? `${active.story.line} Safe while pregnant or breastfeeding.` : active.story.line;
+function FamilyCard({ active, width, best, inRoutine, onOpen }: { active: StoryActive; width: number; best: boolean; inRoutine: boolean; onOpen: () => void }) {
+  const line = active.story.line;
   const family = familyOf(active);
   const saved = useAppStore((s) => s.savedIngredients.includes(active.save));
   const toggleSaved = useAppStore((s) => s.toggleSavedIngredient);

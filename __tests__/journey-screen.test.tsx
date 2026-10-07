@@ -19,17 +19,21 @@ jest.mock("react-native/Libraries/Utilities/useWindowDimensions", () => ({
   default: () => ({ width: 402, height: 874, scale: 3, fontScale: mockFontScale }),
 }));
 
+const mockRedirect = jest.fn((_props: { href: string }) => null);
 jest.mock("expo-router", () => ({
   router: { back: jest.fn(), push: jest.fn(), replace: jest.fn(), canGoBack: jest.fn(() => true) },
+  Redirect: (props: { href: string }) => mockRedirect(props),
 }));
 jest.mock("react-native-safe-area-context", () => ({
   useSafeAreaInsets: () => ({ top: 0, bottom: 0, left: 0, right: 0 }),
 }));
 jest.mock("@/lib/reduce-motion", () => ({ reduceMotionNow: () => true }));
 
+// Skin needs is behind a dev-only switch (#467): on for these tests, off for the one that says so.
+beforeEach(() => useAppStore.setState({ skinNeedsEnabled: true }));
 afterEach(() => {
   mockFontScale = 1;
-  useAppStore.setState({ profile: EMPTY_PROFILE, routineActives: [], savedIngredients: [] });
+  useAppStore.setState({ profile: EMPTY_PROFILE, routineActives: [], savedIngredients: [], skinNeedsEnabled: false });
   jest.mocked(router.push).mockClear();
 });
 
@@ -69,6 +73,13 @@ it("lets a profile answer be changed, and then it no longer says it came from th
   await pick("Sensitive skin: Very");
   expect(screen.getByRole("radio", { name: "Sensitive skin: Very" }).props.accessibilityState.checked).toBe(true);
   expect(screen.getAllByText("From your profile")).toHaveLength(1);
+});
+
+it("sends anyone who reaches it back to Home while the switch is off (#467)", async () => {
+  useAppStore.setState({ skinNeedsEnabled: false });
+  await render(<Journey />);
+  expect(mockRedirect).toHaveBeenCalledWith({ href: "/" });
+  expect(screen.queryByText("Pregnant or breastfeeding?")).toBeNull();
 });
 
 it("asks everything when the profile is empty", async () => {
@@ -140,16 +151,16 @@ it("shows three options for Control oil, BHA first, with the answers as chips", 
   expect(screen.getByText("swipe for 2 more")).toBeTruthy();
 });
 
-it("hides the unsafe ones after a yes, and says which (1p)", async () => {
+it("hides the ones left out in pregnancy after a yes, and says which (1p)", async () => {
   await render(<Journey />);
   await pick("Control oil");
   await pick("Pregnant or breastfeeding: Yes");
   await show();
   expect(screen.queryByRole("button", { name: /^BHA, / })).toBeNull();
   expect(screen.queryByRole("button", { name: /^Retinoids, / })).toBeNull();
-  expect(screen.getByText("BHA and Retinoids are hidden while you're pregnant or breastfeeding.")).toBeTruthy();
-  expect(screen.getByText("Based on your answers, here are 3 safe options.")).toBeTruthy();
-  // A safe one from the same family, and one from a nearby family for the gap (owner).
+  expect(screen.getByText("BHA and Retinoids are hidden while you're pregnant or breastfeeding. Check with your doctor or midwife before starting anything new.")).toBeTruthy();
+  expect(screen.getByText("Based on your answers, here are 3 options worth knowing.")).toBeTruthy();
+  // One that is shown from the same family, and one from a nearby family for the gap (owner).
   expect(card("PHA")).toBeTruthy();
   expect(card("Azelaic acid")).toBeTruthy();
 });

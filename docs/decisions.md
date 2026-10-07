@@ -637,6 +637,26 @@ decisions:
   (no product to keep), there is no Add button; the old one on every result
   is gone. Actives are added from Skin needs stories.
 
+### Skin needs is hidden until an expert has checked it (#467, 7 October 2026)
+
+The credibility audit of 7 October 2026 found Skin needs telling pregnant
+people which actives were "safe" ("Safe while pregnant or breastfeeding",
+"safe options", "pregnancy-safe options"), in a file whose own header says all
+of its copy is placeholder. Two things followed, both the owner's decision:
+
+- **No "safe" anywhere in it.** The filter is described by what it does
+  ("We leave out ingredients commonly advised against in pregnancy"), the
+  options are "worth knowing", and the lines that speak to someone pregnant
+  end by sending them to their doctor or midwife. The field is
+  `shownInPregnancy`, not `pregnancySafe`: it says what the screen does, not
+  what is true of the ingredient.
+- **The section is off** behind `skinNeedsEnabled` (`lib/features.ts`), read
+  as `__DEV__ && saved` like the safety-notice flag, with a dev-only Profile
+  row. Off, Home has one Explore tile and `/journey` and `/journey-story`
+  redirect to Home, so a scan "from Skin needs" cannot start either. Actives
+  someone already added to their routine stay in it. Turn it on for everyone
+  only after a dermatologist has checked `lib/skin-needs-data.ts`.
+
 ### EU "restricted" (Annex III) never adds an irritation charge by itself (#407)
 
 Moved here from `CLAUDE.md`, which keeps the one-line rule. It means *allowed
