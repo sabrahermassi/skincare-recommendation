@@ -333,14 +333,14 @@ describe("the EU safety notice on the ingredient page", () => {
     expect(screen.queryAllByText(/23 August/)).toHaveLength(0);
   });
 
-  it("says hydroquinone's one exception after the listing: professional nail products (Annex III, entry 14)", async () => {
+  it("shows the notice for hydroquinone, as the dictionary writes it (Annex II/1339 beside Annex III/14)", async () => {
     // As the dictionary writes it: prohibited, citing Annex II/1339 beside Annex III/14.
     const hydroquinone = ingredient("hydroquinone", { safety: "avoid", note: "Prohibited in cosmetics (EU Annex II/1339 III/14)" });
     const withIt: ProductWithIngredients = { ...PRODUCT, ingredients: INGREDIENTS.map((i) => (i.name === "hydroquinone" ? hydroquinone : i)) };
     useAppStore.setState({ safetyNoticeEnabled: true }, false);
     await open("hydroquinone", {}, withIt);
     expect(screen.getByText(SAFETY_NOTICE_COPY.sheetHeadline)).toBeTruthy();
-    expect(screen.getByText(/Annex II, entry 1339\).*The one exception is professional artificial nail products, at up to 0\.02% \(Annex III, entry 14\)\./)).toBeTruthy();
+    expect(screen.getByText(/Annex II, entry 1339\)/)).toBeTruthy();
   });
 
   it("leaves a prohibited row with no entry on the verified list as it was, even with the flag on", async () => {

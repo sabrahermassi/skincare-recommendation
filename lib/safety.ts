@@ -200,13 +200,11 @@ export type SafetyNoticeEntry = {
   verifiedBy: "owner" | null;
   /** In words, for the ingredient sheet, when the regulation gives dates. */
   dates?: string;
-  /** In words, for the ingredient sheet, when the entry itself allows one use (hydroquinone, 1339). */
-  exception?: string;
   /**
    * The dictionary names the entry speaks for, when it is one substance and
    * says something only true of that substance. Without it the notice goes by
    * the cited entry number alone, so a row a source cited under 1339 by
-   * mistake would be told about hydroquinone's nail-product exception.
+   * mistake would be told it is hydroquinone.
    */
   names?: readonly string[];
 };
@@ -249,14 +247,13 @@ export const SAFETY_NOTICE_ENTRIES: readonly SafetyNoticeEntry[] = [
     verifiedBy: "owner",
   },
   // Checked by the owner on the consolidated text (CELEX 02009R1223-20260518), Annex II entry 1339 and
-  // Annex III entry 14, 7 October 2026. The entry reads "with the exception of entry 14 in Annex III".
+  // Annex III entry 14, 7 October 2026.
   {
     entry: 1339,
     ingredient: "hydroquinone",
     regulation: "Regulation (EU) No 344/2013",
     verified: "2026-10-07",
     verifiedBy: "owner",
-    exception: "The one exception is professional artificial nail products, at up to 0.02% (Annex III, entry 14).",
     // The entry is one substance (CAS 123-31-9), under its one INCI name.
     names: ["hydroquinone"],
   },
@@ -287,11 +284,6 @@ export const SAFETY_NOTICE_COPY = {
   sheetBody: (entry: number) =>
     `The EU Cosmetics Regulation lists this ingredient as prohibited (Annex II, entry ${entry}). If it is on a label you scanned, check the label.`,
 } as const;
-
-/** What the sheet adds after its body for an entry: its dates, then the one use the entry allows, each when it has one. */
-export function safetyNoticeDetail(entry: SafetyNoticeEntry): string {
-  return [entry.dates, entry.exception].filter(Boolean).map((sentence) => ` ${sentence}`).join("");
-}
 
 export type SafetyNoticeHit = { ingredient: Ingredient; entry: SafetyNoticeEntry };
 

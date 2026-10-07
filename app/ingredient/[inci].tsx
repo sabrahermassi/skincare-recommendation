@@ -20,7 +20,7 @@ import { matchProduct, positionNote, positionWeightLabel, ruleFor, type Contrain
 import { openQuiz } from "@/lib/open-quiz";
 import { CONCERN_TITLE, isPersonalized } from "@/lib/profile";
 import type { IngredientRule } from "@/lib/rules";
-import { contraindications, euAllergenFor, isOriginDependent, isVerified, ORIGIN_DEPENDENT_HEADLINE, regulatoryCondition, regulatoryStatus, SAFETY_NOTICE_COPY, safetyNoticeDetail, safetyNoticeFor } from "@/lib/safety";
+import { contraindications, euAllergenFor, isOriginDependent, isVerified, ORIGIN_DEPENDENT_HEADLINE, regulatoryCondition, regulatoryStatus, SAFETY_NOTICE_COPY, safetyNoticeFor } from "@/lib/safety";
 import { saveFromTap } from "@/lib/saving";
 import { useAppStore } from "@/store/useAppStore";
 import { CARD_RADIUS, CHOSEN, DISPLAY_FONT, HAIRLINE, INK, LINE, MUTED, SPACE, STONE, TOUCH_TARGET, TYPE, VERDICT, VERDICT_NEUTRAL, LEADING, TRACKING } from "@/lib/tokens";
@@ -272,7 +272,7 @@ function IngredientDetail({
                 <Text style={{ fontSize: TYPE.body, fontWeight: "600", color: tone.word }}>{SAFETY_NOTICE_COPY.sheetHeadline}</Text>
                 <Text style={{ fontSize: TYPE.body, lineHeight: LEADING.body, color: INK }}>
                   {SAFETY_NOTICE_COPY.sheetBody(notice.entry)}
-                  {safetyNoticeDetail(notice)}
+                  {notice.dates ? ` ${notice.dates}` : ""}
                 </Text>
               </View>
             ) : null}
@@ -285,7 +285,7 @@ function IngredientDetail({
                 {notice ? (
                   <Text style={{ fontSize: TYPE.body, lineHeight: LEADING.body, color: INK }}>
                     {SAFETY_NOTICE_COPY.sheetBody(notice.entry)}
-                    {safetyNoticeDetail(notice)}
+                    {notice.dates ? ` ${notice.dates}` : ""}
                   </Text>
                 ) : null}
                 {/* A warning's own sentence is the most specific thing we hold (#347). */}
