@@ -1,6 +1,6 @@
 import { BlurView } from "expo-blur";
 import { GlassView, isGlassEffectAPIAvailable, isLiquidGlassAvailable } from "expo-glass-effect";
-import type { ReactNode } from "react";
+import { createContext, type ReactNode } from "react";
 import { Platform, StyleSheet, View, type StyleProp, type ViewStyle } from "react-native";
 
 /**
@@ -16,6 +16,12 @@ export const hasLiquidGlass = (() => {
     return false;
   }
 })();
+
+/**
+ * True inside a surface that is already glass (a floating pop-up), so a control
+ * in it keeps its flat look: glass is never put on glass.
+ */
+export const OnGlass = createContext(false);
 
 /**
  * The one piece of glass in the app (owner, 7 October 2026: the see-through

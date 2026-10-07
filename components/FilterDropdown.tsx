@@ -99,7 +99,8 @@ export function FilterDropdown<T extends string>({
                 ...(hasLiquidGlass ? null : { backgroundColor: WHITE, ...MENU_SHADOW }),
               }}
             >
-              {hasLiquidGlass ? <Glass tint={GLASS_FROST} style={[StyleSheet.absoluteFill, { borderRadius: POPOVER_RADIUS }]} /> : null}
+              {/* Only once measured: a glass under an opacity of 0 does not draw. */}
+              {hasLiquidGlass && anchor ? <Glass tint={GLASS_FROST} style={[StyleSheet.absoluteFill, { borderRadius: POPOVER_RADIUS }]} /> : null}
               <ScrollView
                 style={{ maxHeight: OPTION_HEIGHT * VISIBLE_OPTIONS + POPOVER_PADDING * 2, borderRadius: POPOVER_RADIUS }}
                 contentContainerStyle={{ padding: POPOVER_PADDING }}
