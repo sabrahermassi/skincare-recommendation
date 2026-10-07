@@ -65,6 +65,10 @@ it("lets a profile answer be changed, and then it no longer says it came from th
   await pick("Sensitive skin: Somewhat");
   expect(screen.getByRole("radio", { name: "Sensitive skin: Somewhat" }).props.accessibilityState.checked).toBe(true);
   expect(screen.getAllByText("From your profile")).toHaveLength(1);
+  // Picking the profile's answer again does not bring the tag back: it was chosen here.
+  await pick("Sensitive skin: Very");
+  expect(screen.getByRole("radio", { name: "Sensitive skin: Very" }).props.accessibilityState.checked).toBe(true);
+  expect(screen.getAllByText("From your profile")).toHaveLength(1);
 });
 
 it("asks everything when the profile is empty", async () => {
