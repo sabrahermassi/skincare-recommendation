@@ -146,8 +146,8 @@ coloured word:
 | Card | 17 semibold system | headings inside cards | none |
 
 Button labels are 17 semibold (`TYPE.card`), the same step as a card heading. Text
-actions are 15 semibold in `LINK`, never underlined. A group label (`SectionLabel`) is 13 semibold, capitals, 0.78
-letter-spacing, in `MUTED`.
+actions are 15 semibold in `LINK`, never underlined. A group label (`SectionLabel`) is 13 semibold, capitals,
+`TRACKING.caption` letter-spacing, in `MUTED`.
 
 **Larger text** (`FONT_SCALE`, applied in `components/Text.tsx`): display 1.3,
 UI 1.5, reading text 3.6, icons beside reading text 2. The onboarding intro caps

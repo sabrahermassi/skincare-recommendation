@@ -4,7 +4,7 @@ import Svg, { Circle } from "react-native-svg";
 
 import { Text, useRingScale } from "@/components/Text";
 import type { MatchResult } from "@/lib/matching";
-import { DISPLAY_FONT, INK, scoreColours, VERDICT_LABEL, WHITE, withAlpha, RADIUS, SPACE } from "@/lib/tokens";
+import { DISPLAY_FONT, INK, scoreColours, VERDICT_LABEL, WHITE, withAlpha, RADIUS, SPACE, LEADING, TRACKING, TYPE } from "@/lib/tokens";
 
 /**
  * The score number's size in the ring. The hand-off says PT Serif Bold 34 (30
@@ -15,7 +15,7 @@ const SCORE_SIZE = 32;
 const SCORE_SIZE_FULL = 27;
 
 /** The verdict pill's words (v9: 17/600). */
-export const VERDICT_TEXT_SIZE = 17;
+export const VERDICT_TEXT_SIZE = TYPE.card;
 
 /** The big score ring's drawn size (v7), before it grows with large text. */
 export const RING_SIZE = 96;
@@ -120,7 +120,7 @@ export function VerdictLink({ match, onOpen }: { match: Pick<MatchResult, "score
       style={{ minHeight: 40, borderRadius: RADIUS.control, paddingLeft: SPACE.inset, paddingRight: SPACE.block, flexDirection: "row", alignItems: "center", gap: SPACE.text, backgroundColor: colours.deep }}
       className="active:opacity-80"
     >
-      <Text style={{ flexShrink: 1, fontSize: VERDICT_TEXT_SIZE, lineHeight: 22, fontWeight: "600", letterSpacing: -0.17, color: WHITE }}>{VERDICT_LABEL[match.verdict]}</Text>
+      <Text style={{ flexShrink: 1, fontSize: VERDICT_TEXT_SIZE, lineHeight: LEADING.card, fontWeight: "600", letterSpacing: TRACKING.card, color: WHITE }}>{VERDICT_LABEL[match.verdict]}</Text>
       <View style={{ width: 20, height: 20, borderRadius: 10, borderWidth: 1.5, borderColor: withAlpha(WHITE, 0.75), alignItems: "center", justifyContent: "center" }}>
         <Text maxFontSizeMultiplier={1} style={{ fontSize: 12, fontWeight: "700", color: WHITE }}>
           i

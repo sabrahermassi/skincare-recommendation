@@ -73,7 +73,7 @@ export function TodayRoutineCard({ today, onPress }: { today: Today; onPress: ()
             {kicker}
           </Text>
         </View>
-        <Text maxFontSizeMultiplier={CARD_TEXT_SCALE} numberOfLines={2} style={{ marginTop: SPACE.tight, fontSize: title.length > LONG_TITLE ? TYPE.card : TYPE.title, lineHeight: 22, fontWeight: "600", color: INK }}>
+        <Text maxFontSizeMultiplier={CARD_TEXT_SCALE} numberOfLines={2} style={{ marginTop: SPACE.tight, fontSize: title.length > LONG_TITLE ? TYPE.card : TYPE.title, lineHeight: LEADING.card, fontWeight: "600", color: INK }}>
           {title}
         </Text>
       </View>

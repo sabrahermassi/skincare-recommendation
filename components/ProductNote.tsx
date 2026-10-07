@@ -13,6 +13,7 @@ import {
   DANGER,
   DISPLAY_FONT,
   INK,
+  LEADING,
   MUTED,
   MUTED_FAINT,
   RADIUS,
@@ -133,7 +134,7 @@ export function NoteEditor({
           backgroundColor: CANVAS,
           padding: SPACE.block,
           fontSize: TYPE.body,
-          lineHeight: 22,
+          lineHeight: LEADING.body,
           color: INK,
         }}
       />

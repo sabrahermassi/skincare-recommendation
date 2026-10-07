@@ -1,5 +1,5 @@
 import { Text } from "@/components/Text";
-import { MUTED, SPACE, TYPE } from "@/lib/tokens";
+import { MUTED, SPACE, TRACKING, TYPE } from "@/lib/tokens";
 
 /**
  * A group's small caps label above a card ("WHAT THE NUMBERS MEAN", "GOOD TO
@@ -18,7 +18,7 @@ export function SectionLabel({ title }: { title: string; first?: boolean }) {
         paddingHorizontal: SPACE.tight,
         fontSize: TYPE.caption,
         fontWeight: "600",
-        letterSpacing: 0.78,
+        letterSpacing: TRACKING.caption,
         textTransform: "uppercase",
         color: MUTED,
       }}
