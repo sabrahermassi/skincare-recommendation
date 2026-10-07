@@ -445,6 +445,12 @@ the scanner, How scoring works and the ingredient sheet slide up.
   for you" under a headline that already says "Nothing against it". Every other
   foot line stays. A search for unused tokens, components and `lib` files found
   none, so there was no dead code to remove.
+- **Second pass, 7 October 2026:** the last near-misses went onto the scales
+  (four 17pt line heights under a 15pt label, two paddings of 11 and 13, three
+  spelled-out trackings), and three animations that skipped Reduce Motion now
+  check it. Left alone on purpose: the story cards' own sizes, the scoring
+  sheet's reading leading (25), and Find your actives' hint under the deck,
+  which is cut off on a 6.1 inch phone and is being replaced in another change.
 - **Icons are two sets, not SF Symbols:** Ionicons (`@expo/vector-icons`: menu rows,
   routine, scoring sheet, camera, saved) and the app's own SVG marks (tab bar,
   hearts, stars, ticks, shield). Each screen keeps to one. Moving to SF Symbols
