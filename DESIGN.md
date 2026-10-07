@@ -255,6 +255,10 @@ once (`hasLiquidGlass`); nothing else should call the native glass directly
 - **Where not:** content. Cards, reason boxes, rows and reading text stay flat,
   and glass is never put on glass (the glass thumb inside the plain switch track
   is the one nesting, as in iOS 26's own segmented control).
+- Reduce Transparency: the real glass adapts by itself; the blur fallback draws
+  a solid surface instead (`useReduceTransparency`, `Glass`'s `solid`). The
+  sheets' dim-and-blur scrim and the scanner's blur are not glass and are left
+  as they are.
 - Light only (`colorScheme="light"`). Never set opacity 0 on glass or a parent of
   it: the glass stops drawing.
 

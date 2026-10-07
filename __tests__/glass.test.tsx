@@ -6,8 +6,9 @@ import { Text } from "react-native";
  * else (owner, 7 October 2026). The choice is made once, when the module loads,
  * so each case loads it afresh with the phone it is pretending to be.
  */
-function loadGlass(liquid: boolean) {
+function loadGlass(liquid: boolean, reduceTransparency = false) {
   jest.resetModules();
+  jest.doMock("@/lib/reduce-transparency", () => ({ useReduceTransparency: () => reduceTransparency }));
   jest.doMock("expo-glass-effect", () => {
     const { View } = jest.requireActual("react-native");
     return {
@@ -47,4 +48,22 @@ it("draws the frosted blur, and no glass, where it does not", async () => {
   expect(screen.getByTestId("blur")).toBeTruthy();
   expect(screen.queryByTestId("liquid-glass")).toBeNull();
   expect(screen.getByText("inside")).toBeTruthy();
+});
+
+it("draws a solid surface, and no blur, with Reduce Transparency on and no Liquid Glass", async () => {
+  const { Glass } = loadGlass(false, true);
+  await render(
+    <Glass fill="#fff" solid="#123456">
+      <Text>inside</Text>
+    </Glass>,
+  );
+  expect(screen.queryByTestId("blur")).toBeNull();
+  expect(screen.queryByTestId("liquid-glass")).toBeNull();
+  expect(screen.getByText("inside")).toBeTruthy();
+});
+
+it("leaves the real glass to adapt by itself under Reduce Transparency", async () => {
+  const { Glass } = loadGlass(true, true);
+  await render(<Glass />);
+  expect(screen.getByTestId("liquid-glass")).toBeTruthy();
 });
