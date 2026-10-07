@@ -263,7 +263,11 @@ with confidence tiers, owns acne fit).
   weight. Both lists live in one code constant, `lib/eu-allergens.ts` (INCI
   name, Annex III entry, regulation, source URL, verified date), each name read
   from the consolidated text and never added from memory or from a dictionary
-  note. **Benzyl alcohol (entry 45) is in the constant but exempt**: the entry
+  note. Where Annex III prints a spelling CosIng does not ("Sulphate", "Acetyl
+  Cedrene"), `COSING_SPELLINGS` in the same file holds CosIng's INCI name with
+  its record number, because the dictionary is keyed on CosIng's names; the
+  names the dictionary lacked are in `scripts/data/eu-allergen-names.csv`, for
+  `import:cosing` (#439). **Benzyl alcohol (entry 45) is in the constant but exempt**: the entry
   covers it only when it is not a preservative, which a label cannot show. An
   ingredient that is both an allergen and a `category: "fragrance"` rule is
   charged **once, at the higher of the two** (`ALLERGEN_CHARGE` against the
