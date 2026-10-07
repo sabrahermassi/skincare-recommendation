@@ -231,7 +231,7 @@ function MatchTab({ ingredients, type, match, profile, need }: { ingredients: In
       <>
         <NoticeCard hits={noticeHits} />
         <View style={{ gap: 4, borderRadius: CARD_RADIUS, backgroundColor: VERDICT.medium.wash, padding: SPACE.gutter }}>
-          <Text accessibilityRole="header" style={{ fontSize: TYPE.card, fontWeight: "600", color: VERDICT.medium.deep }}>
+          <Text accessibilityRole="header" style={{ fontSize: TYPE.card, fontWeight: "600", color: VERDICT.medium.word }}>
             We only recognised {identified} of {ingredients.length} names
           </Text>
           <Text style={{ fontSize: TYPE.body, lineHeight: 21, color: INK }}>That&apos;s too few to score it fairly.</Text>
