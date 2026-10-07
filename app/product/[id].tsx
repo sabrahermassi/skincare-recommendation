@@ -25,7 +25,7 @@ import { decodeNeed, needProfile, needVerdict } from "@/lib/journey";
 import { matchProduct } from "@/lib/matching";
 import { openScanner } from "@/lib/open-scanner";
 import { productIdParam } from "@/lib/route-params";
-import { safetyNoticeHitsNow, useSafetyNoticeEnabled } from "@/lib/features";
+import { safetyNoticeHitsNow, useFromSkinNeeds, useSafetyNoticeEnabled } from "@/lib/features";
 import { LIST_AGE_COPY, listAgeNotice, listAgeSentence, listAgeText, type ListAgeNotice } from "@/lib/list-age";
 import { historyWarningCount, SAFETY_NOTICE_COPY } from "@/lib/safety";
 import { saveFromTap, useCanJournal } from "@/lib/saving";
@@ -120,7 +120,8 @@ function ProductScreen({ id, from, need, step, scanned }: { id: string; from?: s
   // (owner, 2 October 2026). History still keeps the skin profile's score,
   // below.
   const ownProfile = useAppStore((s) => s.profile);
-  const journey = useMemo(() => (from === "journey" ? decodeNeed(need) : null), [from, need]);
+  const fromSkinNeeds = useFromSkinNeeds(from);
+  const journey = useMemo(() => (fromSkinNeeds ? decodeNeed(need) : null), [fromSkinNeeds, need]);
   const profile = useMemo(() => (journey ? needProfile(journey) : ownProfile), [journey, ownProfile]);
   const savedProducts = useAppStore((s) => s.savedProducts);
   const toggleSaved = useAppStore((s) => s.toggleSaved);

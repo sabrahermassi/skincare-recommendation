@@ -52,3 +52,13 @@ export function safetyNoticeHitsNow(ingredients: readonly Ingredient[]): SafetyN
 export function useSkinNeedsEnabled(): boolean {
   return useAppStore((state) => __DEV__ && state.skinNeedsEnabled);
 }
+
+/**
+ * Whether a link's `from` says it came from Skin needs, which counts only
+ * while Skin needs is shown: a result opened by an old or hand-written
+ * `?from=journey&need=…` link is then an ordinary result, read against the
+ * skin profile (Codex review on #479).
+ */
+export function useFromSkinNeeds(from: string | undefined): boolean {
+  return useSkinNeedsEnabled() && from === "journey";
+}

@@ -55,6 +55,8 @@ const fetched = fetchProduct as unknown as FetchMock;
 beforeEach(() => {
   fetched.mockClear();
   mockParams = { id: "obf-8801234567890" };
+  // Skin needs is behind a dev-only switch (#467): on here, off in the test that says so.
+  useAppStore.setState({ skinNeedsEnabled: true });
 });
 
 describe.each([
@@ -380,6 +382,14 @@ describe("the product screen opened from the journey", () => {
     await act(async () => {});
     await putTeaserAway();
   }
+
+  // #467: Skin needs is hidden until an expert has checked it, so an old or hand-written link is an ordinary result.
+  it("reads a Skin needs link as an ordinary result while Skin needs is hidden", async () => {
+    useAppStore.setState({ skinNeedsEnabled: false });
+    await open({ from: "journey", need: "dark-marks.." });
+    expect(screen.queryByRole("header", { name: "Works on dark marks" })).toBeNull();
+    expect(screen.getByText(String(matchProduct(PRODUCT, OWN).score))).toBeTruthy();
+  });
 
   it("answers whether it has an active for what was picked, with no score", async () => {
     await open({ from: "journey", need: "dark-marks.." });
