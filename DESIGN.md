@@ -400,6 +400,10 @@ the scanner, How scoring works and the ingredient sheet slide up.
 - Sheets rise on a cubic ease and the segmented thumb springs. Everything
   checks Reduce Motion (`lib/reduce-motion.ts`): with it on, things just appear
   (no slide, zero-length animations).
+- **The intro's pictures pass each other** (`components/shell/OnboardingShell.tsx`):
+  the one leaving drifts off, shrinks and fades as the next drifts in from the
+  other side, both on screen together; the words slide and land first. Skip,
+  the dots and the button never move.
 - **The tip's opening** (`components/home/SkincareTip.tsx`) is Home's one
   authored moment. The envelope comes from its place on Home to the middle; the
   letter starts out of the pocket halfway there, is clear of it as the envelope
