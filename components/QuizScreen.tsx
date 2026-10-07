@@ -6,6 +6,7 @@ import { useSafeAreaInsets } from "react-native-safe-area-context";
 import { BackChevron, CloseCross, IconCircle } from "@/components/IconCircle";
 import { quizTopPadding, useQuizFrame } from "@/components/QuizFrame";
 import { Text } from "@/components/Text";
+import { noOrphan } from "@/lib/text";
 import { goBackOrHome } from "@/lib/go-back";
 import { quizStepCount } from "@/lib/profile";
 import { BUTTON, CANVAS, DISPLAY_FONT, DIVIDER, INK, MUTED, SPACE, TYPE } from "@/lib/tokens";
@@ -108,9 +109,9 @@ export function QuizScreen({
         >
           <View style={{ alignItems: "center", gap: SPACE.text, paddingHorizontal: SPACE.text, paddingBottom: SPACE.section }}>
             <Text accessibilityRole="header" style={{ textAlign: "center", fontFamily: DISPLAY_FONT, fontSize: TYPE.heading, lineHeight: 28, letterSpacing: -0.5, color: INK }}>
-              {title}
+              {noOrphan(title)}
             </Text>
-            {subtitle ? <Text style={{ maxWidth: 320, textAlign: "center", fontSize: TYPE.body, lineHeight: 21, color: MUTED }}>{subtitle}</Text> : null}
+            {subtitle ? <Text style={{ maxWidth: 320, textAlign: "center", fontSize: TYPE.body, lineHeight: 21, color: MUTED }}>{noOrphan(subtitle)}</Text> : null}
           </View>
           {children}
         </FitScrollView>

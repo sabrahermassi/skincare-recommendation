@@ -3,7 +3,7 @@ import { Animated, Pressable, type StyleProp, type ViewStyle } from "react-nativ
 
 import { usePressScale } from "@/components/PressableCard";
 import { Text } from "@/components/Text";
-import { BUTTON, FONT_SCALE } from "@/lib/tokens";
+import { BUTTON, FONT_SCALE, TYPE } from "@/lib/tokens";
 
 /**
  * Every button in the app (v7 design, 29 September 2026): a terracotta pill
@@ -39,7 +39,7 @@ export const BUTTON_HEIGHT = 48;
 const LABEL_LINE_HEIGHT = 20;
 
 /** Tighter lines for a label allowed onto two. */
-const TWO_LINE_HEIGHT = 18;
+const TWO_LINE_HEIGHT = 19;
 
 type Props = {
   label: string;
@@ -107,9 +107,9 @@ export function PrimaryButton({
         {icon}
         <Text
           style={{
-            fontSize: 16,
+            fontSize: TYPE.card,
             fontWeight: "600",
-            letterSpacing: -0.16,
+            letterSpacing: -0.17,
             lineHeight: twoLines ? TWO_LINE_HEIGHT : LABEL_LINE_HEIGHT,
             textAlign: "center",
             includeFontPadding: false,

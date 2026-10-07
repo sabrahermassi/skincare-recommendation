@@ -4,6 +4,7 @@ import { BottomSheet } from "@/components/BottomSheet";
 import { CloseCross, IconCircle } from "@/components/IconCircle";
 import { BUTTON_HEIGHT, BUTTON_WIDTH, PrimaryButton } from "@/components/PrimaryButton";
 import { Text } from "@/components/Text";
+import { noOrphan } from "@/lib/text";
 import { haptic } from "@/lib/haptics";
 import { DESTRUCTIVE_OUTLINE, DISPLAY_FONT, INK, MUTED, TOUCH_TARGET, TYPE, SPACE } from "@/lib/tokens";
 
@@ -54,9 +55,9 @@ export function ConfirmSheet({
       <BottomSheet visible={visible} onClose={onClose} floating corner={corner}>
         <View style={{ alignItems: "center", gap: SPACE.text, paddingTop: 32 }}>
           <Text accessibilityRole="header" style={{ textAlign: "center", fontFamily: DISPLAY_FONT, fontSize: TYPE.heading, lineHeight: 28, letterSpacing: -0.5, color: INK }}>
-            {title}
+            {noOrphan(title)}
           </Text>
-          <Text style={{ maxWidth: 300, textAlign: "center", fontSize: TYPE.body, lineHeight: 21, color: MUTED }}>{line}</Text>
+          <Text style={{ maxWidth: 300, textAlign: "center", fontSize: TYPE.body, lineHeight: 21, color: MUTED }}>{noOrphan(line)}</Text>
           <PrimaryButton label={keepLabel ?? ""} onPress={onClose} style={{ marginTop: SPACE.gutter, width: BUTTON_WIDTH.secondary }} />
           <Pressable
             onPress={() => {
@@ -70,7 +71,7 @@ export function ConfirmSheet({
             style={{ minHeight: TOUCH_TARGET, paddingHorizontal: SPACE.gutter, alignItems: "center", justifyContent: "center", opacity: busy ? 0.6 : 1 }}
             className="active:opacity-70"
           >
-            <Text style={{ fontSize: 16, fontWeight: "600", letterSpacing: -0.16, color: INK }}>{confirmLabel}</Text>
+            <Text style={{ fontSize: TYPE.card, fontWeight: "600", letterSpacing: -0.17, color: INK }}>{confirmLabel}</Text>
           </Pressable>
         </View>
       </BottomSheet>
@@ -80,9 +81,9 @@ export function ConfirmSheet({
     <BottomSheet visible={visible} onClose={onClose} floating corner={corner}>
       <View style={{ alignItems: "center", gap: SPACE.text, paddingTop: 32 }}>
         <Text accessibilityRole="header" style={{ textAlign: "center", fontFamily: DISPLAY_FONT, fontSize: TYPE.heading, lineHeight: 28, letterSpacing: -0.5, color: INK }}>
-          {title}
+          {noOrphan(title)}
         </Text>
-        <Text style={{ maxWidth: 300, textAlign: "center", fontSize: TYPE.body, lineHeight: 21, color: MUTED }}>{line}</Text>
+        <Text style={{ maxWidth: 300, textAlign: "center", fontSize: TYPE.body, lineHeight: 21, color: MUTED }}>{noOrphan(line)}</Text>
         <Pressable
           onPress={() => {
             haptic.warning();
@@ -96,7 +97,7 @@ export function ConfirmSheet({
           style={{ marginTop: SPACE.gutter, width: BUTTON_WIDTH.pair, height: BUTTON_HEIGHT, borderRadius: BUTTON_HEIGHT / 2, backgroundColor: DESTRUCTIVE_OUTLINE.fill, alignItems: "center", justifyContent: "center", opacity: busy ? 0.6 : 1 }}
           className="active:opacity-80"
         >
-          <Text style={{ fontSize: 16, fontWeight: "600", letterSpacing: -0.16, color: DESTRUCTIVE_OUTLINE.label }}>{confirmLabel}</Text>
+          <Text style={{ fontSize: TYPE.card, fontWeight: "600", letterSpacing: -0.17, color: DESTRUCTIVE_OUTLINE.label }}>{confirmLabel}</Text>
         </Pressable>
       </View>
     </BottomSheet>

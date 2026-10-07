@@ -138,14 +138,25 @@ coloured word:
 | Page | 24 / 28 | pushed screens, sheets, pop-ups, empty states | `PageTitle` |
 | Card | 17 semibold system | headings inside cards | none |
 
-Button labels are 16 semibold. Text actions are 15 semibold in `LINK`, never
-underlined. A group label (`SectionLabel`) is 13 semibold, capitals, 0.78
+Button labels are 17 semibold (`TYPE.card`), the same step as a card heading. Text
+actions are 15 semibold in `LINK`, never underlined. A group label (`SectionLabel`) is 13 semibold, capitals, 0.78
 letter-spacing, in `MUTED`.
 
 **Larger text** (`FONT_SCALE`, applied in `components/Text.tsx`): display 1.3,
 UI 1.5, reading text 3.6, icons beside reading text 2. The onboarding intro caps
 its headline and copy at 1.3 on purpose (an accepted trade-off, noted in
 `OnboardingShell`).
+
+Write sizes as `TYPE.*`, never as bare numbers. The scale has no 12, 14, 16, 18 or
+19: those sat within a point of a step and were folded into it on 7 October 2026.
+Exceptions are sized to a fixed shape and stay literal: the number inside the 30pt
+`ScorePill` and the 96pt ring, the "i" on the verdict pill, the 11pt day chip's
+letter on the routine, and the "!" mark in the scanner's announcement.
+
+**Orphans.** A heading or short line never ends on a single word: pass it through
+`noOrphan` (`lib/text.ts`), which joins the last two words with a non-breaking
+space. It is used on page and quiz titles, empty states, confirm sheets and the
+result's title and summary.
 
 ## Spacing
 
@@ -198,7 +209,7 @@ pill, whatever its width (`BUTTON_WIDTH`):
 | 180 (`inCard`) | inside a card: Get my match |
 | 140 (`pair`) | each of a confirm pair (Keep it / Delete) |
 
-Label 16 semibold, white on `BUTTON.primary.fill`. No shadow. Pressing shrinks
+Label 17 semibold, white on `BUTTON.primary.fill`. No shadow. Pressing shrinks
 it slightly. There is no Cancel or "Not now" on a screen that already has a
 back arrow, a close circle or a tab bar, or on a sheet that swipes away. The
 onboarding intro's button is its own flat 56pt pill (`OnboardingShell`).
@@ -305,7 +316,7 @@ the scanner, How scoring works and the ingredient sheet slide up.
   skincare tip as an envelope that opens into a note. While the routine builds,
   `HomeSkeleton` shows grey shapes in the same room.
 - **Product result** (`app/product/[id]`, `components/result/ResultTabs`): the
-  header (bottle, brand 15 `MUTED_FAINT`, name 18 semibold, type 13 `MUTED`) and
+  header (bottle, brand 15 `MUTED_FAINT`, name 17 semibold, type 13 `MUTED`) and
   the Skin match | Ingredients switch on `STONE`, fixed on glass; the result is a
   white sheet (`RADIUS.sheet`) rising over it.
   - *Skin match:* the score ring on the sheet's edge, the verdict pill, a title

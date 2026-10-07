@@ -411,7 +411,7 @@ export function LabelCamera({
                 `ScreenReaderAnnouncer` above — a live region on this
                 conditionally-rendered block would be silent on iOS and web. */}
             <View accessible accessibilityLabel={failureSpeech} style={{ alignItems: "center", gap: 2 }}>
-              <Text style={{ textAlign: "center", fontSize: 15, fontWeight: "600", color: SELECTED }}>
+              <Text style={{ textAlign: "center", fontSize: TYPE.label, fontWeight: "600", color: SELECTED }}>
                 {status.message}
               </Text>
               {status.hint ? (
@@ -431,7 +431,7 @@ export function LabelCamera({
           </View>
         ) : status.kind === "reading" ? (
           <View style={{ alignItems: "center", gap: 2 }}>
-            <Text style={{ fontSize: 15, fontWeight: "600", color: CANVAS }}>{readingCopy.title}</Text>
+            <Text style={{ fontSize: TYPE.label, fontWeight: "600", color: CANVAS }}>{readingCopy.title}</Text>
             <Text style={{ fontSize: TYPE.label - 1, color: withAlpha(CANVAS, 0.8) }}>{readingCopy.line}</Text>
             <QuietLink label={readingCopy.link ?? ""} onPress={cancel} />
           </View>

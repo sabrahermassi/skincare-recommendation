@@ -158,7 +158,7 @@ export function ReportMistakeLink({ subject, button = false }: { subject: Mistak
             }}
             className="active:opacity-80"
           >
-            <Text style={{ fontSize: 16, fontWeight: "600", letterSpacing: -0.16, color: sent ? BUTTON.primary.label : ready ? DESTRUCTIVE_OUTLINE.label : PLACEHOLDER }}>{sent ? "Done" : "Send report"}</Text>
+            <Text style={{ fontSize: TYPE.card, fontWeight: "600", letterSpacing: -0.17, color: sent ? BUTTON.primary.label : ready ? DESTRUCTIVE_OUTLINE.label : PLACEHOLDER }}>{sent ? "Done" : "Send report"}</Text>
           </Pressable>
         </View>
       </BottomSheet>

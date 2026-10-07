@@ -91,7 +91,7 @@ export function StartCard({ active, answers }: { active: StoryActive; answers: P
         <View style={{ flexDirection: "row", paddingBottom: SPACE.text }}>
           <View style={{ width: 84 }} />
           {DAY_LETTERS.map((letter, day) => (
-            <Text key={day} style={{ flex: 1, textAlign: "center", fontSize: 12, fontWeight: "600", color: MUTED_FAINT }}>
+            <Text key={day} style={{ flex: 1, textAlign: "center", fontSize: TYPE.caption, fontWeight: "600", color: MUTED_FAINT }}>
               {letter}
             </Text>
           ))}
