@@ -443,7 +443,11 @@ the scanner, How scoring works and the ingredient sheet slide up.
   `TYPE`'s smallest) and **33 radius literals** remain (dots, bars, half-height
   pills and a few odd sizes such as 13, 18, 24). The ones that matched
   `RADIUS` now use it.
-- **The app icon is a terracotta heart** while the interface is sage and olive.
+- **The app icon is a plain leaf-sage heart on cream** (`#757959`, the button
+  fill; recoloured from terracotta on 7 October 2026 to match the interface):
+  `icon.png`, `favicon.png` and the Android foreground. It is the simplest
+  possible mark, not a designed one; a real icon is the owner's artwork to
+  supply. The Android monochrome icon was not touched.
 - **Two header patterns** (see Headers) and the result's glass header, whose text
   shows through the tab pills while scrolling, are known and deliberate or
   undecided, not accidents.
