@@ -428,6 +428,14 @@ describe("replaceArgs", () => {
     expect("p_parser_refresh" in args).toBe(false);
   });
 
+  // #458: the formula goes through as the parser gave it, so each name's match is stored with it.
+  it("sends each name's match along with the formula", () => {
+    const matched = [{ inci_name: "aqua", position: 0, match: "exact" }, { inci_name: "glycerin", position: 1, match: "corrected" }];
+    for (const action of ["refresh", "reformulated"]) {
+      expect((replaceArgs(row, matched, action) as { p_ingredients: unknown }).p_ingredients).toEqual(matched);
+    }
+  });
+
   it("passes the new formula and only the product's own columns", () => {
     for (const action of ["refresh", "reformulated"]) {
       const args: Record<string, unknown> = replaceArgs(row, fresh, action);

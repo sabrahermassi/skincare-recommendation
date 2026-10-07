@@ -55,9 +55,10 @@ function mockMakeQuery(table: string, selectArg: string) {
   const inlined = select.includes("ingredients ( inci_name");
   const expand = (r: Record<string, unknown>) => ({
     ...r,
-    product_ingredients: (r.product_ingredients as { position: number; inci_name: string }[]).map(
+    product_ingredients: (r.product_ingredients as { position: number; inci_name: string; match_confidence?: string | null }[]).map(
       (join) => ({
         position: join.position,
+        ...("match_confidence" in join ? { match_confidence: join.match_confidence } : {}),
         ingredients: mockDictionaryRows.find((d) => d.inci_name === join.inci_name) ?? null,
       }),
     ),
@@ -669,6 +670,52 @@ describe("the ingredient dictionary", () => {
   });
 
   /**
+   * #458: how each name was matched travels with the product, line for line with its ingredients,
+   * on the product, not on the ingredient objects every product shares.
+   */
+  it("carries how each name was matched, in formula order, from the catalogue read", async () => {
+    mockDictionaryRows = [dictionaryRow("aqua"), dictionaryRow("glycerin")];
+    mockDictionaryCount = 2;
+    mockProductRows = [
+      {
+        ...row("a"),
+        // Out of order on the wire; PostgREST does not promise order.
+        product_ingredients: [
+          { position: 2, inci_name: "glycerin", match_confidence: "corrected" },
+          { position: 1, inci_name: "aqua", match_confidence: "exact" },
+        ],
+      },
+      { ...row("b"), product_ingredients: [{ position: 1, inci_name: "glycerin", match_confidence: "alias" }] },
+    ];
+    mockRowCount = 2;
+
+    const [a, b] = await fetchProducts();
+
+    expect(a.ingredientIds).toEqual(["aqua", "glycerin"]);
+    expect(a.ingredientMatches).toEqual(["exact", "corrected"]);
+    // The shared definition is untouched: product b's glycerin is its own alias, not a's correction.
+    expect(b.ingredientMatches).toEqual(["alias"]);
+    expect(a.ingredients[1]).toBe(b.ingredients[0]);
+    expect(a.ingredients[1]).not.toHaveProperty("match");
+  });
+
+  it("reads a null or unknown stored match as not known, and leaves the field off when no row has the key", async () => {
+    mockDictionaryRows = [dictionaryRow("aqua"), dictionaryRow("glycerin")];
+    mockDictionaryCount = 2;
+    mockProductRows = [
+      { ...row("a"), product_ingredients: [{ position: 1, inci_name: "aqua", match_confidence: null }, { position: 2, inci_name: "glycerin", match_confidence: "guessed" }] },
+      // A product-lookup deployed before the column existed sends no key at all.
+      row("b"),
+    ];
+    mockRowCount = 2;
+
+    const [a, b] = await fetchProducts();
+
+    expect(a.ingredientMatches).toEqual([null, null]);
+    expect(b).not.toHaveProperty("ingredientMatches");
+  });
+
+  /**
    * The trap this step had to close. Once definitions cache separately from
    * products, a dictionary rewrite that adds no products moves neither the
    * product count nor the newest `fetched_at` — so without its own terms in
@@ -829,8 +876,8 @@ describe("a label read", () => {
     invokeMock().mockResolvedValue({
       data: {
         ingredients: [
-          { inci_name: "aqua", position: 0 },
-          { inci_name: "glycerin", position: 1 },
+          { inci_name: "aqua", position: 0, match: "exact" },
+          { inci_name: "glycerin", position: 1, match: "corrected" },
         ],
         recognised: 2,
         total: 2,
@@ -841,9 +888,20 @@ describe("a label read", () => {
     expect(await readLabel("base64")).toEqual({
       ok: true,
       ingredients: ["aqua", "glycerin"],
+      matches: ["exact", "corrected"],
       recognised: 2,
       total: 2,
     });
+  });
+
+  /** #458: a function that sends no match, or one this app does not know, reads as "not known" and stays in line. */
+  it("reads a missing or unknown match as not known, line for line with the names", async () => {
+    invokeMock().mockResolvedValue({
+      data: { ingredients: [{ inci_name: "aqua", position: 0 }, null, { inci_name: "glycerin", position: 2, match: "guessed" }, { inci_name: "niacinamide", position: 3, match: "alias" }], recognised: 3, total: 3 },
+      error: null,
+    });
+
+    expect(await readLabel("base64")).toMatchObject({ ingredients: ["aqua", "glycerin", "niacinamide"], matches: [null, null, "alias"] });
   });
 
   /** A failed read must say why, and not be remembered as an answer of any kind. */

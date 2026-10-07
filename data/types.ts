@@ -313,7 +313,24 @@ export type Product = {
   source?: string;
   /** Ordered INCI list — references `Ingredient.id`. */
   ingredientIds: string[];
+  /**
+   * How each name in `ingredientIds` was reached from what the label printed, line for line with it
+   * (#458). It belongs to the product, not to the `Ingredient`: those objects are shared by every
+   * product holding the name, and one label's typo-fix must not read as another's.
+   *
+   * A `null` entry is "not known", and so is the whole field being unset (a sample product, a cache
+   * or a `product-lookup` from before the column existed). Both read as low confidence
+   * (`isHighConfidenceMatch` in `lib/safety.ts`).
+   */
+  ingredientMatches?: (MatchConfidence | null)[];
 };
+
+/**
+ * How a stored ingredient name was reached: `exact` (the dictionary's own name), `alias` (a known
+ * synonym), `corrected` (one letter fixed) or `rebuilt` (the parser decided where the name starts
+ * or ends). Written by the parsers; see `product_ingredients.match_confidence`.
+ */
+export type MatchConfidence = "exact" | "alias" | "corrected" | "rebuilt";
 
 /** A product with its ingredients resolved, as a detail screen needs it. */
 export type ProductWithIngredients = Product & {

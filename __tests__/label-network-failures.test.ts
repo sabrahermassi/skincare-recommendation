@@ -38,7 +38,7 @@ describe("readLabel", () => {
       data: { ingredients: [{ inci_name: "AQUA" }, null, { inci_name: 7 }, { inci_name: "GLYCERIN" }], recognised: 2, total: 2 },
       error: null,
     });
-    expect(await readLabel("x")).toEqual({ ok: true, ingredients: ["AQUA", "GLYCERIN"], recognised: 2, total: 2 });
+    expect(await readLabel("x")).toEqual({ ok: true, ingredients: ["AQUA", "GLYCERIN"], matches: [null, null], recognised: 2, total: 2 });
   });
 
   it("reports a genuine connection failure as network_error, not unreadable", async () => {

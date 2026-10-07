@@ -419,6 +419,15 @@ Deno.test("a name the label broke across two lines is read whole, even when the 
   assert(readWholeDictionary(db));
 });
 
+Deno.test("each name in the answer says how it was matched (#458)", async () => {
+  const { deps } = setup(dictionaryOf(NAMES), visionReads("Ingredients: Water, Glycerin, Niacinamide, Butylene Glycol, Panthenol"));
+  const reply = await handleLabelOcr(post({ imageBase64: tinyJpeg() }), deps);
+  assertEquals(reply.status, 200);
+  const body = await reply.json();
+  // Read without the dictionary, nothing was repaired: every printed name is the one stored.
+  assertEquals(body.ingredients.map((i: { inci_name: string; match: string }) => [i.inci_name, i.match]), NAMES.map((name) => [name, "exact"]));
+});
+
 Deno.test("an unknown name on one line doesn't cost a label that clears the gate the dictionary", async () => {
   const { db, deps } = setup(
     dictionaryOf(NAMES),

@@ -1,3 +1,5 @@
+import type { MatchConfidence } from "@/data/types";
+
 /**
  * The ingredient list a user has just photographed, held for display on the
  * label result screen.
@@ -11,6 +13,8 @@
 export type HeldLabel = {
   /** The names read off the label, in printed order. */
   ingredients: string[];
+  /** How each name was matched, line for line with `ingredients` (#458). Unset in a read from before it existed. */
+  matches?: (MatchConfidence | null)[];
 };
 
 let held: HeldLabel | null = null;

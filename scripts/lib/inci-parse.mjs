@@ -617,43 +617,100 @@ export function parseInci(text, dictionary, rejected, aliases) {
   const tokens = splitOnSeparators(block)
     .map(normalise)
     .filter((p) => p.length > 1 && p.length < 120 && /[a-z]|\p{Script=Hangul}|\p{Script=Hiragana}|\p{Script=Katakana}|\p{Script=Han}/u.test(p));
-  const delimited = (dictionary ? rejoinSplitNames(tokens, dictionary, aliases) : tokens)
-    .flatMap((name) => {
+  const joined = dictionary ? rejoinSplitNames(tokens, dictionary, aliases) : tokens;
+  const mended = mendedFlags(tokens, joined);
+  const delimited = joined
+    .flatMap((name, at) => {
+      const named = (names, match) => names.map((inci_name) => ({ inci_name, match }));
       if (!dictionary) {
         // Without a dictionary a long real name cannot be recognised as known, so it is
         // exempt from the word limit only; every other check still reads the whole name.
-        if (isPlausibleIngredientName(name, true)) return [name];
+        if (isPlausibleIngredientName(name, true)) return named([name], "exact");
         rejected?.push(name);
         return [];
       }
       const known = resolveKnownName(aliases?.get(name) ?? name, dictionary, aliases);
-      if (dictionary.has(known)) return [known];
+      // A name the comma-mender joined is a boundary the parser chose, not one the label printed.
+      if (dictionary.has(known)) return named([known], mended[at] ? "rebuilt" : matchOf(name, known, dictionary, aliases));
+      // Each part of an "&" or "/" list keeps its own value: the label printed the join.
+      const parts = known.split(/ & |\//).map(normalise);
       const blend = splitBlend(known, dictionary, aliases);
-      if (blend.length > 1) return blend;
+      if (blend.length > 1) return blend.flatMap((part) => named([part], parts.includes(part) ? "exact" : "alias"));
       const listed = splitSlashList(known, dictionary, aliases);
-      if (listed.length > 1) return listed;
+      if (listed.length > 1) return listed.flatMap((part) => named([part], parts.includes(part) ? "exact" : "alias"));
       const salvaged = salvageKnownNames(known, dictionary, aliases);
-      if (salvaged.length > 0) return salvaged;
+      if (salvaged.length > 0) return named(salvaged, "rebuilt");
       if (!isPlausibleIngredientName(known)) {
         rejected?.push(known);
         return [];
       }
       const pieces = splitRunTogether(known, dictionary);
-      return pieces.length > 1 ? pieces : [fuzzyKnownName(known, dictionary, fuzzyAttempts)];
+      if (pieces.length > 1) return named(pieces, "rebuilt");
+      const fixed = fuzzyKnownName(known, dictionary, fuzzyAttempts);
+      return named([fixed], fixed !== known && dictionary.has(fixed) ? "corrected" : null);
     })
-    .map((inci_name, position) => ({ inci_name: aliases?.get(inci_name) ?? inci_name, position }));
+    .map((p, position) => {
+      const inci_name = aliases?.get(p.inci_name) ?? p.inci_name;
+      // A name the synonym table renamed on the way out is an alias, unless it was already less sure than that.
+      return { inci_name, position, match: inci_name !== p.inci_name && (p.match === null || p.match === "exact") ? "alias" : p.match };
+    });
 
   // 4 ── ...and drop repeats, renumbering as it goes.
   return dedupe(delimited);
 }
 
 function dedupe(parsed) {
-  const seen = new Set();
   const out = [];
+  const kept = new Map();
   for (const p of parsed) {
-    if (seen.has(p.inci_name)) continue;
-    seen.add(p.inci_name);
-    out.push({ inci_name: p.inci_name, position: out.length });
+    const held = kept.get(p.inci_name);
+    if (held) {
+      held.match = lowerMatch(held.match, p.match);
+      continue;
+    }
+    const row = { inci_name: p.inci_name, position: out.length, match: p.match };
+    kept.set(p.inci_name, row);
+    out.push(row);
   }
   return out;
+}
+
+/**
+ * How sure the parser is that a stored name is the one the label printed. The ranking, lowest first:
+ * null (not known), rebuilt, corrected, alias, exact. Only the last two are high (`lib/safety.ts`).
+ */
+const MATCH_ORDER = [null, "rebuilt", "corrected", "alias", "exact"];
+
+/** The less sure of two matches. A name printed twice keeps the lower one: the first position, the weakest evidence. */
+function lowerMatch(a, b) {
+  return MATCH_ORDER.indexOf(a) <= MATCH_ORDER.indexOf(b) ? a : b;
+}
+
+/**
+ * How a printed name reached the dictionary name `known`, for the paths that change nothing but
+ * the form of the name: the same name is `exact`; a synonym, a common name or a fixed rewrite is
+ * `alias`. A spacing repair that had to choose between several dictionary spellings is `corrected`,
+ * since a choice was made.
+ */
+function matchOf(printed, known, dictionary, aliases) {
+  if (known === printed) return "exact";
+  if (aliases?.get(printed) === known || commonNameFor(printed) === known) return "alias";
+  const spellings = squashIndex(dictionary).get(squashKey(known));
+  return squashKey(printed) === squashKey(known) && (spellings?.length ?? 0) > 1 ? "corrected" : "alias";
+}
+
+/**
+ * Which names `rejoinSplitNames` joined, by position in its answer: a joined name is a boundary the
+ * parser chose, not one the label printed. Read from the two lists rather than from the names, so a
+ * name that is also printed intact elsewhere keeps its own history.
+ */
+function mendedFlags(tokens, joined) {
+  const flags = [];
+  let at = 0;
+  for (const name of joined) {
+    const intact = tokens[at] === name;
+    flags.push(!intact);
+    at += intact ? 1 : 2;
+  }
+  return flags;
 }

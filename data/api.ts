@@ -27,6 +27,7 @@ import { PRODUCTS } from "./products";
 import {
   unknownIngredient,
   type Ingredient,
+  type MatchConfidence,
   type Product,
   type ProductType,
   type ProductWithIngredients,
@@ -407,6 +408,8 @@ type CatalogueRow = {
   ingredients_photographed_at?: string | null;
   product_ingredients: {
     position: number;
+    /** Missing, rather than null, from a `product-lookup` deployed before the column existed (#458). */
+    match_confidence?: string | null;
     ingredients: {
       inci_name: string;
       comedogenic: number | null;
@@ -426,7 +429,7 @@ type CatalogueRow = {
  * foreign key itself — so this needs no join to `ingredients` at all.
  */
 type CatalogueListRow = Omit<CatalogueRow, "product_ingredients"> & {
-  product_ingredients: { position: number; inci_name: string }[];
+  product_ingredients: { position: number; inci_name: string; match_confidence?: string | null }[];
 };
 
 /** One ingredient definition, keyed by INCI name. */
@@ -439,7 +442,7 @@ const PRODUCT_COLUMNS = `
 
 /** One product, with its formula inlined. For reads of a single row. */
 const SELECT = `${PRODUCT_COLUMNS},
-  product_ingredients ( position, ingredients ( inci_name, comedogenic, safety, note, verified, functions ) )
+  product_ingredients ( position, match_confidence, ingredients ( inci_name, comedogenic, safety, note, verified, functions ) )
 `;
 
 /**
@@ -452,7 +455,7 @@ const SELECT = `${PRODUCT_COLUMNS},
  * is unique to the product: which names, in which order.
  */
 const LIST_SELECT = `${PRODUCT_COLUMNS},
-  product_ingredients ( position, inci_name )
+  product_ingredients ( position, match_confidence, inci_name )
 `;
 
 const DICTIONARY_SELECT = "inci_name, comedogenic, safety, note, verified, functions";
@@ -486,17 +489,34 @@ function toIngredient(source: {
 }
 
 
+const MATCH_VALUES: readonly string[] = ["exact", "alias", "corrected", "rebuilt"];
+
+/** A stored match, or null for anything that is not one of the four: "not known". */
+function toMatch(value: string | null | undefined): MatchConfidence | null {
+  return value != null && MATCH_VALUES.includes(value) ? (value as MatchConfidence) : null;
+}
+
+/**
+ * The matches of a product's join rows, in the order the rows are given. Undefined when no row
+ * carries the key at all (a `product-lookup` deployed before the column existed), so a product
+ * that nobody asked about is not mistaken for one whose matches are all unknown, and a cached
+ * answer is not overwritten by it.
+ */
+function matchesOf(joins: { match_confidence?: string | null }[]): (MatchConfidence | null)[] | undefined {
+  return joins.some((join) => "match_confidence" in join) ? joins.map((join) => toMatch(join.match_confidence)) : undefined;
+}
+
 function rowToProduct(row: CatalogueRow): ProductWithIngredients {
-  const ingredients = row.product_ingredients
+  const joins = row.product_ingredients
     // `!= null` rather than `!== null`: a join whose `ingredients` is absent
     // entirely — an Edge Function response built from a narrower select than
     // this type claims — would otherwise pass the guard and throw one line
     // later, inside a map, on a field nothing had checked.
     .filter((join) => join.ingredients != null)
-    .sort((a, b) => a.position - b.position)
-    .map((join) => toIngredient(join.ingredients as NonNullable<typeof join.ingredients>));
+    .sort((a, b) => a.position - b.position);
+  const ingredients = joins.map((join) => toIngredient(join.ingredients as NonNullable<typeof join.ingredients>));
 
-  return buildProduct(row, ingredients);
+  return buildProduct(row, ingredients, matchesOf(joins));
 }
 
 /**
@@ -512,8 +532,8 @@ function listRowToProduct(
   row: CatalogueListRow,
   dictionary: IngredientDictionary
 ): ProductWithIngredients {
-  const ingredients = [...row.product_ingredients]
-    .sort((a, b) => a.position - b.position)
+  const joins = [...row.product_ingredients].sort((a, b) => a.position - b.position);
+  const ingredients = joins
     // A name the dictionary did not carry.
     //
     // Reachable in one narrow race: a product written between the dictionary read
@@ -523,12 +543,13 @@ function listRowToProduct(
     // quieter, worse lie than an unrecognised name.
     .map((join) => dictionary.get(join.inci_name) ?? unknownIngredient(join.inci_name));
 
-  return buildProduct(row, ingredients);
+  return buildProduct(row, ingredients, matchesOf(joins));
 }
 
 function buildProduct(
   row: Omit<CatalogueRow, "product_ingredients">,
-  ingredients: Ingredient[]
+  ingredients: Ingredient[],
+  matches: (MatchConfidence | null)[] | undefined
 ): ProductWithIngredients {
   return {
     id: row.id,
@@ -554,6 +575,8 @@ function buildProduct(
     ingredientsPhotographedAt: row.ingredients_photographed_at,
     source: row.source,
     ingredientIds: ingredients.map((i) => i.id),
+    // Left off, not set to undefined, when nobody asked: the cache tells the two apart by the key.
+    ...(matches ? { ingredientMatches: matches } : {}),
     ingredients,
   };
 }
@@ -1265,6 +1288,8 @@ export type LabelRead =
       ok: true;
       /** The names read off the label, in printed order. */
       ingredients: string[];
+      /** How each name was matched, line for line with `ingredients` (#458). */
+      matches: (MatchConfidence | null)[];
       recognised: number;
       total: number;
     }
@@ -1361,12 +1386,15 @@ export async function readLabel(imageBase64: string): Promise<LabelRead> {
   const read = data?.ingredients;
   if (!Array.isArray(read)) return { ok: false, reason: "unreadable" };
 
+  const valid = read.flatMap((entry: { inci_name?: unknown; match?: unknown } | null) =>
+    typeof entry?.inci_name === "string" ? [{ inci_name: entry.inci_name, match: entry.match }] : [],
+  );
   return {
     ok: true,
     // A malformed entry is skipped rather than thrown on (#152).
-    ingredients: read.flatMap((entry: { inci_name?: unknown } | null) =>
-      typeof entry?.inci_name === "string" ? [entry.inci_name] : [],
-    ),
+    ingredients: valid.map((entry) => entry.inci_name),
+    // Built from the same entries, so the two stay line for line.
+    matches: valid.map((entry) => toMatch(typeof entry.match === "string" ? entry.match : null)),
     recognised: Number(data.recognised ?? 0),
     total: Number(data.total ?? 0),
   };

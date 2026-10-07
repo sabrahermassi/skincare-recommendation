@@ -55,6 +55,9 @@ const SHARED_FUNCTIONS = [
   "salvageKnownNames",
   "parseIngredientBlock",
   "dedupe",
+  "lowerMatch",
+  "matchOf",
+  "mendedFlags",
 ];
 
 /**
@@ -196,6 +199,8 @@ function extractRegexLiteral(source: string, marker: string): string {
  */
 function stripTypes(body: string): string {
   return body
+    .replace(/: MatchConfidence \| null/g, "")
+    .replace(/: MatchConfidence/g, "")
     .replace(/: ParsedIngredient\[\]/g, "")
     .replace(/\?: ReadonlyMap<string, string>/g, "")
     .replace(/: ReadonlySet<string>/g, "")
@@ -246,6 +251,9 @@ describe("the import scripts stay in step with lib/inci.ts", () => {
     "fuzzyKnownName",
     "salvageKnownNames",
     "dedupe",
+    "lowerMatch",
+    "matchOf",
+    "mendedFlags",
   ])("inci-parse.mjs has the canonical %s()", (fn: string) => {
     expect(extractFunctionBody(parseMjs, fn)).toBe(stripTypes(extractFunctionBody(client, fn)));
   });

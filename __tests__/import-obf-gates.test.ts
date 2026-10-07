@@ -72,6 +72,12 @@ describe("the import rejects what it cannot believe", () => {
     expect(row.ingredients[0].inci_name).toBe("aqua");
   });
 
+  // #458: the importer stores what the parser returns, so each name's match reaches the database.
+  it("keeps each name's match, for the database to store", () => {
+    const row = expectKept(toRow(obfProduct(), KNOWN, []));
+    expect(row.ingredients.map((i: { match: string | null }) => i.match)).toEqual(row.ingredients.map(() => "exact"));
+  });
+
   // The done-when for step 5, stated as a test rather than as a paragraph of
   // dry-run output. Every name here is plausible-looking text that is not an
   // ingredient — which is exactly what an OCR smear or a marketing paragraph
@@ -194,9 +200,9 @@ describe("the parser matches lib/inci.ts", () => {
   it("deduplicates a repeated name and renumbers positions", () => {
     const parsed = parseInci("Aqua, Glycerin, Aqua, Panthenol");
     expect(parsed).toEqual([
-      { inci_name: "aqua", position: 0 },
-      { inci_name: "glycerin", position: 1 },
-      { inci_name: "panthenol", position: 2 },
+      { inci_name: "aqua", position: 0, match: "exact" },
+      { inci_name: "glycerin", position: 1, match: "exact" },
+      { inci_name: "panthenol", position: 2, match: "exact" },
     ]);
   });
 
