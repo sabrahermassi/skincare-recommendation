@@ -309,6 +309,15 @@ describe("allowed with limits (#407)", () => {
     expect(regulatoryStatus(safe)).toBe("No EU listing found");
   });
 
+  // #469 review (Codex): an ingredient the dictionary cites in Annex IV, V or VI is listed, whatever its rating.
+  it("says which positive annex lists an ingredient it cites there, never 'No EU listing found'", () => {
+    const cited = (note: string): Ingredient => ({ id: "x", name: "phenyl mercuric borate", comedogenic: 0, safety: "safe", verified: true, note });
+    expect(regulatoryStatus(cited("EU Annex V/17"))).toBe("Listed in EU Annex V");
+    expect(regulatoryStatus(cited("Allowed (EU Annex VI/3)"))).toBe("Listed in EU Annex VI");
+    expect(regulatoryStatus(cited("EU Annex IV/12"))).toBe("Listed in EU Annex IV");
+    expect(regulatoryStatus(cited("Some other note"))).toBe("No EU listing found");
+  });
+
   // #469: the dictionary finding no entry is not a finding that a substance is safe.
   it("never says 'safe' in an ingredient's EU status or in the words the status draws on", () => {
     const named = (name: string, overrides: Partial<Ingredient> = {}): Ingredient => ({ id: name, name, comedogenic: 0, safety: "safe", verified: true, functions: [], ...overrides });

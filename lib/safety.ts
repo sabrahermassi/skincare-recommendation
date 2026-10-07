@@ -74,6 +74,10 @@ export function regulatoryStatus(ingredient: Ingredient): string {
   if (ingredient.note?.startsWith(REFINED_GRADE_NOTE_START)) return "Allowed when refined";
   if (ingredient.note?.startsWith(NATURAL_ESSENCE_NOTE_START)) return "Allowed, with a limit on furocoumarins";
   if (isOriginDependent(ingredient)) return ORIGIN_DEPENDENT_HEADLINE;
+  // Annex IV (colourants), V (preservatives) and VI (UV filters) are positive lists: an ingredient the
+  // dictionary cites there is listed, with limits, even though its rating is `safe` (phenyl mercuric borate, #419).
+  const positiveList = /\bEU Annex (IV|V|VI)\b/.exec(ingredient.note ?? "")?.[1];
+  if (positiveList) return `Listed in EU Annex ${positiveList}`;
   return EU_ALLERGEN_COPY.noneListed;
 }
 
