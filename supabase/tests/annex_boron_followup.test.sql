@@ -1,4 +1,4 @@
--- Migration 0034's rules (#419, PR 434). Each row it must change is paired with a row it must leave
+-- Migration 0033's rules (#419, PR 434). Each row it must change is paired with a row it must leave
 -- alone, and the file is run twice to prove the second run changes nothing.
 
 \set ON_ERROR_STOP on
@@ -16,8 +16,8 @@ insert into ingredients (inci_name, source, verified, safety, note) values
   ('phenyl mercuric acetate', 'obf', true, 'safe', 'EU Annex V/17'),
   ('hydrogen peroxide', 'obf', true, 'caution', 'Restricted use (EU Annex III/12)');
 
-\ir ../migrations/0034_annex_boron_followup.sql
-\ir ../migrations/0034_annex_boron_followup.sql
+\ir ../migrations/0033_annex_boron_followup.sql
+\ir ../migrations/0033_annex_boron_followup.sql
 
 do $$
 declare
