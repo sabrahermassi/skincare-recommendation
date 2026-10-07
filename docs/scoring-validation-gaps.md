@@ -41,7 +41,8 @@ mean of 63 with 220 Good, 502 Fair and 385 Poor. Every movement was downward:
 Re-measured with the same command on 2,846 products with a formula (10 refused
 for every profile), `main` against `main` + #407. Only reactive and unset
 sensitivity are charged for an Annex III ingredient, and now only the EU's
-allergen entries (CLAUDE.md, "EU restricted"). The two "not sensitive" rows are
+allergen entries (CLAUDE.md, "EU restricted"; detail in docs/decisions.md,
+"EU 'restricted' (Annex III)"). The two "not sensitive" rows are
 unchanged, bar one product that drops 1 point under a new essential-oil rule.
 
 | Profile | Scored | Mean | P25 | Median | P75 | Excellent | Good | Fair | Poor |

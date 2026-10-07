@@ -43,24 +43,28 @@ app/                       file-based routes (expo-router)
   _layout.tsx               root Stack; font loading, store-hydration gate
   (tabs)/                    bottom-tab group — the returning-user experience
     _layout.tsx               tab bar; redirects to onboarding if unseen
-    index.tsx                 Home — landing tab; scan card, search, profile summary
-    scanner.tsx               Scan — full-screen camera, opened from the raised middle tab button
-    browse.tsx                Browse — searchable product catalogue
+    index.tsx                 Home — scan card, Skin Needs and Routine tiles, today's tip
+    school.tsx                School — ask a skincare question
+    scan.tsx                  holds the raised middle button's place; the button opens scanner.tsx
     saved.tsx                 Saved shelf + scan history
-    profile.tsx                menu — skin profile, support, privacy, delete
+    profile.tsx               menu — skin profile, support, privacy, account
+  scanner.tsx                 full-screen camera modal: barcode and label-photo modes
   onboarding/
-    index.tsx                 3-screen first-launch carousel
-    (quiz)/                    4-step skin-profile quiz
-  product/[id].tsx            the one product/result screen (scan and browse both land here)
-  result/[id].tsx             re-exports product/[id] — the scanner's own route name for it
-  ingredients/[id].tsx        full ingredient list for a product
-  ingredient/[inci].tsx       single-ingredient detail
-  scan-label.tsx              ingredient-label photo capture (modal)
-  add-product.tsx             name a scanned label so it joins the shared catalogue
+    index.tsx                 first-launch carousel
+  quiz/                       skin-profile quiz (concerns, skin type, sensitivity, pregnancy)
+  product/[id].tsx            the one product/result screen
+  result/[id].tsx             the scanner's own route name for it
+  label-result.tsx            result of a label-photo read
+  ingredient/[inci].tsx       single-ingredient detail (sheet)
+  scoring.tsx                 how the score works (sheet)
+  journey.tsx                 Skin Needs; journey-story.tsx is one story
+  routine.tsx                 the routine builder
+  scan-label.tsx              old link; redirects to the scanner's photo mode
   skin-profile.tsx            skin-profile editor (reached from the Profile menu)
+  account.tsx, sign-in.tsx    account: export, delete, sign in
   privacy.tsx                 what the app stores, per docs/privacy-disclosures.md
   support.tsx                 help text + contact, if EXPO_PUBLIC_SUPPORT_EMAIL is set
-store/useAppStore.ts       skin profile, saved products, scan history, onboarding flag
+store/useAppStore.ts       the one Zustand store (profile, saved shelf, routine, history, flags)
 data/api.ts                 the only data seam — Supabase-backed, sample-data fallback
 lib/                        scoring engine, ingredient rules, design tokens
 global.css                  tailwind directives
@@ -69,16 +73,13 @@ tailwind.config.js          nativewind preset + content globs
 
 ## Notes
 
-- **Tailwind must stay on v3.** NativeWind 4's runtime declares `tailwindcss: "~3"`
-  as a hard peer; Tailwind 4 breaks it.
+- Build constraints (Tailwind v3, `reactCompiler` off) are in `CLAUDE.md`.
 - **Barcode scanning on web was QR-only as of SDK 54** (`expo-camera` used jsQR
   in the browser; EAN-13 / UPC-A scanned on iOS and Android only, with the scan
   screen showing a notice on web rather than failing silently) — **unverified
   since the SDK 57 upgrade**, which added a `barcode-detector` ponyfill with
   full web format support. Issue #11 was closed on that reading, not on a
-  webcam test — see `CLAUDE.md` and `docs/decisions.md`. Web is parked for the
+  webcam test — see `docs/decisions.md`, "SDK and platform history". Web is parked for the
   MVP, so the untested end-to-end path stays a note rather than something to
   chase.
 - Web camera needs a secure context — `localhost` is fine, a LAN IP is not.
-- `experiments.reactCompiler` is off; it conflicts with NativeWind's
-  `jsxImportSource`. Re-enable and retest once the app is stable.

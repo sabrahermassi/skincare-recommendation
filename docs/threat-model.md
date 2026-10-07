@@ -235,7 +235,8 @@ second table is planned; if that ever changes, it gets its own row.
   testing a step behind whatever Expo Go currently ships, independent of
   anything decided here. That is a real, ongoing cost of the Expo Go
   constraint itself, not a cost specific to on-device OCR — see `CLAUDE.md`'s
-  Expo SDK section for the current state of that trade-off. The conclusion
+  "Constraints" and `docs/decisions.md`, "SDK and platform history", for the
+  current state of that trade-off. The conclusion
   above does not change: on-device OCR still needs a development build
   either way, and this project still does not have one.
 
