@@ -32,7 +32,7 @@ import { EMPTY_PROFILE } from "@/store/useAppStore";
 import { noOrphan } from "@/lib/text";
 
 type Tab = "match" | "ingredients";
-type Tone = { solid: string; deep: string; wash: string; halo: string };
+type Tone = { solid: string; deep: string; word: string; wash: string; halo: string };
 
 // The one pairing note that is pure scheduling, not a cost.
 const EVENING_NOTE = "retinoid-evening";
@@ -231,7 +231,7 @@ function MatchTab({ ingredients, type, match, profile, need }: { ingredients: In
       <>
         <NoticeCard hits={noticeHits} />
         <View style={{ gap: 4, borderRadius: CARD_RADIUS, backgroundColor: VERDICT.medium.wash, padding: SPACE.gutter }}>
-          <Text accessibilityRole="header" style={{ fontSize: TYPE.card, fontWeight: "600", color: VERDICT.medium.deep }}>
+          <Text accessibilityRole="header" style={{ fontSize: TYPE.card, fontWeight: "600", color: VERDICT.medium.word }}>
             We only recognised {identified} of {ingredients.length} names
           </Text>
           <Text style={{ fontSize: TYPE.body, lineHeight: 21, color: INK }}>That&apos;s too few to score it fairly.</Text>
@@ -292,7 +292,7 @@ function NoticeCard({ hits }: { hits: SafetyNoticeHit[] }) {
         <SafetyShield />
       </View>
       <View style={{ flex: 1, gap: 4 }}>
-        <Text accessibilityRole="header" style={{ fontSize: TYPE.card, fontWeight: "600", color: VERDICT.low.deep }}>
+        <Text accessibilityRole="header" style={{ fontSize: TYPE.card, fontWeight: "600", color: VERDICT.low.word }}>
           {SAFETY_NOTICE_COPY.cardTitle}
         </Text>
         {hits.map((hit) => (
@@ -724,13 +724,13 @@ function PregnancyCard({ match }: { match: MatchResult }) {
   if (pregnancy.length === 0) return null;
   return (
     <View style={{ flexDirection: "row", alignItems: "flex-start", gap: SPACE.block, borderRadius: CARD_RADIUS, backgroundColor: VERDICT.low.wash, padding: SPACE.gutter }}>
-      <View style={{ width: 28, height: 28, borderRadius: 14, alignItems: "center", justifyContent: "center", backgroundColor: VERDICT.low.solid }}>
+      <View style={{ width: 28, height: 28, borderRadius: RADIUS.control, alignItems: "center", justifyContent: "center", backgroundColor: VERDICT.low.solid }}>
         <Svg width={14} height={14} viewBox="0 0 24 24" fill="none">
           <Path d="M12 7v6M12 17h.01" stroke={WHITE} strokeWidth={2.8} strokeLinecap="round" />
         </Svg>
       </View>
       <View style={{ flex: 1, gap: 2 }}>
-        <Text accessibilityRole="header" style={{ fontSize: TYPE.card, fontWeight: "600", color: VERDICT.low.deep }}>
+        <Text accessibilityRole="header" style={{ fontSize: TYPE.card, fontWeight: "600", color: VERDICT.low.word }}>
           Best avoided while pregnant
         </Text>
         <Text style={{ fontSize: TYPE.body, lineHeight: 21, color: INK }}>
@@ -874,7 +874,7 @@ function RiskRow({ title, risk, divider = false, onPress }: { title: string; ris
           {risk.note}
         </Text>
       </View>
-      <Text style={{ fontSize: TYPE.label, fontWeight: "600", color: tone.deep }}>{risk.level}</Text>
+      <Text style={{ fontSize: TYPE.label, fontWeight: "600", color: tone.word }}>{risk.level}</Text>
     </Pressable>
   );
 }

@@ -11,7 +11,7 @@ import { BackChevron, IconCircle } from "@/components/IconCircle";
 import { BUTTON_HEIGHT } from "@/components/PrimaryButton";
 import { Hand, StarIcon, Tick } from "@/components/skin-needs/bits";
 import { Text } from "@/components/Text";
-import type { Sensitivity } from "@/data/types";
+import type { Pregnancy, Sensitivity, SkinProfile } from "@/data/types";
 import { goBackOrHome } from "@/lib/go-back";
 import { haptic } from "@/lib/haptics";
 import { GOALS, type GoalKey } from "@/lib/journey";
@@ -19,7 +19,7 @@ import { reduceMotionNow } from "@/lib/reduce-motion";
 import { encodeAnswers, familyOf, hiddenLine, holdsActive, optionsFor, safeOnly, storyLength, storyLengthLine, type NeedAnswers, type StoryActive } from "@/lib/skin-needs";
 import { useOwnProducts } from "@/lib/use-own-products";
 import { ACTIVES_IN_USE, GOAL_OPTIONS, type ActiveKey } from "@/lib/skin-needs-data";
-import { BUTTON, CANVAS, CANVAS_GLASS, CHOSEN, DISPLAY_FONT, ICON_SHADOW, INK, LINK, MUTED, MUTED_FAINT, SKIN_NEEDS, SPACE, STAR_ON, SURFACE, WHITE, TYPE, RADIUS } from "@/lib/tokens";
+import { BUTTON, CANVAS, CANVAS_GLASS, CHOSEN, DISPLAY_FONT, ICON_SHADOW, INK, LINK, MUTED, MUTED_FAINT, SKIN_NEEDS, SPACE, STAR_ON, SURFACE, TOUCH_TARGET, WHITE, TYPE, RADIUS } from "@/lib/tokens";
 import { useAppStore } from "@/store/useAppStore";
 import { noOrphan } from "@/lib/text";
 
@@ -28,6 +28,8 @@ const CARD_WIDTH = 292;
 const CARD_HEIGHT = 470;
 const CARD_GAP = 12;
 const CARD_SIDE = 24;
+/** The goals shown before "more". */
+const FIRST_GOALS = 6;
 
 const SENSITIVITY_OPTIONS: readonly { value: Sensitivity; label: string; chip: string }[] = [
   { value: "none", label: "Not sensitive", chip: "Not sensitive" },
@@ -47,6 +49,22 @@ const PREGNANCY_OPTIONS: readonly { value: NonNullable<NeedAnswers["pregnancy"]>
  */
 type Draft = Omit<NeedAnswers, "goal" | "uses"> & { goal: GoalKey | null; used: string[] };
 
+/** The profile's pregnancy answer in this screen's three words. */
+const PREGNANCY_FROM_PROFILE: Record<Pregnancy, NonNullable<NeedAnswers["pregnancy"]>> = {
+  pregnant: "yes",
+  breastfeeding: "yes",
+  neither: "no",
+  "prefer-not-to-say": "unsaid",
+};
+
+/** What the skin profile already says about sensitivity and pregnancy; null where it says nothing. */
+function fromProfile(profile: SkinProfile): Pick<NeedAnswers, "sensitivity" | "pregnancy"> {
+  return {
+    sensitivity: profile.sensitivity,
+    pregnancy: profile.pregnancyStatus ? PREGNANCY_FROM_PROFILE[profile.pregnancyStatus] : null,
+  };
+}
+
 function usesOf(used: readonly string[]): ActiveKey[] {
   return [...new Set(ACTIVES_IN_USE.filter(({ label }) => used.includes(label)).map(({ active }) => active))];
 }
@@ -57,11 +75,20 @@ function usesOf(used: readonly string[]): ActiveKey[] {
  * opens its story (`app/journey-story.tsx`), which can add the active to the
  * routine. It replaced the flip-card deck.
  *
- * Its own path (owner): nothing is read from the skin profile or saved to it,
- * and nothing is filled in ahead.
+ * Sensitivity and pregnancy start from the skin profile when it holds them
+ * (owner, 7 October 2026: a person should not be asked twice), still tappable;
+ * nothing is saved back to the profile. The goal and the actives in use are
+ * always asked fresh.
  */
 export default function Journey() {
-  const [draft, setDraft] = useState<Draft>({ goal: null, sensitivity: null, pregnancy: null, used: [] });
+  const profile = useAppStore((state) => state.profile);
+  const [draft, setDraft] = useState<Draft>(() => ({ goal: null, ...fromProfile(profile), used: [] }));
+  // Which of the profile's two answers were changed here: one that was says so no longer, even if picked again.
+  const [edited, setEdited] = useState({ sensitivity: false, pregnancy: false });
+  const change = (next: Draft) => {
+    setEdited((was) => ({ sensitivity: was.sensitivity || next.sensitivity !== draft.sensitivity, pregnancy: was.pregnancy || next.pregnancy !== draft.pregnancy }));
+    setDraft(next);
+  };
   const [showing, setShowing] = useState(false);
   const goal = draft.goal;
   if (showing && goal) {
@@ -70,18 +97,24 @@ export default function Journey() {
         answers={{ goal, sensitivity: draft.sensitivity, pregnancy: draft.pregnancy, uses: usesOf(draft.used) }}
         onBack={() => setShowing(false)}
         // "Not pregnant? Change": the answer becomes no, and the hidden ones come back.
-        onNotPregnant={() => setDraft((d) => ({ ...d, pregnancy: "no" }))}
+        onNotPregnant={() => change({ ...draft, pregnancy: "no" })}
       />
     );
   }
-  return <Questions draft={draft} onChange={setDraft} onShow={() => setShowing(true)} />;
+  return <Questions draft={draft} edited={edited} onChange={change} onShow={() => setShowing(true)} />;
 }
 
 // ── Q1 ──────────────────────────────────────────────────────────────────────
 
-function Questions({ draft, onChange, onShow }: { draft: Draft; onChange: (next: Draft) => void; onShow: () => void }) {
+function Questions({ draft, edited, onChange, onShow }: { draft: Draft; edited: { sensitivity: boolean; pregnancy: boolean }; onChange: (next: Draft) => void; onShow: () => void }) {
   const insets = useSafeAreaInsets();
   const ready = draft.goal !== null;
+  // The tag says where an answer came from, until it is changed.
+  const sensitivityTag = draft.sensitivity !== null && !edited.sensitivity ? "From your profile" : "Optional";
+  const pregnancyTag = draft.pregnancy !== null && !edited.pregnancy ? "From your profile" : "Optional";
+  // Thirteen goals at once is a wall: the first few, and the rest a tap away (always open for a goal that is in the rest).
+  const [moreGoals, setMoreGoals] = useState(false);
+  const shownGoals = moreGoals || (draft.goal !== null && GOALS.findIndex((g) => g.key === draft.goal) >= FIRST_GOALS) ? GOALS : GOALS.slice(0, FIRST_GOALS);
   const [headerHeight, setHeaderHeight] = useState(insets.top + 56);
   const [footer, setFooter] = useState({ width: 0, height: 0 });
   const [scrollY] = useState(() => new Animated.Value(0));
@@ -96,12 +129,24 @@ function Questions({ draft, onChange, onShow }: { draft: Draft; onChange: (next:
       >
         <QuestionCard title="What do you want to work on?" tag="Pick one">
           <Chips accessibilityLabel="What do you want to work on?">
-            {GOALS.map(({ key, label }) => (
+            {shownGoals.map(({ key, label }) => (
               <Chip key={key} label={label} on={draft.goal === key} onPress={() => onChange({ ...draft, goal: key })} />
             ))}
+            {shownGoals.length < GOALS.length ? (
+              <Pressable
+                onPress={() => setMoreGoals(true)}
+                accessibilityRole="button"
+                accessibilityLabel={`Show ${GOALS.length - shownGoals.length} more goals`}
+                hitSlop={(TOUCH_TARGET - 40) / 2}
+                style={{ height: 40, paddingHorizontal: 14, borderRadius: RADIUS.control, borderWidth: 1, borderColor: SKIN_NEEDS.line, justifyContent: "center" }}
+                className="active:opacity-70"
+              >
+                <Text style={{ fontSize: TYPE.card, fontWeight: "600", color: LINK }}>+ {GOALS.length - shownGoals.length} more</Text>
+              </Pressable>
+            ) : null}
           </Chips>
         </QuestionCard>
-        <QuestionCard title="Is your skin sensitive?" tag="Optional" note="Very sensitive puts the gentlest options first. Skipped: we treat your skin as somewhat sensitive.">
+        <QuestionCard title="Is your skin sensitive?" tag={sensitivityTag} note="Very sensitive puts the gentlest options first. Skipped: we treat your skin as somewhat sensitive.">
           <Chips accessibilityLabel="Is your skin sensitive?">
             {SENSITIVITY_OPTIONS.map(({ value, label }) => (
               <Chip
@@ -117,7 +162,7 @@ function Questions({ draft, onChange, onShow }: { draft: Draft; onChange: (next:
         </QuestionCard>
         <QuestionCard
           title="Pregnant or breastfeeding?"
-          tag="Optional"
+          tag={pregnancyTag}
           note="We leave out ingredients commonly advised against while pregnant or breastfeeding. Skipped: we show only the safe ones."
         >
           <Chips accessibilityLabel="Pregnant or breastfeeding?">
@@ -279,7 +324,7 @@ function Options({ answers, onBack, onNotPregnant }: { answers: NeedAnswers; onB
           </Text>
           <View style={{ flexDirection: "row", flexWrap: "wrap", gap: SPACE.text }}>
             {[goal.label, sensitivity, pregnancy].map((label) => (
-              <View key={label} style={{ height: 28, paddingHorizontal: SPACE.block, borderRadius: 14, backgroundColor: SURFACE, justifyContent: "center" }}>
+              <View key={label} style={{ height: 28, paddingHorizontal: SPACE.block, borderRadius: RADIUS.control, backgroundColor: SURFACE, justifyContent: "center" }}>
                 <Text style={{ fontSize: TYPE.caption, fontWeight: "500", color: MUTED }}>{label}</Text>
               </View>
             ))}
@@ -377,12 +422,12 @@ function FamilyCard({ active, width, best, safe, inRoutine, onOpen }: { active: 
       <View style={{ height: 236 }}>
         <Image source={family.picture} contentFit="contain" accessibilityLabel="" style={{ position: "absolute", top: 14, alignSelf: "center", width: 230, height: 222 }} />
         {inRoutine ? (
-          <View style={{ position: "absolute", top: 16, left: 16, height: 28, paddingHorizontal: SPACE.block, borderRadius: 14, backgroundColor: BUTTON.primary.fill, flexDirection: "row", alignItems: "center", gap: 6 }}>
+          <View style={{ position: "absolute", top: 16, left: 16, height: 28, paddingHorizontal: SPACE.block, borderRadius: RADIUS.control, backgroundColor: BUTTON.primary.fill, flexDirection: "row", alignItems: "center", gap: 6 }}>
             <Tick size={12} color={WHITE} />
             <Text style={{ fontSize: TYPE.caption, fontWeight: "600", color: WHITE }}>In your routine</Text>
           </View>
         ) : best ? (
-          <View style={{ position: "absolute", top: 16, left: 16, height: 28, paddingHorizontal: SPACE.block, borderRadius: 14, backgroundColor: SURFACE, justifyContent: "center" }}>
+          <View style={{ position: "absolute", top: 16, left: 16, height: 28, paddingHorizontal: SPACE.block, borderRadius: RADIUS.control, backgroundColor: SURFACE, justifyContent: "center" }}>
             <Text style={{ fontSize: TYPE.caption, fontWeight: "600", color: LINK }}>Best first pick</Text>
           </View>
         ) : null}
@@ -395,7 +440,7 @@ function FamilyCard({ active, width, best, safe, inRoutine, onOpen }: { active: 
           accessibilityLabel={saved ? `Remove ${active.name} from saved ingredients` : `Save ${active.name} to your ingredients`}
           accessibilityState={{ selected: saved }}
           hitSlop={4}
-          style={{ position: "absolute", top: 16, right: 16, width: 40, height: 40, borderRadius: 20, backgroundColor: SURFACE, alignItems: "center", justifyContent: "center", ...ICON_SHADOW }}
+          style={{ position: "absolute", top: 16, right: 16, width: 40, height: 40, borderRadius: RADIUS.card, backgroundColor: SURFACE, alignItems: "center", justifyContent: "center", ...ICON_SHADOW }}
           className="active:opacity-80"
         >
           <StarIcon filled={saved} color={saved ? STAR_ON : INK} />

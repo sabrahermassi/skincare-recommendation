@@ -168,6 +168,14 @@ export const TAB_BAR_GLASS = "rgba(255,255,255,0.86)";
 export const GLASS_FROST = withAlpha(WHITE, 0.4);
 
 /**
+ * The little white let into the tab bar's glass (7 October 2026 critique):
+ * clear glass over a plain cream page showed nothing, and its labels lost their
+ * edge over a busy list. Less than `GLASS_FROST`: the bar carries short labels
+ * and icons, not sentences.
+ */
+export const GLASS_BAR = withAlpha(WHITE, 0.22);
+
+/**
  * Every destructive or report action (v9, read off the hand-off): the soft
  * see-through style, a pale red fill with red words and no outline. There are
  * no solid red buttons; the red itself is only an icon or the Poor verdict.
@@ -371,7 +379,7 @@ export type VerdictTone = "high" | "medium" | "low";
  */
 export const VERDICT: Record<
   VerdictTone,
-  { solid: string; tint: string; deep: string; wash: string; halo: string; label: string }
+  { solid: string; tint: string; deep: string; word: string; wash: string; halo: string; label: string }
 > = {
   // v9 warm earth (README's band table): solid and deep read off the
   // hand-off; tint is the hue at about 86% white as the README says, and wash
@@ -384,21 +392,25 @@ export const VERDICT: Record<
   // white on it as a pill was no better. `#A85A14` is 5.1:1 on white and 4.55:1
   // on the tint. Good's and Poor's words are still the hand-off's (3.1:1 and
   // 4.39:1 on white): left for the owner, since Good is the brand's olive.
-  // Good's word is its ring colour, 3.1:1 on white (computed): the hand-off
+  // Good's `deep` is its ring colour, 3.1:1 on white (computed): the hand-off
   // only sets it at 15pt semibold or larger, or as white on the filled pill.
-  high: { solid: "#8A9A5B", tint: "#EEF1E7", deep: "#8A9A5B", wash: "#EEF1E7", halo: "#EEF1E7", label: "Great match" },
-  medium: { solid: "#E78B30", tint: "#FBF1E6", deep: "#A85A14", wash: "#FBF1E6", halo: "#FBF1E6", label: "Fair match" },
-  low: { solid: "#E56B65", tint: "#FFECE9", deep: "#CC4F49", wash: "#FFECE9", halo: "#FFECE9", label: "Poor match" },
+  // So a small word takes `word` instead (owner, 7 October 2026): Good's and
+  // Poor's, darkened to 4.5:1 on white and on their tints (computed:
+  // `#627038` 5.39 / 4.72, `#BC413B` 5.31 / 4.66). Rings, pills and big
+  // numbers keep `deep`; Fair's `deep` already passes, so its `word` is it.
+  high: { solid: "#8A9A5B", tint: "#EEF1E7", deep: "#8A9A5B", word: "#627038", wash: "#EEF1E7", halo: "#EEF1E7", label: "Great match" },
+  medium: { solid: "#E78B30", tint: "#FBF1E6", deep: "#A85A14", word: "#A85A14", wash: "#FBF1E6", halo: "#FBF1E6", label: "Fair match" },
+  low: { solid: "#E56B65", tint: "#FFECE9", deep: "#CC4F49", word: "#BC413B", wash: "#FFECE9", halo: "#FFECE9", label: "Poor match" },
 };
 
 /**
  * An Excellent score's ring and number (v7): a deeper green than Good, so the
  * best products stand apart, on Good's tint. Read off the hand-off.
  */
-export const EXCELLENT = { solid: "#6B7A40", tint: "#EEF1E7", deep: "#6B7A40", wash: "#EEF1E7" } as const; // v9 dark olive
+export const EXCELLENT = { solid: "#6B7A40", tint: "#EEF1E7", deep: "#6B7A40", word: "#6B7A40", wash: "#EEF1E7" } as const; // v9 dark olive
 
 /** A score's ring, number and tint: Excellent's deeper green, else its tone's. */
-export function scoreColours(verdict: Verdict): { solid: string; tint: string; deep: string } {
+export function scoreColours(verdict: Verdict): { solid: string; tint: string; deep: string; word: string } {
   if (verdict === "excellent") return EXCELLENT;
   const tone = toneForVerdict(verdict);
   return tone ? VERDICT[tone] : VERDICT_NEUTRAL;
@@ -412,6 +424,7 @@ export const VERDICT_NEUTRAL = {
   solid: MUTED,
   tint: "#F2F1F0",
   deep: MUTED,
+  word: MUTED,
   wash: "#F4F2EE",
   halo: "#EAE4DF",
   label: "Can't tell yet",
@@ -457,10 +470,10 @@ export const VERDICT_LABEL: Record<Verdict, string> = {
 };
 
 /** Warning text that is not a verdict: flagged-ingredient counts, cautions. */
-export const WARN = VERDICT.medium.deep;
+export const WARN = VERDICT.medium.word;
 
 /** Destructive actions — "erase my profile", and nothing else. */
-export const DANGER = VERDICT.low.deep;
+export const DANGER = VERDICT.low.word;
 
 // ── One-off screen accents ──────────────────────────────────────────────────
 // Repeated raw hex that had no name anywhere — extracted here rather than
