@@ -317,6 +317,7 @@ export const EU_ALLERGEN_COSING_SOURCE = {
   label: "EU CosIng ingredient database",
   url: "https://ec.europa.eu/growth/tools-databases/cosing",
   verified: "2026-10-07",
+  verifiedBy: "read off CosIng's records by Claude (#439); not checked name by name by the owner",
 } as const;
 
 /**
