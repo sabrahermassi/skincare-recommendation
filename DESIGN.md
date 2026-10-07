@@ -403,6 +403,12 @@ the scanner, How scoring works and the ingredient sheet slide up.
   is `#5E5954`, 6.92:1; an earlier note here that it was 4.2:1 came from a stale
   comment in `lib/tokens.ts`, now fixed. Icons and decorative marks are held to
   3:1, not 4.5.
+- **Largest text size** (iOS Accessibility XXXL), checked on the iPhone 17
+  simulator for the result and Find your actives: both hold, with the score ring
+  fixed and everything else growing within `FONT_SCALE`'s caps. A long screen
+  title shrinks (`ScreenHeader`, down to 0.7) rather than ending in "…". Not
+  checked: a smaller phone (the simulators here start at the 17e, 6.1 inch) and
+  the other screens at that size.
 - **Icons are two sets, not SF Symbols:** Ionicons (`@expo/vector-icons`: menu rows,
   routine, scoring sheet, camera, saved) and the app's own SVG marks (tab bar,
   hearts, stars, ticks, shield). Each screen keeps to one. Moving to SF Symbols
