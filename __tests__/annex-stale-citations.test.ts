@@ -82,6 +82,24 @@ describe("a ban the old citation hid", () => {
     }
   });
 
+  it("never raises a score: Lilial keeps its fragrance charge for sensitive skin once it is a ban", () => {
+    // A product already under the cap gains nothing from the cap, so losing the charge would lift it.
+    const harsh = ["alcohol denat.", "parfum", "menthol", "sodium lauryl sulfate"].map((n) => row(n, "safe", null));
+    const others = ["aqua", "glycerin"].map((n) => row(n, "safe", null));
+    for (const sensitivity of ["some", "high", null] as const) {
+      const profile: SkinProfile = { concerns: ["redness"], baseSkinType: "normal", sensitivity, pregnancyStatus: null };
+      const scoreWith = (lilial: Ingredient) => {
+        resetScoreCache();
+        return matchProduct({ type: "moisturizer", ingredients: [...others, ...harsh, lilial] }, profile);
+      };
+      const before = scoreWith(row("butylphenyl methylpropional", "caution", "Restricted use (EU Annex III/83)"));
+      const after = scoreWith(written("butylphenyl methylpropional", "III/83"));
+      expect(before.score).toBeLessThan(HAZARD_SCORE_CAP);
+      expect(after.score).toBeLessThanOrEqual(before.score);
+      expect(after.irritants).toContain("butylphenyl methylpropional");
+    }
+  });
+
   it("fires the safety notice, with the flag on only, for exactly the four verified entries", () => {
     for (const [name, citation, entry] of [
       ["butylphenyl methylpropional", "III/83", 1666],
