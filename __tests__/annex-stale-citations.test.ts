@@ -204,6 +204,14 @@ describe("a re-import over rows another source owns", () => {
     expect(plan.safetyOnly).toEqual([]);
   });
 
+  it("never replaces another source's rating or note with an ordinary citation of the same entry (Claude review)", () => {
+    // "Restricted use (EU Annex III/124)" is also what a row citing entry 124 legitimately gets.
+    expect(planWrites([fixed], existing("cosing", "avoid", "Prohibited in cosmetics (EU Annex II/999)")).safetyOnly).toEqual([]);
+    expect(planWrites([fixed], existing("cosing", "caution", "A note CosIng wrote")).safetyOnly).toEqual([]);
+    expect(planWrites([fixed], existing("cosing", "avoid", "Restricted use (EU Annex III/124 III/125 III/126)")).safetyOnly).toEqual([]);
+    expect(planWrites([fixed], existing("curated", "caution", "A note someone wrote")).reviewByHand).toEqual([]);
+  });
+
   it("writes nothing for a row already corrected", () => {
     const plan = planWrites([fixed], existing("cosing", "caution", fixed.note));
     expect(plan.safetyOnly).toEqual([]);

@@ -344,15 +344,23 @@ function staleCitationFix(canonical, text) {
   return renumbered === text ? null : safetyFrom({ en: renumbered });
 }
 
-/** Every note `staleCitationFix` can write: a CosIng-owned row moving to one of these is a correction, not "stricter". */
-const STALE_FIX_NOTES = new Set([
-  LILIAL_NOTE,
-  DICHLOROMETHANE_NOTE,
-  BORIC_ACID_NOTE,
-  DIBORON_TRIOXIDE_NOTE,
-  BORATE_SALT_NOTE,
-  ...[...new Set([...RENUMBERED.values(), ...PART_I.values(), UNNUMBERED_PART_I.entry])].map((entry) => `Restricted use (EU Annex III/${entry})`),
-]);
+/**
+ * The ban notes `staleCitationFix` writes: a CosIng-owned row moving to one of these is a
+ * correction, not "stricter". The renumbered notes are not here on purpose: "Restricted use
+ * (EU Annex III/88)" is also what an ordinary row citing entry 88 gets, so the note alone does
+ * not say a correction happened (`isStaleRenumber` reads the row being replaced instead).
+ */
+const STALE_FIX_NOTES = new Set([LILIAL_NOTE, DICHLOROMETHANE_NOTE, BORIC_ACID_NOTE, DIBORON_TRIOXIDE_NOTE, BORATE_SALT_NOTE]);
+
+/**
+ * True when `row` only renumbers the citation `current` already carries: same rating, and the
+ * old note names a deleted entry that becomes the new note. Never a change of rating, so a
+ * stricter rating another source gave the row is never replaced by this.
+ */
+function isStaleRenumber(current, row) {
+  if (!current.note || !row.note || current.note === row.note || current.safety !== row.safety) return false;
+  return renumberCitation(current.note) === row.note;
+}
 
 /** The Annex II entry numbers a citation names, e.g. "II/358 R1 III/156" gives ["358"]. */
 function annexTwoEntries(text) {
@@ -530,7 +538,8 @@ function planWrites(rows, existing) {
     else {
       untouched += 1;
       const corrected = isReviewedCorrection(row) && (current.safety !== row.safety || current.note !== row.note);
-      if ((corrected && current.source === "cosing") || STRICTNESS[row.safety] > (STRICTNESS[current.safety] ?? 0) || (corrected && STALE_FIX_NOTES.has(row.note))) {
+      const staleFix = (corrected && STALE_FIX_NOTES.has(row.note)) || isStaleRenumber(current, row);
+      if ((corrected && current.source === "cosing") || STRICTNESS[row.safety] > (STRICTNESS[current.safety] ?? 0) || staleFix) {
         const stricter = { inci_name: row.inci_name, safety: row.safety, note: row.note, owner: current.source };
         (current.source === "cosing" ? safetyOnly : reviewByHand).push(stricter);
       }
