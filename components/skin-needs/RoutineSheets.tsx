@@ -12,7 +12,7 @@ import { Text } from "@/components/Text";
 import { haptic } from "@/lib/haptics";
 import { activeOf, DAY_LETTERS, DEFAULT_STEP_LIMIT, familyOf, inSentence, STEP_LIMITS, type StepLimit } from "@/lib/skin-needs";
 import type { ActiveKey } from "@/lib/skin-needs-data";
-import { BUTTON, DISPLAY_FONT, INK, MUTED, MUTED_FAINT, SKIN_NEEDS, STONE, WHITE, TYPE, RADIUS, SPACE } from "@/lib/tokens";
+import { BUTTON, DISPLAY_FONT, INK, MUTED, MUTED_FAINT, SKIN_NEEDS, STONE, WHITE, TYPE, RADIUS, SPACE, LEADING, TRACKING } from "@/lib/tokens";
 
 /**
  * The sheets over the last story card when Add needs a choice (hand-off 7b,
@@ -50,10 +50,10 @@ function Sheet({ visible, onClose, closable = true, title, line, children }: { v
       }
     >
       <View style={{ alignItems: "center", gap: SPACE.block, paddingTop: 2, paddingHorizontal: 6 }}>
-        <Text accessibilityRole="header" style={{ paddingHorizontal: closable ? 40 : 0, textAlign: "center", fontFamily: DISPLAY_FONT, fontSize: TYPE.heading, lineHeight: 28, letterSpacing: -0.5, color: INK }}>
+        <Text accessibilityRole="header" style={{ paddingHorizontal: closable ? 40 : 0, textAlign: "center", fontFamily: DISPLAY_FONT, fontSize: TYPE.heading, lineHeight: LEADING.heading, letterSpacing: TRACKING.heading, color: INK }}>
           {title}
         </Text>
-        <Text style={{ textAlign: "center", fontSize: TYPE.body, lineHeight: 21, color: MUTED }}>{line}</Text>
+        <Text style={{ textAlign: "center", fontSize: TYPE.body, lineHeight: LEADING.body, color: MUTED }}>{line}</Text>
         {children}
       </View>
     </BottomSheet>

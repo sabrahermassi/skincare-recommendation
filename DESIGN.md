@@ -128,10 +128,16 @@ Everything is the system font (SF Pro) except these, loaded in `app/_layout.tsx`
 | Kalam Bold / Regular | `HAND_FONT_BOLD` / `HAND_FONT` | Home's "Hi there!" (34), the skincare tip, Find your actives' notes |
 | Figtree SemiBold | `MENU_FONT` | the soft profile menu's row names |
 | Caveat Medium | `NOTE_FONT` | a person's own notes; loaded after first paint (`lib/note-font.ts`) |
-| Montserrat Light / Regular | none | the quiz shell's Skip (`components/shell/shared.tsx`) |
 
 `TYPE` scale: caption 13, label 15, body 15, card 17, title 20, heading 24,
-large 30, display 34 (the score). Title levels, all PT Serif in ink, never a
+large 30, display 34 (the score). Each size has its line height in `LEADING`
+(caption 18, label 20, body 21, card 22, title 24, heading 28, large 34) and the
+serif and capital roles their tracking in `TRACKING` (display and large -0.6,
+heading -0.5, title -0.2, card -0.17, small capitals +0.8). A style that gives a
+size and a line height on one line uses them; the 7 October 2026 typeset moved
+161 near-misses onto them (body had been 20, 21 and 22, caption 17 to 19).
+Other multi-line styles keep their own numbers, and the display sizes 34 and
+40+ (Home's greeting, the story cards) keep theirs. Title levels, all PT Serif in ink, never a
 coloured word:
 
 | Level | Size / line | Where | Component |

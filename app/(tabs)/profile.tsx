@@ -9,7 +9,7 @@ import { TabTitle } from "@/components/TabTitle";
 import { Text } from "@/components/Text";
 import { answeredWithoutSignal, isPersonalized, profileHeadline } from "@/lib/profile";
 import { tabBarClearance, tabRootTop } from "@/lib/tab-bar";
-import { AVATAR_FILL, CANVAS, LINE, MUTED, SPACE, TYPE, WHITE } from "@/lib/tokens";
+import { AVATAR_FILL, CANVAS, LINE, MUTED, SPACE, TYPE, WHITE, LEADING } from "@/lib/tokens";
 import { useAppStore } from "@/store/useAppStore";
 import { useSafetyNoticeEnabled } from "@/lib/features";
 import { FitScrollView } from "@/components/FitScrollView";
@@ -74,7 +74,7 @@ export default function Profile() {
               themselves are on the Skin profile row below (owner). One that
               scores (a skin type alone will) is not told to answer again. */}
           {tags.length === 0 && !isPersonalized(profile) ? (
-            <Text style={{ maxWidth: 300, fontSize: TYPE.body, lineHeight: 21, color: MUTED, textAlign: "center" }}>
+            <Text style={{ maxWidth: 300, fontSize: TYPE.body, lineHeight: LEADING.body, color: MUTED, textAlign: "center" }}>
               {noOrphan(
                 answeredWithoutSignal(profile)
                   ? "Scores aren't personal yet. Add your skin type or a concern when you know it."

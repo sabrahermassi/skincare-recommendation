@@ -32,7 +32,7 @@ import { openScanner } from "@/lib/open-scanner";
 import { matchProduct } from "@/lib/matching";
 import { STEP_LABEL, STEP_ORDER, stepOf, type StepGroup } from "@/lib/routine-step";
 import { tabBarClearance, tabRootTop } from "@/lib/tab-bar";
-import { CANVAS, CANVAS_GLASS, CARD_RADIUS, DISPLAY_FONT, INK, LINK, MUTED, SPACE, SURFACE, TOUCH_TARGET, TYPE, VERDICT_NEUTRAL, RADIUS } from "@/lib/tokens";
+import { CANVAS, CANVAS_GLASS, CARD_RADIUS, DISPLAY_FONT, INK, LINK, MUTED, SPACE, SURFACE, TOUCH_TARGET, TYPE, VERDICT_NEUTRAL, RADIUS, LEADING, TRACKING } from "@/lib/tokens";
 import { useAppStore, type HistoryEntry } from "@/store/useAppStore";
 import { haptic } from "@/lib/haptics";
 import { reduceMotionNow } from "@/lib/reduce-motion";
@@ -268,7 +268,7 @@ export default function Saved() {
   const underHeader = { scrollIndicatorInsets: { top: headerHeight }, scrollEventThrottle: 16 } as const;
   const loadFailed = (what: string) => (
     <View style={{ alignItems: "center", gap: SPACE.block, paddingHorizontal: 40, paddingTop: headerHeight + 96 }}>
-      <Text style={{ textAlign: "center", fontSize: TYPE.body, lineHeight: 21, color: MUTED }}>
+      <Text style={{ textAlign: "center", fontSize: TYPE.body, lineHeight: LEADING.body, color: MUTED }}>
         {noOrphan(`Couldn't load your ${what}. Check your connection and try again.`)}
       </Text>
       <TextLink label="Try again" onPress={() => setRetryKey((k) => k + 1)} />
@@ -481,7 +481,7 @@ function TextLink({ label, onPress }: { label: string; onPress: () => void }) {
 function GroupLabel({ title, onClearAll }: { title: string; onClearAll?: () => void }) {
   return (
     <View style={{ minHeight: TOUCH_TARGET, paddingTop: SPACE.text, paddingBottom: 4, paddingLeft: 4, flexDirection: "row", alignItems: "center", justifyContent: "space-between", gap: SPACE.block }}>
-      <Text accessibilityRole="header" style={{ fontSize: TYPE.caption, fontWeight: "600", letterSpacing: 0.8, textTransform: "uppercase", color: MUTED }}>
+      <Text accessibilityRole="header" style={{ fontSize: TYPE.caption, fontWeight: "600", letterSpacing: TRACKING.caption, textTransform: "uppercase", color: MUTED }}>
         {title}
       </Text>
       {onClearAll ? <TextLink label="Clear all" onPress={onClearAll} /> : null}
@@ -533,7 +533,7 @@ function ShelfPairings({ notes }: { notes: PairingNote[] }) {
       {notes.map((note) => (
         <View key={note.id} style={{ gap: 2 }}>
           <Text style={{ fontSize: TYPE.label, fontWeight: "600", color: INK }}>{note.label}</Text>
-          <Text style={{ fontSize: TYPE.label, lineHeight: 21, color: MUTED }}>{note.text}</Text>
+          <Text style={{ fontSize: TYPE.label, lineHeight: LEADING.label, color: MUTED }}>{note.text}</Text>
         </View>
       ))}
     </View>
@@ -585,7 +585,7 @@ function PlainRow({
         <Ionicons name="document-text-outline" size={22} color={MUTED} />
       </View>
       <View style={{ flex: 1, gap: 2 }}>
-        <Text numberOfLines={titleLines} style={{ fontSize: TYPE.label, fontWeight: "600", lineHeight: 19, color: INK }}>
+        <Text numberOfLines={titleLines} style={{ fontSize: TYPE.label, fontWeight: "600", lineHeight: LEADING.label, color: INK }}>
           {title}
         </Text>
         <Text numberOfLines={2} style={{ fontSize: TYPE.caption, color: MUTED }}>
@@ -720,10 +720,10 @@ function EmptyState({ tab, top }: { tab: Tab; /** Room for the screen's fixed he
           />
         </View>
         <View style={{ alignItems: "center", gap: SPACE.text }}>
-          <Text accessibilityRole="header" style={{ textAlign: "center", fontFamily: DISPLAY_FONT, fontSize: TYPE.heading, lineHeight: 28, letterSpacing: -0.5, color: INK }}>
+          <Text accessibilityRole="header" style={{ textAlign: "center", fontFamily: DISPLAY_FONT, fontSize: TYPE.heading, lineHeight: LEADING.heading, letterSpacing: TRACKING.heading, color: INK }}>
             {noOrphan(title)}
           </Text>
-          <Text style={{ maxWidth: 300, textAlign: "center", fontSize: TYPE.body, lineHeight: 21, color: MUTED }}>{noOrphan(body)}</Text>
+          <Text style={{ maxWidth: 300, textAlign: "center", fontSize: TYPE.body, lineHeight: LEADING.body, color: MUTED }}>{noOrphan(body)}</Text>
           {/* Only Saved offers the first scan (owner). */}
           {tab === "saved" ? (
             <PrimaryButton label="Scan your first product" onPress={openScanner} style={{ width: BUTTON_WIDTH.secondary, marginTop: SPACE.gutter }} />
@@ -821,7 +821,7 @@ function IngredientsTab({
   if (error) {
     return (
       <View style={{ alignItems: "center", gap: SPACE.block, paddingHorizontal: 40, paddingTop: top + 96 }}>
-        <Text style={{ textAlign: "center", fontSize: TYPE.body, lineHeight: 21, color: MUTED }}>
+        <Text style={{ textAlign: "center", fontSize: TYPE.body, lineHeight: LEADING.body, color: MUTED }}>
           {noOrphan("Couldn't load your starred ingredients. Check your connection and try again.")}
         </Text>
         <TextLink label="Try again" onPress={() => setRetryKey((k) => k + 1)} />
@@ -874,7 +874,7 @@ function IngredientRow({ ingredient, label, word, onUnstar }: { ingredient: Ingr
           style={{ flex: 1, gap: 3, paddingVertical: SPACE.block, paddingLeft: SPACE.gutter, paddingRight: 4 }}
           className="active:opacity-70"
         >
-          <Text numberOfLines={2} style={{ fontSize: TYPE.label, fontWeight: "600", lineHeight: 19, color: INK }}>
+          <Text numberOfLines={2} style={{ fontSize: TYPE.label, fontWeight: "600", lineHeight: LEADING.label, color: INK }}>
             {name}
           </Text>
           {label ? <VerdictMarker label={label} text={word ?? undefined} /> : <Text style={{ fontSize: TYPE.caption, color: MUTED }}>{clear}</Text>}

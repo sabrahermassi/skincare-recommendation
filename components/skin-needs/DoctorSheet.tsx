@@ -12,7 +12,7 @@ import type { Ingredient } from "@/data/types";
 import type { Need } from "@/lib/journey";
 import { phoneRegion } from "@/lib/region";
 import { activeOf, encodeAnswers, familyOf, prescriptionIn } from "@/lib/skin-needs";
-import { BUTTON, DISPLAY_FONT, INK, MUTED, MUTED_FAINT, STONE, VERDICT, TYPE, RADIUS, SPACE } from "@/lib/tokens";
+import { BUTTON, DISPLAY_FONT, INK, MUTED, MUTED_FAINT, STONE, VERDICT, TYPE, RADIUS, SPACE, LEADING, TRACKING } from "@/lib/tokens";
 
 /**
  * "Talk to a doctor first" (design_handoff "october 3d", D and Dp): a product
@@ -64,10 +64,10 @@ export function DoctorSheet({ ingredients, need }: { ingredients: readonly Pick<
             <Circle cx={20} cy={11} r={2} stroke={VERDICT.medium.deep} strokeWidth={2.2} />
           </Svg>
         </View>
-        <Text accessibilityRole="header" style={{ textAlign: "center", fontFamily: DISPLAY_FONT, fontSize: TYPE.heading, lineHeight: 28, letterSpacing: -0.5, color: INK }}>
+        <Text accessibilityRole="header" style={{ textAlign: "center", fontFamily: DISPLAY_FONT, fontSize: TYPE.heading, lineHeight: LEADING.heading, letterSpacing: TRACKING.heading, color: INK }}>
           Talk to a doctor first
         </Text>
-        <Text style={{ textAlign: "center", fontSize: TYPE.body, lineHeight: 21, color: MUTED }}>
+        <Text style={{ textAlign: "center", fontSize: TYPE.body, lineHeight: LEADING.body, color: MUTED }}>
           {pregnant
             ? `This has ${found.name}, ${found.what}. It's usually avoided while pregnant or breastfeeding. Ask your doctor before using it.`
             : `This has ${found.name}, ${found.what}. A doctor should guide how you use it.`}

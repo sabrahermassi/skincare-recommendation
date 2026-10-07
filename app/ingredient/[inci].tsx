@@ -23,7 +23,7 @@ import type { IngredientRule } from "@/lib/rules";
 import { contraindications, isOriginDependent, isVerified, ORIGIN_DEPENDENT_HEADLINE, regulatoryStatus, SAFETY_NOTICE_COPY, safetyNoticeFor } from "@/lib/safety";
 import { saveFromTap } from "@/lib/saving";
 import { useAppStore } from "@/store/useAppStore";
-import { CARD_RADIUS, CHOSEN, DISPLAY_FONT, HAIRLINE, INK, LINE, MUTED, SPACE, STONE, TOUCH_TARGET, TYPE, VERDICT, VERDICT_NEUTRAL } from "@/lib/tokens";
+import { CARD_RADIUS, CHOSEN, DISPLAY_FONT, HAIRLINE, INK, LINE, MUTED, SPACE, STONE, TOUCH_TARGET, TYPE, VERDICT, VERDICT_NEUTRAL, LEADING, TRACKING } from "@/lib/tokens";
 import { goBackOrHome } from "@/lib/go-back";
 import { haptic } from "@/lib/haptics";
 import { useSafetyNoticeEnabled } from "@/lib/features";
@@ -218,7 +218,7 @@ function IngredientDetail({
         // nothing about (#296).
         <View style={{ flexDirection: "row", alignItems: "flex-start", gap: SPACE.block, paddingTop: SPACE.section, paddingHorizontal: SPACE.gutter }}>
           <View style={{ flex: 1, alignItems: "flex-start", gap: SPACE.text, paddingTop: 4 }}>
-            <Text accessibilityRole="header" style={{ fontFamily: DISPLAY_FONT, fontSize: TYPE.heading, lineHeight: 28, letterSpacing: -0.5, color: INK }}>
+            <Text accessibilityRole="header" style={{ fontFamily: DISPLAY_FONT, fontSize: TYPE.heading, lineHeight: LEADING.heading, letterSpacing: TRACKING.heading, color: INK }}>
               {displayIngredientName(primary)}
             </Text>
             {kind ? <Text style={{ fontSize: TYPE.label, color: MUTED }}>{kind}</Text> : null}
@@ -256,7 +256,7 @@ function IngredientDetail({
             {/* On the white sheet this one has no fill of its own (v9). */}
             <View style={{ padding: SPACE.gutter, gap: 4 }}>
               <CardHeading>What it does</CardHeading>
-              <Text style={{ fontSize: TYPE.body, lineHeight: 22, color: INK }}>{whatItDoes(ingredient, rule?.reason)}</Text>
+              <Text style={{ fontSize: TYPE.body, lineHeight: LEADING.body, color: INK }}>{whatItDoes(ingredient, rule?.reason)}</Text>
             </View>
 
             {/* For your skin, on the verdict's light wash (v7). Left out when
@@ -267,7 +267,7 @@ function IngredientDetail({
             {notice && !forProfile ? (
               <View style={{ borderRadius: CARD_RADIUS, backgroundColor: tone.wash, padding: SPACE.gutter, gap: 4 }}>
                 <Text style={{ fontSize: TYPE.body, fontWeight: "600", color: tone.word }}>{SAFETY_NOTICE_COPY.sheetHeadline}</Text>
-                <Text style={{ fontSize: TYPE.body, lineHeight: 22, color: INK }}>
+                <Text style={{ fontSize: TYPE.body, lineHeight: LEADING.body, color: INK }}>
                   {SAFETY_NOTICE_COPY.sheetBody(notice.entry)}
                   {notice.dates ? ` ${notice.dates}` : ""}
                 </Text>
@@ -280,7 +280,7 @@ function IngredientDetail({
                 <Text style={{ fontSize: TYPE.body, fontWeight: "600", color: tone.word }}>{undecided ? ORIGIN_DEPENDENT_HEADLINE : notice ? SAFETY_NOTICE_COPY.sheetHeadline : fitHeadline(fit, helps, hurts, warning, rule, profile)}</Text>
                 {/* The EU notice says what the listing is, and for HICC its dates (#404). */}
                 {notice ? (
-                  <Text style={{ fontSize: TYPE.body, lineHeight: 22, color: INK }}>
+                  <Text style={{ fontSize: TYPE.body, lineHeight: LEADING.body, color: INK }}>
                     {SAFETY_NOTICE_COPY.sheetBody(notice.entry)}
                     {notice.dates ? ` ${notice.dates}` : ""}
                   </Text>
@@ -289,20 +289,20 @@ function IngredientDetail({
                 {fit !== "unknown" && otherWarnings.length > 0 ? (
                   otherWarnings.map((w) => (
                     <View key={w.origin} style={{ gap: 4 }}>
-                      <Text style={{ fontSize: TYPE.body, lineHeight: 22, color: INK }}>{w.reason}</Text>
+                      <Text style={{ fontSize: TYPE.body, lineHeight: LEADING.body, color: INK }}>{w.reason}</Text>
                     </View>
                   ))
                 ) : notice ? null : undecided ? (
-                  <Text style={{ fontSize: TYPE.body, lineHeight: 22, color: INK }}>{DEPENDS_BODY}</Text>
+                  <Text style={{ fontSize: TYPE.body, lineHeight: LEADING.body, color: INK }}>{DEPENDS_BODY}</Text>
                 ) : fit === "none" && !personalized ? (
                   // No skin profile, and nothing about it for everyone: a quiet
                   // way to set one up, not a button (handoff). A fragrance or a
                   // listed pore-clogger still says why, profile or not.
                   <Pressable onPress={openQuiz} accessibilityRole="link" style={{ minHeight: TOUCH_TARGET, justifyContent: "center" }} className="active:opacity-70">
-                    <Text style={{ fontSize: TYPE.body, lineHeight: 22, fontWeight: "600", color: CHOSEN.accent }}>Set up your skin profile to see how this fits you</Text>
+                    <Text style={{ fontSize: TYPE.body, lineHeight: LEADING.body, fontWeight: "600", color: CHOSEN.accent }}>Set up your skin profile to see how this fits you</Text>
                   </Pressable>
                 ) : (
-                  <Text style={{ fontSize: TYPE.body, lineHeight: 22, color: INK }}>
+                  <Text style={{ fontSize: TYPE.body, lineHeight: LEADING.body, color: INK }}>
                     {fitBody(fit, helps, hurts, verified, Boolean(rule), isCommonIrritant(ingredient), match !== null, cloggerConfidence(ingredient) === "high")}
                   </Text>
                 )}
@@ -335,12 +335,12 @@ function IngredientDetail({
                   <View key={fact.key} style={{ paddingHorizontal: SPACE.gutter }}>
                     <View style={{ flexDirection: "row", gap: SPACE.block, paddingVertical: 13, borderTopWidth: i === 0 ? 0 : 1, borderTopColor: HAIRLINE }}>
                       <Text style={{ width: 120, fontSize: TYPE.label, color: MUTED }}>{fact.key}</Text>
-                      <Text style={{ flex: 1, fontSize: TYPE.body, lineHeight: 21, color: INK }}>{fact.value}</Text>
+                      <Text style={{ flex: 1, fontSize: TYPE.body, lineHeight: LEADING.body, color: INK }}>{fact.value}</Text>
                     </View>
                   </View>
                 ))
               ) : (
-                <Text style={{ paddingHorizontal: SPACE.gutter, paddingVertical: SPACE.block, fontSize: TYPE.body, lineHeight: 21, color: INK }}>
+                <Text style={{ paddingHorizontal: SPACE.gutter, paddingVertical: SPACE.block, fontSize: TYPE.body, lineHeight: LEADING.body, color: INK }}>
                   We hold no regulatory record, declared function or pore rating for this name.
                 </Text>
               )}
@@ -412,7 +412,7 @@ function OnThisLabel({ names, index, colour }: { names: string[]; index: number;
         <Text style={{ fontSize: TYPE.caption, color: MUTED }}>More</Text>
         <Text style={{ fontSize: TYPE.caption, color: MUTED }}>Less</Text>
       </View>
-      <Text style={{ fontSize: TYPE.body, lineHeight: 22, color: INK }}>
+      <Text style={{ fontSize: TYPE.body, lineHeight: LEADING.body, color: INK }}>
         {ordered
           ? AMOUNT[weight]
           : "This part of the label is in alphabetical order, so its place doesn't say how much there is."}

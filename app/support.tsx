@@ -8,7 +8,7 @@ import { ScreenHeader } from "@/components/ScreenHeader";
 import { SectionLabel } from "@/components/SectionLabel";
 import { Text } from "@/components/Text";
 import { supportEmail } from "@/lib/support-email";
-import { CANVAS, CARD_RADIUS, HAIRLINE, INK, LINK, MUTED, SPACE, SURFACE, TYPE } from "@/lib/tokens";
+import { CANVAS, CARD_RADIUS, HAIRLINE, INK, LINK, MUTED, SPACE, SURFACE, TYPE, LEADING } from "@/lib/tokens";
 import { FitScrollView } from "@/components/FitScrollView";
 import { noOrphan } from "@/lib/text";
 
@@ -79,7 +79,7 @@ export default function Support() {
                   <Text style={{ flex: 1, fontSize: TYPE.label, fontWeight: "600", color: INK }}>{item.title}</Text>
                   <Ionicons name="chevron-down" size={16} color={LINK} style={{ transform: [{ rotate: isOpen ? "180deg" : "0deg" }] }} />
                 </Pressable>
-                {isOpen ? <Text style={{ paddingBottom: SPACE.gutter, fontSize: TYPE.body, lineHeight: 21, color: MUTED }}>{item.body}</Text> : null}
+                {isOpen ? <Text style={{ paddingBottom: SPACE.gutter, fontSize: TYPE.body, lineHeight: LEADING.body, color: MUTED }}>{item.body}</Text> : null}
               </View>
             );
           })}
@@ -98,7 +98,7 @@ export default function Support() {
               }}
             />
             {mailFailed ? (
-              <Text style={{ textAlign: "center", fontSize: TYPE.body, lineHeight: 21, color: MUTED }}>
+              <Text style={{ textAlign: "center", fontSize: TYPE.body, lineHeight: LEADING.body, color: MUTED }}>
                 {noOrphan(`We couldn't open a mail app on this phone. You can write to ${SUPPORT_EMAIL} instead.`)}
               </Text>
             ) : null}

@@ -3,7 +3,7 @@ import Svg, { Path } from "react-native-svg";
 
 import { Text } from "@/components/Text";
 import { haptic } from "@/lib/haptics";
-import { BUTTON, CHECK_RING, CHOSEN, INK, MUTED, OPTION_LINE, SPACE, SURFACE, TYPE, WHITE, RADIUS } from "@/lib/tokens";
+import { BUTTON, CHECK_RING, CHOSEN, INK, MUTED, OPTION_LINE, SPACE, SURFACE, TYPE, WHITE, RADIUS, LEADING } from "@/lib/tokens";
 
 // v9 row measurements, read off the hand-off.
 const ROW_RADIUS = RADIUS.card;
@@ -61,8 +61,8 @@ export function QuizOptionCard({ label, description, selected = false, disabled 
       className="active:opacity-80"
     >
       <View style={{ flex: 1, gap: 2 }}>
-        <Text style={{ fontSize: TYPE.card, fontWeight: "600", lineHeight: 21, color: INK }}>{label}</Text>
-        {description ? <Text style={{ fontSize: TYPE.body, lineHeight: 20, color: MUTED }}>{description}</Text> : null}
+        <Text style={{ fontSize: TYPE.card, fontWeight: "600", lineHeight: LEADING.card, color: INK }}>{label}</Text>
+        {description ? <Text style={{ fontSize: TYPE.body, lineHeight: LEADING.body, color: MUTED }}>{description}</Text> : null}
       </View>
       <View
         style={{

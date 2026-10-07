@@ -1,7 +1,6 @@
 import "../global.css";
 
 import { Figtree_600SemiBold } from "@expo-google-fonts/figtree";
-import { Montserrat_300Light, Montserrat_400Regular } from "@expo-google-fonts/montserrat";
 import { Kalam_400Regular, Kalam_700Bold } from "@expo-google-fonts/kalam";
 import { PTSerif_700Bold, useFonts } from "@expo-google-fonts/pt-serif";
 import { loadAsync as loadFonts } from "expo-font";
@@ -35,16 +34,10 @@ export default function RootLayout() {
   // Body text no longer loads a custom font — it renders in the OS system
   // font (see tailwind.config.js's `sans` family), so only the display
   // faces block startup now.
-  //
-  // Montserrat is the FOR.ME shell's (the quiz's Skip, among others) —
-  // loaded here for the same reason: onboarding is the first thing a new
-  // install renders, so its fonts can't be missing on first paint either.
   const [fontsLoaded] = useFonts({
     PTSerif_700Bold,
     // Profile's menu rows (`MENU_FONT`).
     Figtree_600SemiBold,
-    Montserrat_300Light,
-    Montserrat_400Regular,
     // Skin needs' handwritten notes and the skincare tip (`HAND_FONT`), and Home's "Hi there!" (`HAND_FONT_BOLD`).
     Kalam_400Regular,
     Kalam_700Bold,

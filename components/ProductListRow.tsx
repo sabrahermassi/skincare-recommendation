@@ -8,7 +8,7 @@ import { ScorePill } from "@/components/ScorePill";
 import { Text } from "@/components/Text";
 import type { ProductType } from "@/data/types";
 import { SAFETY_NOTICE_COPY } from "@/lib/safety";
-import { CARD_RADIUS, INK, MUTED, SPACE, SURFACE, TYPE } from "@/lib/tokens";
+import { CARD_RADIUS, INK, MUTED, SPACE, SURFACE, TYPE, LEADING } from "@/lib/tokens";
 
 /** v9 measurements (read off the hand-off). */
 const ROW_MIN_HEIGHT = 76;
@@ -60,7 +60,7 @@ export function ProductListRow({
         >
           <ProductThumbnail product={product} size={BOTTLE} />
           <View style={{ flex: 1, gap: 2 }}>
-            <Text numberOfLines={2} style={{ fontSize: TYPE.label, fontWeight: "600", lineHeight: 19, color: INK }}>
+            <Text numberOfLines={2} style={{ fontSize: TYPE.label, fontWeight: "600", lineHeight: LEADING.label, color: INK }}>
               {product.name}
             </Text>
             <Text numberOfLines={1} style={{ fontSize: TYPE.caption, color: MUTED }}>

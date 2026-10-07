@@ -10,7 +10,7 @@ import { Text } from "@/components/Text";
 import type { Concern } from "@/data/types";
 import { haptic } from "@/lib/haptics";
 import { CONCERN_TITLE, PREGNANCY_QUESTION, pregnancyLabel, sensitivityLabel } from "@/lib/profile";
-import { CANVAS, CARD_RADIUS, DANGER, INK, LINK, SPACE, SURFACE, TYPE } from "@/lib/tokens";
+import { CANVAS, CARD_RADIUS, DANGER, INK, LINK, SPACE, SURFACE, TYPE, LEADING } from "@/lib/tokens";
 import { EMPTY_PROFILE, MAX_CONCERNS, useAppStore, visibleConcernCount } from "@/store/useAppStore";
 import { FitScrollView } from "@/components/FitScrollView";
 
@@ -117,7 +117,7 @@ export default function SkinProfileScreen() {
           ) : null}
         </View>
         {/* In ink, not secondary grey (v9): it says what the page is for. */}
-        <Text style={{ paddingTop: SPACE.block, paddingHorizontal: 4, fontSize: TYPE.body, lineHeight: 21, color: INK }}>
+        <Text style={{ paddingTop: SPACE.block, paddingHorizontal: 4, fontSize: TYPE.body, lineHeight: LEADING.body, color: INK }}>
           Every score is made from these answers. Change one and your scores update.
         </Text>
 

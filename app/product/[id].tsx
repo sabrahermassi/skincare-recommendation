@@ -28,7 +28,7 @@ import { productIdParam } from "@/lib/route-params";
 import { safetyNoticeHitsNow } from "@/lib/features";
 import { historyWarningCount, SAFETY_NOTICE_COPY } from "@/lib/safety";
 import { saveFromTap, useCanJournal } from "@/lib/saving";
-import { CANVAS, DISPLAY_FONT, FONT_SCALE, INK, MUTED, MUTED_FAINT, SPACE, STONE, TYPE, VERDICT, WARN } from "@/lib/tokens";
+import { CANVAS, DISPLAY_FONT, FONT_SCALE, INK, MUTED, MUTED_FAINT, SPACE, STONE, TYPE, VERDICT, WARN, LEADING, TRACKING } from "@/lib/tokens";
 import { useAppStore } from "@/store/useAppStore";
 import NotFound from "@/app/+not-found";
 
@@ -246,7 +246,7 @@ function ProductScreen({ id, from, need, step, scanned }: { id: string; from?: s
           <Text style={{ fontFamily: DISPLAY_FONT, fontSize: TYPE.heading, color: INK }}>
             Couldn&apos;t load this product
           </Text>
-          <Text style={{ textAlign: "center", fontSize: TYPE.caption, lineHeight: 19, color: MUTED }}>
+          <Text style={{ textAlign: "center", fontSize: TYPE.caption, lineHeight: LEADING.caption, color: MUTED }}>
             {failureMessage(failure)}
           </Text>
           <PrimaryButton label="Try again" onPress={() => setRetryKey((k) => k + 1)} />
@@ -419,10 +419,10 @@ function ProductHeader({ product }: { product: ProductWithIngredients }) {
         <ProductThumbnail product={product} size={79} />
       </View>
       <View style={{ flex: 1, gap: 4, paddingTop: 4 }}>
-        <Text maxFontSizeMultiplier={FONT_SCALE.ui} style={{ fontSize: TYPE.label, lineHeight: 20, color: MUTED_FAINT }}>
+        <Text maxFontSizeMultiplier={FONT_SCALE.ui} style={{ fontSize: TYPE.label, lineHeight: LEADING.label, color: MUTED_FAINT }}>
           {product.brand}
         </Text>
-        <Text maxFontSizeMultiplier={FONT_SCALE.display} style={{ fontSize: TYPE.card, fontWeight: "600", lineHeight: 22, letterSpacing: -0.17, color: INK }}>
+        <Text maxFontSizeMultiplier={FONT_SCALE.display} style={{ fontSize: TYPE.card, fontWeight: "600", lineHeight: LEADING.card, letterSpacing: TRACKING.card, color: INK }}>
           {product.name}
         </Text>
         {product.type !== "unknown" ? (

@@ -19,7 +19,7 @@ import { prepareRoutine } from "@/lib/routine-build";
 import { basicRoutine, recallRoutine, type Routine } from "@/lib/routine-builder";
 import { today as weekday } from "@/lib/skin-needs";
 import { tabBarClearance, tabRootTop } from "@/lib/tab-bar";
-import { CANVAS, HAND_FONT_BOLD, HOME_TILE, INK, MUTED, SPACE, TYPE, RADIUS } from "@/lib/tokens";
+import { CANVAS, HAND_FONT_BOLD, HOME_TILE, INK, MUTED, SPACE, TYPE, RADIUS, LEADING } from "@/lib/tokens";
 import { useAppStore } from "@/store/useAppStore";
 
 // The two tiles' watercolours (transparent ground).
@@ -193,7 +193,7 @@ function Tile({ label, description, art, fill, onPress }: { label: string; descr
       <Text numberOfLines={1} adjustsFontSizeToFit minimumFontScale={0.85} style={{ paddingTop: 6, paddingHorizontal: 14, fontSize: TYPE.card, fontWeight: "600", color: INK }}>
         {label}
       </Text>
-      <Text numberOfLines={1} adjustsFontSizeToFit minimumFontScale={0.85} style={{ paddingHorizontal: 14, fontSize: TYPE.caption, lineHeight: 17.5, color: MUTED }}>
+      <Text numberOfLines={1} adjustsFontSizeToFit minimumFontScale={0.85} style={{ paddingHorizontal: 14, fontSize: TYPE.caption, lineHeight: LEADING.caption, color: MUTED }}>
         {description}
       </Text>
     </BounceCard>
