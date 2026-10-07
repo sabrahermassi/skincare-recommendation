@@ -483,8 +483,8 @@ bar's own query orphaned `fetchProductTypes`: no callers remain in
 `app/` or `components/`, only tests, while it is still
 exported and still carries its own Supabase round trip. Flagged rather than
 deleted — "the types come from the cached rows now" and "nothing should ever
-ask the database for them" are different decisions, and the second one has
-not been made.
+ask the database for them" are different decisions, and the second one had
+not been made. It has since been removed.
 
 **Since revised three times by use.** Freshness was
 first checked on every cache hit, which meant a request per type-filter tap;
@@ -626,7 +626,7 @@ That matters more than anything else on this page, because it is the one
 failure a user cannot detect: a slow list is obvious, a
 *reformulated* product scored against its old ingredient list is
 not. The ingredient screen has always carried one line about it
-(`app/ingredients/[id].tsx` renders "Label read 2 months
+(`app/product/[id].tsx`, via `lib/list-age.ts`, renders "Label read 2 months
 ago"). **The product screen now carries one too, since PR #89**
 — past six months it says the verdict above may be judging an old list.
 Six months because brands reformulate roughly once every year or two and
@@ -1337,7 +1337,7 @@ confidence against ingredients the brand may have since replaced.
   product is shown.
 - **Surface the age past a threshold — partly done.** The
   ingredient screen has always rendered "Label read 2 months ago"
-  (`app/ingredients/[id].tsx`), and the product screen gained a
+  (`app/product/[id].tsx`), and the product screen gained a
   six-month notice in PR #89. Browse still shows nothing. An old formula the
   user cannot see is old is the actual hazard — but a notice only admits the
   problem, and this step is the one that removes it.

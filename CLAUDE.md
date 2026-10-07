@@ -253,7 +253,7 @@ a declared function, nothing counts twice) > **`lib/pore-clogging.ts`**
 ## Constraints
 
 - **Tailwind stays on v3** — NativeWind's runtime
-  (`react-native-css-interop@0.2.6`) declares `tailwindcss: "~3"` as a hard
+  (`react-native-css-interop`) declares `tailwindcss: "~3"` as a hard
   peer; v4 breaks styling silently.
 - **`babel-preset-expo` is an explicit devDependency**, named directly in
   `babel.config.js` — removing it breaks bundling.

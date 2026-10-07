@@ -385,7 +385,7 @@ catalogue row (`ComedogenicRating` in `data/types.ts`: the scales descend from
 1970s-80s rabbit-ear assays, they are contested, and no openly licensed
 dataset exists), so the branch could only fire on the 8 sample products.
 Owner decision: remove it, with its tests and `COMEDOGENIC_SEVERE_THRESHOLD`.
-Pore-clogging is warned about only from `lib/pore-clogging.ts` (27 hand-written
+Pore-clogging is warned about only from `lib/pore-clogging.ts` (hand-written
 families with a confidence tier); an oily skin without a pore-led concern gets
 a plain sentence on Skin match for the same cloggers the score charges it for.
 `verdictHeadline` and `scoreExplanation` went in the same ticket: no screen

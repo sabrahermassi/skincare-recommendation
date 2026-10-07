@@ -95,7 +95,8 @@ and on every return — not the scanner directly. `Scan` opens from a raised
 floating button on Home, not from a scanner tab. See §8 and §9.
 
 `Scan Product` means photographing the ingredient list by default and scanning
-a barcode as the shortcut, per #214 — decided, not yet built. See §9.
+a barcode as the shortcut, per #214 — decided, and built as the scanner's
+Photo mode. See §9.
 
 Everything in the MVP should support this core experience.
 
@@ -258,7 +259,7 @@ raised floating Scan button.
 **Decided 22 September 2026 (#214): the ingredient-list photo is the main scan
 path. Barcode is the shortcut.**
 
-The reasoning is coverage. The live catalogue holds roughly 851 products, so
+The reasoning is coverage. The live catalogue is small (count: `docs/feeding-the-catalogue.md`), so
 most barcodes a real user scans in a shop will miss, and a miss costs a second
 action. A printed ingredient list can be read off any product, anywhere, with
 no catalogue coverage at all. Barcode keeps its place one tap away because it
@@ -882,7 +883,7 @@ Two different things are easy to confuse here. *Name coverage* — the
 `ingredients` dictionary, ~36k names imported from CosIng and the Open
 Beauty Facts taxonomy — is already broad, and is what decides whether a
 scanned name is recognised at all. *Evidence* is `lib/rules.ts`, which
-carries the sentence shown to the user, and today holds 61 curated rules.
+carries the sentence shown to the user (count the array in `lib/rules.ts`).
 The ~500 figure is the second one. Growing it is research, not an import.
 
 ---
