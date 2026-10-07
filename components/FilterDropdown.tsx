@@ -1,9 +1,10 @@
 import { useRef, useState } from "react";
-import { Modal, Pressable, ScrollView, View, useWindowDimensions, type StyleProp, type ViewStyle } from "react-native";
+import { Modal, Pressable, ScrollView, StyleSheet, View, useWindowDimensions, type StyleProp, type ViewStyle } from "react-native";
 import Svg, { Path } from "react-native-svg";
 
 import { Text } from "@/components/Text";
-import { INK, LINK, MENU_CHOSEN, MENU_SHADOW, MUTED, TOUCH_TARGET, TYPE, WHITE, RADIUS, SPACE } from "@/lib/tokens";
+import { INK, LINK, MENU_CHOSEN, MENU_SHADOW, MUTED, TOUCH_TARGET, TYPE, WHITE, RADIUS, SPACE, GLASS_FROST } from "@/lib/tokens";
+import { Glass, hasLiquidGlass } from "@/components/Glass";
 
 // The popover (v7, read off the hand-off): white, radius 14, 4pt inside,
 // sized to its longest option; the chosen row tinted and ticked.
@@ -94,10 +95,12 @@ export function FilterDropdown<T extends string>({
                 opacity: anchor ? 1 : 0,
                 width: popoverWidth,
                 borderRadius: POPOVER_RADIUS,
-                backgroundColor: WHITE,
-                ...MENU_SHADOW,
+                // Liquid Glass lights and shades itself; the white card and its shade are the fallback.
+                ...(hasLiquidGlass ? null : { backgroundColor: WHITE, ...MENU_SHADOW }),
               }}
             >
+              {/* Only once measured: a glass under an opacity of 0 does not draw. */}
+              {hasLiquidGlass && anchor ? <Glass tint={GLASS_FROST} style={[StyleSheet.absoluteFill, { borderRadius: POPOVER_RADIUS }]} /> : null}
               <ScrollView
                 style={{ maxHeight: OPTION_HEIGHT * VISIBLE_OPTIONS + POPOVER_PADDING * 2, borderRadius: POPOVER_RADIUS }}
                 contentContainerStyle={{ padding: POPOVER_PADDING }}
