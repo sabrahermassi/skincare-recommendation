@@ -511,6 +511,9 @@ function toRow(p, known, samples, rejectedNames, aliases) {
 
   const ingredients = parseInci(inci, known, rejectedNames, aliases);
   if (ingredients.length < 2) return "fewer than 2 parsed ingredients";
+  // A hair-dye kit is named by its shade and often typed `moisturizer`; its
+  // formula gives it away (#420).
+  if (nonSkincareReason({ name, ingredients: ingredients.map((i) => i.inci_name) })) return "not skincare";
 
   // The plausibility gate. See MIN_KNOWN_INGREDIENT_RATIO.
   const hits = ingredients.filter((i) => known.has(i.inci_name)).length;
