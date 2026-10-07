@@ -1,14 +1,17 @@
 /**
  * Reads Annex II and Annex III of the consolidated Regulation (EC) No 1223/2009 from the EU
- * Publications Office and writes what it parsed to a JSON file (#455, step 2 of 9).
+ * Publications Office, and writes them to `regulatory_entries` (#455 parsed the text, #456 stores it).
  *
- * No database write: step 3 adds the tables this will fill. Until then `--apply` writes one
- * JSON file and nothing else, so there is no `connect()` here and no environment to declare.
- *
- *   npm run import:eu-annexes                        # fetch the newest text; print counts and the diff
- *   npm run import:eu-annexes -- --apply             # ...and write .eu-annexes.json
+ *   npm run import:eu-annexes                        # fetch the newest text; print counts and the diff. Writes nothing, needs no database.
+ *   npm run import:eu-annexes -- --apply             # ...and write .eu-annexes.json, then the entries to the database
  *   npm run import:eu-annexes -- --file ./saved.xhtml [--apply]
  *   npm run import:eu-annexes -- --out ./elsewhere.json
+ *
+ * `--apply` goes through `connect({ write })` in `scripts/lib/db.mjs`, so the write needs the
+ * environment declared (`SUPABASE_ENV=staging`, and for production also `--prod`). It upserts only the
+ * rows that differ from the table, so a second run of the same text writes nothing; an entry the new
+ * text no longer lists is marked `deleted` and kept. It never touches `ingredients`, so the
+ * dictionary's `updated_at` does not move.
  *
  * How it finds the text. EUR-Lex answers a script with an empty HTTP 202, so the same text is read
  * from the Publications Office instead: its SPARQL service names the newest consolidated version of
@@ -26,6 +29,7 @@ import { createHash } from "node:crypto";
 import { existsSync, readFileSync, realpathSync, renameSync, writeFileSync } from "node:fs";
 import { fileURLToPath } from "node:url";
 
+import { connect } from "./lib/db.mjs";
 import { parseAnnexes } from "./lib/eu-annex-parse.mjs";
 
 export const CELEX_BASE = "02009R1223";
@@ -182,6 +186,105 @@ export function toDocument(parsed, source) {
   };
 }
 
+/** What a stored row is compared on: every column the importer writes (not `updated_at`, which the table's trigger owns). */
+const ROW_FIELDS = ["wording", "inci_name", "cas_numbers", "ec_numbers", "conditions", "members", "mark", "amended_by", "effective_date", "source_url", "source_version", "source_hash", "last_verified", "status"];
+const PAGE = 1000;
+const CHUNK = 400;
+
+/**
+ * One parsed entry as a `regulatory_entries` row. "moved-or-deleted" and "blank" (a number the regulation
+ * prints with nothing beside it) are both `deleted`: neither is a rule in force.
+ *
+ * @param {import("./lib/eu-annex-parse.mjs").AnnexEntry} entry
+ * @param {{ celex: string, url?: string, sha256: string }} source
+ * @param {string} consolidatedOn the date of the consolidated text, "2026-05-18"
+ */
+export function toRow(entry, source, consolidatedOn) {
+  return {
+    annex: entry.annex,
+    entry: entry.entry,
+    wording: entry.name ?? "",
+    inci_name: entry.inciName ?? null,
+    cas_numbers: entry.cas ?? [],
+    ec_numbers: entry.ec ?? [],
+    conditions: entry.annex === "III" && entry.conditions.length > 0 ? entry.conditions : null,
+    members: entry.members ?? [],
+    mark: entry.mark ?? null,
+    amended_by: entry.amendedBy ?? null,
+    effective_date: null,
+    source_url: source.url ?? null,
+    source_version: source.celex,
+    source_hash: source.sha256,
+    last_verified: consolidatedOn,
+    status: entry.status === "active" ? "active" : "deleted",
+  };
+}
+
+/** JSON with object keys in a fixed order: the database's jsonb hands keys back in its own order, which would read as a change. */
+const stable = (value) =>
+  JSON.stringify(value ?? null, (_key, v) => (v && typeof v === "object" && !Array.isArray(v) ? Object.fromEntries(Object.entries(v).sort(([a], [b]) => (a < b ? -1 : 1))) : v));
+const sameJson = (a, b) => stable(a) === stable(b);
+
+/**
+ * What a run has to write, given the rows already stored: new entries, entries that differ, and stored
+ * active entries the new text no longer lists (marked deleted, never removed). Everything else is left
+ * alone, which is what makes a second run of the same text write nothing.
+ *
+ * @param {Record<string, any>[]} stored rows read from `regulatory_entries`
+ * @param {Record<string, any>[]} rows from `toRow`
+ */
+export function planWrites(stored, rows) {
+  const key = (r) => `${r.annex}:${r.entry}`;
+  const have = new Map(stored.map((r) => [key(r), r]));
+  const listed = new Set(rows.map(key));
+  const insert = [];
+  const update = [];
+  let unchanged = 0;
+  for (const row of rows) {
+    const old = have.get(key(row));
+    if (!old) insert.push(row);
+    else if (ROW_FIELDS.some((f) => !sameJson(old[f], row[f]))) update.push(row);
+    else unchanged += 1;
+  }
+  const markDeleted = stored.filter((r) => r.status === "active" && !listed.has(key(r))).map((r) => ({ annex: r.annex, entry: r.entry }));
+  return { insert, update, markDeleted, unchanged };
+}
+
+async function readStoredRows(db) {
+  const rows = [];
+  for (let from = 0; ; from += PAGE) {
+    const { data, error } = await db.from("regulatory_entries").select("*").order("annex").order("entry").range(from, from + PAGE - 1);
+    if (error) throw new Error(`read regulatory_entries: ${error.message}`);
+    rows.push(...data);
+    if (data.length < PAGE) return rows;
+  }
+}
+
+/** Writes the plan. Reads `ingredients.updated_at`'s newest value before and after, so the run can say it did not move. */
+async function applyToDatabase(db, plan) {
+  const newest = async () => {
+    const { data, error } = await db.from("ingredients").select("updated_at").order("updated_at", { ascending: false }).limit(1);
+    if (error) throw new Error(`read ingredients.updated_at: ${error.message}`);
+    return data[0]?.updated_at ?? null;
+  };
+  const before = await newest();
+  for (const rows of [plan.insert, plan.update]) {
+    for (let i = 0; i < rows.length; i += CHUNK) {
+      const { error } = await db.from("regulatory_entries").upsert(rows.slice(i, i + CHUNK), { onConflict: "annex,entry" });
+      if (error) throw new Error(`write regulatory_entries: ${error.message}`);
+    }
+  }
+  for (const annex of ["II", "III"]) {
+    const entries = plan.markDeleted.filter((r) => r.annex === annex).map((r) => r.entry);
+    for (let i = 0; i < entries.length; i += CHUNK) {
+      const { error } = await db.from("regulatory_entries").update({ status: "deleted" }).eq("annex", annex).in("entry", entries.slice(i, i + CHUNK));
+      if (error) throw new Error(`mark regulatory_entries deleted: ${error.message}`);
+    }
+  }
+  const after = await newest();
+  console.log(`ingredients.updated_at, newest value: before ${before}, after ${after}${before === after ? " (unchanged)" : " (CHANGED: something else wrote to the dictionary during this run)"}.`);
+}
+
 function readStored(out) {
   if (!existsSync(out)) return null;
   try {
@@ -248,11 +351,19 @@ async function main() {
   printCounts(parsed);
   printDiff(stored, parsed);
 
-  if (!apply) return console.log("\nDry run: nothing written. Pass --apply to write the JSON file.");
+  if (!apply) return console.log("\nDry run: nothing written. Pass --apply to write the JSON file and the database.");
   const tmp = `${out}.tmp`;
   writeFileSync(tmp, `${JSON.stringify(toDocument(parsed, source), null, 1)}\n`);
   renameSync(tmp, out);
   console.log(`\nWrote ${out}.`);
+
+  // The database. connect() refuses the write unless the environment is declared (and --prod for production).
+  const { db } = connect({ write: true });
+  const rows = parsed.entries.map((entry) => toRow(entry, source, parsed.version.consolidatedOn));
+  const plan = planWrites(await readStoredRows(db), rows);
+  console.log(`regulatory_entries: ${plan.insert.length} to insert, ${plan.update.length} to update, ${plan.markDeleted.length} to mark deleted, ${plan.unchanged} unchanged.`);
+  await applyToDatabase(db, plan);
+  console.log("Done.");
 }
 
 function invokedDirectly() {

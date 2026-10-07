@@ -336,3 +336,55 @@ export type MatchConfidence = "exact" | "alias" | "corrected" | "rebuilt";
 export type ProductWithIngredients = Product & {
   ingredients: Ingredient[];
 };
+
+/**
+ * One entry of Annex II (prohibited) or Annex III (restricted) of Regulation (EC) No 1223/2009, as
+ * `scripts/import-eu-annexes.mjs` stores it (#456). Nothing on a screen reads these yet.
+ */
+export type RegulatoryEntry = {
+  annex: "II" | "III";
+  /** The reference number as the regulation prints it: "1339", "15a". */
+  entry: string;
+  wording: string;
+  inciName: string | null;
+  casNumbers: string[];
+  ecNumbers: string[];
+  /** Annex III's restriction columns, one object per row of the entry; null for Annex II. */
+  conditions: unknown[] | null;
+  members: unknown[];
+  mark: string | null;
+  amendedBy: string | null;
+  effectiveDate: string | null;
+  sourceUrl: string | null;
+  sourceVersion: string;
+  sourceHash: string;
+  lastVerified: string;
+  status: "active" | "deleted";
+};
+
+/** Which dictionary ingredient an entry is about, and how that was decided (filled in step 4). */
+export type IngredientRegulatory = {
+  inciName: string;
+  annex: "II" | "III";
+  entry: string;
+  matchedBy: "cas" | "ec" | "cosing" | "class" | "manual";
+  reviewedBy: string | null;
+  reviewedAt: string | null;
+};
+
+/**
+ * Whether the two regulatory tables changed: an exact row count and the newest `updated_at` of each.
+ * Its own mark, apart from the catalogue's watermark and the dictionary's, so an import of the
+ * regulation never makes a device refetch the catalogue, and a catalogue import never makes it
+ * refetch the regulation.
+ */
+export type RegulatoryMark = {
+  entries: { count: number; newest: string | null };
+  links: { count: number; newest: string | null };
+};
+
+export type RegulatorySnapshot = {
+  mark: RegulatoryMark;
+  entries: RegulatoryEntry[];
+  links: IngredientRegulatory[];
+};

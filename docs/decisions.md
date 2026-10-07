@@ -202,6 +202,27 @@ writes `.eu-annexes.json` with `--apply`. It writes no database row: step 3 adds
   © European Union, https://eur-lex.europa.eu/, 1998-2026. A documentation tool with no legal effect: only
   the Official Journal text is authentic." It is written into the output file and nowhere in the app yet.
 
+**The official text, stored (7 October 2026, #456, step 3 of 9).** Migration 0038 adds
+`regulatory_entries` (one row per Annex II or III entry, with the text's version, SHA-256 and
+consolidation date on every row) and `ingredient_regulatory` (which dictionary ingredient an entry is
+about; filled in step 4). Public read, service-role write, their own `updated_at` bumped by their own
+trigger, and nothing written to either touches `ingredients`, so the dictionary's watermark does not move.
+
+- **`import:eu-annexes --apply` writes the database** (through `connect({ write })`, so it needs
+  `SUPABASE_ENV`, and `--prod` for production), after the JSON file. It upserts only rows that differ, so a
+  second run of the same text writes nothing, and an entry a newer text no longer lists is marked `deleted`, never
+  removed. A moved, deleted or blank number is stored as `deleted`.
+- **`last_verified` is the date of the consolidated text, not the day of the run,** so the same text gives the
+  same row. `effective_date` stays null: the consolidated text does not print it per entry.
+- **Columns beyond the issue's list:** `inci_name` (Annex III's glossary name, which step 4 matches on), `members`
+  (the substances under a class entry such as the borates) and `mark` (the amendment mark), so the parsed text
+  is kept whole.
+- **The app has its own freshness mark for these tables** (an exact count and the newest `updated_at` of each),
+  apart from the catalogue's watermark and the dictionary's, so importing the regulation never makes a device
+  refetch the catalogue. `loadRegulatory` in `data/api.ts` reads the mark, then the rows, and
+  `data/catalogue-cache.ts` keeps them as one value (about a megabyte). Nothing on a screen reads them yet.
+  `SCHEMA_VERSION` went to 6, which sweeps the v5 blobs and makes every device read the catalogue once more.
+
 ## Routing
 
 **Never navigate from a layout file.** This is not theoretical caution —

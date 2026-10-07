@@ -1,4 +1,4 @@
-import { ATTRIBUTION, assertTrustworthy, diffEntries, MAX_DROP, MIN_ENTRIES, newestVersion, nextHop, toDocument } from "../scripts/import-eu-annexes.mjs";
+import { ATTRIBUTION, assertTrustworthy, diffEntries, MAX_DROP, MIN_ENTRIES, newestVersion, nextHop, planWrites, toDocument, toRow } from "../scripts/import-eu-annexes.mjs";
 
 /**
  * #455: `import:eu-annexes` reads the newest consolidated text from the Publications Office and writes a JSON
@@ -168,5 +168,84 @@ describe("the file that is written", () => {
 
   it("keeps the credit line's template free of anything but the two slots it fills", () => {
     expect(ATTRIBUTION.match(/\{(\w+)\}/g)).toEqual(["{celex}", "{year}"]);
+  });
+});
+
+// #456: what a run writes to regulatory_entries, decided from the parsed text and the rows already stored.
+describe("the rows written to regulatory_entries", () => {
+  const source = { celex: "02009R1223-20260518", url: "https://publications.europa.eu/resource/cellar/x", sha256: "ab".repeat(32) };
+  const entry = (overrides: Record<string, unknown> = {}) =>
+    ({
+      annex: "III",
+      entry: "14",
+      status: "active",
+      mark: "M32",
+      amendedBy: "Regulation (EU) 2019/1966",
+      name: "Hydroquinone",
+      inciName: "Hydroquinone",
+      cas: ["123-31-9"],
+      ec: ["204-617-8"],
+      members: [],
+      conditions: [{ productType: "Nail products", maxConcentration: "0.02%", other: "", wording: "" }],
+      ...overrides,
+    }) as unknown as Parameters<typeof toRow>[0];
+
+  it("carries the version, the hash and the consolidation date on every row", () => {
+    expect(toRow(entry(), source, "2026-05-18")).toMatchObject({
+      annex: "III",
+      entry: "14",
+      wording: "Hydroquinone",
+      inci_name: "Hydroquinone",
+      cas_numbers: ["123-31-9"],
+      ec_numbers: ["204-617-8"],
+      mark: "M32",
+      amended_by: "Regulation (EU) 2019/1966",
+      effective_date: null,
+      source_url: source.url,
+      source_version: "02009R1223-20260518",
+      source_hash: source.sha256,
+      last_verified: "2026-05-18",
+      status: "active",
+    });
+  });
+
+  it("stores an Annex II entry with no conditions, and a moved or blank number as deleted", () => {
+    expect(toRow(entry({ annex: "II", conditions: [] }), source, "2026-05-18").conditions).toBeNull();
+    expect(toRow(entry({ status: "moved-or-deleted", name: "Moved or deleted" }), source, "2026-05-18").status).toBe("deleted");
+    expect(toRow(entry({ status: "blank", name: "" }), source, "2026-05-18")).toMatchObject({ status: "deleted", wording: "" });
+  });
+
+  const rows = [toRow(entry(), source, "2026-05-18"), toRow(entry({ annex: "II", entry: "1", name: "A", conditions: [] }), source, "2026-05-18")];
+
+  it("inserts what is new, and writes nothing for the same text a second time", () => {
+    expect(planWrites([], rows)).toMatchObject({ insert: rows, update: [], markDeleted: [], unchanged: 0 });
+    const stored = rows.map((r) => ({ ...r, updated_at: "2026-10-07T00:00:00Z" }));
+    expect(planWrites(stored, rows)).toEqual({ insert: [], update: [], markDeleted: [], unchanged: 2 });
+  });
+
+  it("reads jsonb handing its keys back in another order as the same row", () => {
+    const stored = rows.map((r) => ({
+      ...r,
+      conditions: r.conditions ? [{ wording: "", other: "", productType: "Nail products", maxConcentration: "0.02%" }] : null,
+    }));
+    expect(planWrites(stored, rows)).toMatchObject({ update: [], unchanged: 2 });
+  });
+
+  it("updates an entry that changed, and marks one the new text no longer lists as deleted, never removed", () => {
+    const changed = { ...rows[0], cas_numbers: ["123-31-9", "1-1-1"] };
+    const gone = { ...toRow(entry({ entry: "99" }), source, "2026-05-18"), status: "active" };
+    const plan = planWrites([rows[0], rows[1], gone], [changed, rows[1]]);
+    expect(plan.update).toEqual([changed]);
+    expect(plan.markDeleted).toEqual([{ annex: "III", entry: "99" }]);
+    expect(plan.insert).toEqual([]);
+    // A stored entry that is already deleted and still unlisted is left as it is.
+    expect(planWrites([{ ...gone, status: "deleted" }], []).markDeleted).toEqual([]);
+  });
+
+  it("a new version changes the version, hash and date on a row, and nothing else", () => {
+    const next = { celex: "02009R1223-20260801", url: "https://publications.europa.eu/resource/cellar/y", sha256: "cd".repeat(32) };
+    const plan = planWrites(rows, rows.map((r) => ({ ...r, source_version: next.celex, source_hash: next.sha256, source_url: next.url, last_verified: "2026-08-01" })));
+    expect(plan.update).toHaveLength(2);
+    expect(plan.insert).toEqual([]);
   });
 });
