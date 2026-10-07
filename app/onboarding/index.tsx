@@ -8,7 +8,7 @@ import { Text } from "@/components/Text";
 import { TERRACOTTA } from "@/components/shell/shared";
 import { clearProfileErasedNotice, profileErasedNoticePending } from "@/lib/erase-notice";
 import { POST_ONBOARDING_ROUTE } from "@/lib/profile";
-import { CANVAS, FLOATING_SHADOW, INK, TYPE } from "@/lib/tokens";
+import { CANVAS, FLOATING_SHADOW, INK, TYPE, RADIUS, SPACE } from "@/lib/tokens";
 import { useAppStore } from "@/store/useAppStore";
 
 // Watercolor heroes, one per screen, each with its own handwritten line
@@ -141,9 +141,9 @@ export default function Onboarding() {
             flexDirection: "row",
             alignItems: "center",
             gap: 10,
-            borderRadius: 14,
-            paddingHorizontal: 16,
-            paddingVertical: 12,
+            borderRadius: RADIUS.control,
+            paddingHorizontal: SPACE.gutter,
+            paddingVertical: SPACE.block,
             // The page's own cream, so the box sits flush on it.
             backgroundColor: CANVAS,
             borderWidth: 1,

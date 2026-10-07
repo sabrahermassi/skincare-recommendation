@@ -14,6 +14,7 @@ import { useAppStore } from "@/store/useAppStore";
 import { useSafetyNoticeEnabled } from "@/lib/features";
 import { FitScrollView } from "@/components/FitScrollView";
 import { clearTestData, fillTestData } from "@/lib/dev-test-data";
+import { noOrphan } from "@/lib/text";
 
 // The avatar (v7): 112pt, in a 4pt white ring.
 const AVATAR = 112;
@@ -74,9 +75,11 @@ export default function Profile() {
               scores (a skin type alone will) is not told to answer again. */}
           {tags.length === 0 && !isPersonalized(profile) ? (
             <Text style={{ maxWidth: 300, fontSize: TYPE.body, lineHeight: 21, color: MUTED, textAlign: "center" }}>
-              {answeredWithoutSignal(profile)
-                ? "Scores aren't personal yet. Add your skin type or a concern when you know it."
-                : "Answer a few questions and every score will be made for your skin."}
+              {noOrphan(
+                answeredWithoutSignal(profile)
+                  ? "Scores aren't personal yet. Add your skin type or a concern when you know it."
+                  : "Answer a few questions and every score will be made for your skin.",
+              )}
             </Text>
           ) : null}
         </View>

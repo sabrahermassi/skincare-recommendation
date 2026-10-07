@@ -529,15 +529,6 @@ export const INGREDIENT_RULES: IngredientRule[] = [
     source: { label: "DermNet: benzalkonium chloride contact dermatitis", url: "https://dermnetnz.org/topics/benzalkonium-chloride-contact-dermatitis" },
   },
   {
-    // No checked source: DermNet and a 2023 review of quaternary ammonium
-    // compounds (PMC10319159) name benzalkonium and cetrimonium, not these two.
-    names: ["stearalkonium chloride", "steartrimonium chloride"],
-    category: "irritants",
-    hurts: { sensitive: true },
-    reason: "A quaternary ammonium conditioning agent; compounds of this family can irritate reactive skin",
-    weight: 4,
-  },
-  {
     names: [/hamamelis/, "witch hazel"],
     category: "irritants",
     hurts: { sensitive: true, skinTypes: ["dry"] },

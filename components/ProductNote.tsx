@@ -7,7 +7,7 @@ import { Text } from "@/components/Text";
 import { MAX_NOTE_CHARS, NOTE_COPY, cleanNote, tooLongCopy } from "@/lib/journal";
 import { useNoteTextStyle } from "@/lib/note-font";
 import {
-  BORDER_INACTIVE,
+  LINE,
   CANVAS,
   CARD_SHADOW,
   DANGER,
@@ -15,7 +15,7 @@ import {
   INK,
   MUTED,
   MUTED_FAINT,
-  RADIUS_SELECTOR,
+  RADIUS,
   SPACE,
   SURFACE,
   TOUCH_TARGET,
@@ -39,7 +39,7 @@ export function ProductNote({ note, onSave }: { note: string | undefined; onSave
   return (
     <>
       {note ? (
-        <View style={{ borderRadius: 16, backgroundColor: SURFACE, padding: SPACE.block, gap: SPACE.text, ...CARD_SHADOW }}>
+        <View style={{ borderRadius: RADIUS.card, backgroundColor: SURFACE, padding: SPACE.block, gap: SPACE.text, ...CARD_SHADOW }}>
           <View style={{ flexDirection: "row", alignItems: "center" }}>
             <Text style={{ flex: 1, fontSize: TYPE.label, fontWeight: "600", color: MUTED }}>{NOTE_COPY.heading}</Text>
             <Pressable onPress={() => setEditing(true)} accessibilityRole="button" style={{ minWidth: TOUCH_TARGET, minHeight: TOUCH_TARGET, alignItems: "flex-end", justifyContent: "center" }} className="active:opacity-70">
@@ -115,7 +115,7 @@ export function NoteEditor({
 
   return (
     <BottomSheet visible={visible} onClose={onClose}>
-      <Text style={{ fontFamily: DISPLAY_FONT, fontSize: 19, color: INK }}>{NOTE_COPY.prompt}</Text>
+      <Text style={{ fontFamily: DISPLAY_FONT, fontSize: TYPE.title, color: INK }}>{NOTE_COPY.prompt}</Text>
       <TextInput
         value={text}
         onChangeText={setText}
@@ -127,9 +127,9 @@ export function NoteEditor({
         textAlignVertical="top"
         style={{
           minHeight: 120,
-          borderRadius: RADIUS_SELECTOR,
+          borderRadius: RADIUS.control,
           borderWidth: 1,
-          borderColor: over ? WARN : BORDER_INACTIVE,
+          borderColor: over ? WARN : LINE,
           backgroundColor: CANVAS,
           padding: SPACE.block,
           fontSize: TYPE.body,

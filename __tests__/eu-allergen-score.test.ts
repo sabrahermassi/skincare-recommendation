@@ -148,7 +148,7 @@ describe("who is charged", () => {
 describe("the three rules added with it (#407)", () => {
   const penalty = (name: string) => score(formula(ing(name)), profile("some")).breakdown.irritationPenalty;
 
-  it.each(["hydrogen peroxide", "benzalkonium chloride", "stearalkonium chloride", "steartrimonium chloride"])("charges %s as an irritant for reactive skin, and not for 'none'", (name: string) => {
+  it.each(["hydrogen peroxide", "benzalkonium chloride"])("charges %s as an irritant for reactive skin, and not for 'none'", (name: string) => {
     expect(penalty(name)).toBeGreaterThan(0);
     expect(score(formula(ing(name)), profile("none")).breakdown.irritationPenalty).toBe(0);
   });

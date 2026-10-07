@@ -178,23 +178,6 @@ module.exports = {
         },
       },
 
-      // Read off the mockups rather than rounded to a scale — the design uses
-      // six distinct radii and they are not interchangeable. The one that
-      // matters most is `control`: every primary button in all twelve screens
-      // is 11px, and it was set to 13px here, which is the *compact card*
-      // radius. Buttons drawn at a card's radius read as panels.
-      borderRadius: {
-        chip: "8px", // filter chips, score pills, tier badges
-        control: "11px", // buttons, segment controls, info strips
-        tile: "12px", // browse-row thumbnails, ingredient-detail panels
-        field: "13px", // the compact two-up cards on the profile screen
-        card: "15px", // option cards, quick actions, product hero
-        panel: "16px", // the shadowed shelf card on Saved
-        sheet: "18px", // modals, bottom sheets
-        // `full` stays for genuinely circular things only: avatars, the FAB,
-        // step dots, the toggle knob, and the pill-shaped filter tabs.
-      },
-
       // Six steps, derived from what the app already does rather than invented.
       // A survey of every `fontSize:` and `text-[Npx]` in app/ and components/
       // found 24 distinct sizes across ~130 declarations — 9, 9.5, 10, 10.5,

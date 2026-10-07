@@ -5,7 +5,7 @@ import { useSafeAreaInsets } from "react-native-safe-area-context";
 import { ScreenReaderAnnouncer } from "@/components/ScreenReaderAnnouncer";
 import { Tick } from "@/components/skin-needs/bits";
 import { Text } from "@/components/Text";
-import { BUTTON, INK, MUTED_FAINT, SKIN_NEEDS, SPACE, SURFACE, WHITE, TYPE } from "@/lib/tokens";
+import { BUTTON, INK, MUTED_FAINT, SKIN_NEEDS, SPACE, SURFACE, WHITE, TYPE, RADIUS } from "@/lib/tokens";
 
 /** About five seconds (hand-off); a new one starts the count again. */
 const TOAST_MS = 5000;
@@ -40,14 +40,14 @@ export function TopToast({ notice, onDone, top = 4 }: { notice: TopNotice | null
             right: SPACE.gutter,
             zIndex: 5,
             minHeight: 56,
-            borderRadius: 28,
+            borderRadius: RADIUS.panel,
             backgroundColor: SURFACE,
-            paddingLeft: 12,
+            paddingLeft: SPACE.block,
             paddingRight: notice.undo ? 12 : 20,
-            paddingVertical: 8,
+            paddingVertical: SPACE.text,
             flexDirection: "row",
             alignItems: "center",
-            gap: 12,
+            gap: SPACE.block,
             ...SKIN_NEEDS.toastShadow,
           }}
         >

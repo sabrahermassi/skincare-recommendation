@@ -1,7 +1,8 @@
 import type { ReactNode } from "react";
-import { Pressable } from "react-native";
+import { Pressable, StyleSheet } from "react-native";
 import Svg, { Path } from "react-native-svg";
 
+import { Glass, hasLiquidGlass } from "@/components/Glass";
 import { ICON_SHADOW, INK, SURFACE } from "@/lib/tokens";
 
 /** The circle's size (v7): the nav bar's back, close, heart, share and star. */
@@ -30,9 +31,11 @@ export function IconCircle({
       accessibilityLabel={accessibilityLabel}
       accessibilityState={accessibilityState}
       hitSlop={4}
-      style={{ width: ICON_CIRCLE, height: ICON_CIRCLE, borderRadius: ICON_CIRCLE / 2, backgroundColor: SURFACE, alignItems: "center", justifyContent: "center", ...ICON_SHADOW }}
+      // The white disc and its shade are the fallback; Liquid Glass lights and shades itself.
+      style={{ width: ICON_CIRCLE, height: ICON_CIRCLE, borderRadius: ICON_CIRCLE / 2, alignItems: "center", justifyContent: "center", ...(hasLiquidGlass ? null : { backgroundColor: SURFACE, ...ICON_SHADOW }) }}
       className="active:opacity-80"
     >
+      {hasLiquidGlass ? <Glass interactive style={[StyleSheet.absoluteFill, { borderRadius: ICON_CIRCLE / 2 }]} /> : null}
       {children}
     </Pressable>
   );

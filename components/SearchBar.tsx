@@ -3,7 +3,7 @@ import { Pressable, TextInput, View } from "react-native";
 import Svg, { Circle, Path } from "react-native-svg";
 
 
-import { FONT_SCALE, ICON_MUTED, INK, PLACEHOLDER, SURFACE, TYPE, WHITE } from "@/lib/tokens";
+import { FONT_SCALE, ICON_MUTED, INK, PLACEHOLDER, SURFACE, TYPE, WHITE, SPACE } from "@/lib/tokens";
 
 /** The bar's height (v7). */
 const SEARCH_BAR_HEIGHT = 44;
@@ -27,7 +27,7 @@ export const SearchBar = forwardRef<
 >(function SearchBar({ value, onChangeText, placeholder, accessibilityLabel, autoFocus, onSubmitEditing }, ref) {
   return (
     <View
-      style={{ flex: 1, height: SEARCH_BAR_HEIGHT, borderRadius: SEARCH_BAR_HEIGHT / 2, backgroundColor: SURFACE, flexDirection: "row", alignItems: "center", gap: 12, paddingLeft: 16, paddingRight: 8 }}
+      style={{ flex: 1, height: SEARCH_BAR_HEIGHT, borderRadius: SEARCH_BAR_HEIGHT / 2, backgroundColor: SURFACE, flexDirection: "row", alignItems: "center", gap: SPACE.block, paddingLeft: SPACE.gutter, paddingRight: SPACE.text }}
     >
       <Svg width={18} height={18} viewBox="0 0 24 24" fill="none">
         <Circle cx={11} cy={11} r={7} stroke={ICON_MUTED} strokeWidth={2.2} />

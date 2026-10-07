@@ -3,17 +3,17 @@ import { Modal, Pressable, ScrollView, View, useWindowDimensions, type StyleProp
 import Svg, { Path } from "react-native-svg";
 
 import { Text } from "@/components/Text";
-import { INK, LINK, MENU_CHOSEN, MENU_SHADOW, MUTED, TOUCH_TARGET, TYPE, WHITE } from "@/lib/tokens";
+import { INK, LINK, MENU_CHOSEN, MENU_SHADOW, MUTED, TOUCH_TARGET, TYPE, WHITE, RADIUS, SPACE } from "@/lib/tokens";
 
 // The popover (v7, read off the hand-off): white, radius 14, 4pt inside,
 // sized to its longest option; the chosen row tinted and ticked.
-const POPOVER_RADIUS = 14;
+const POPOVER_RADIUS = RADIUS.control;
 const POPOVER_PADDING = 4;
 const POPOVER_MIN_WIDTH = 132;
 // Roughly how wide a 15pt letter is, to size the popover to its longest option.
 const LETTER_WIDTH = 8.4;
 const OPTION_HEIGHT = TOUCH_TARGET;
-const OPTION_RADIUS = 10;
+const OPTION_RADIUS = POPOVER_RADIUS - POPOVER_PADDING;
 // A long list (the finder's product types) shows this many rows and scrolls
 // the rest; half a row peeks out below, so it reads as scrollable.
 const VISIBLE_OPTIONS = 7.5;
@@ -116,7 +116,7 @@ export function FilterDropdown<T extends string>({
                       accessibilityRole="radio"
                       accessibilityLabel={count === undefined ? label : `${label}, ${count}`}
                       accessibilityState={{ checked: on }}
-                      style={{ height: OPTION_HEIGHT, flexDirection: "row", alignItems: "center", gap: 12, paddingHorizontal: 12, borderRadius: OPTION_RADIUS, backgroundColor: on ? MENU_CHOSEN : undefined }}
+                      style={{ height: OPTION_HEIGHT, flexDirection: "row", alignItems: "center", gap: SPACE.block, paddingHorizontal: SPACE.block, borderRadius: OPTION_RADIUS, backgroundColor: on ? MENU_CHOSEN : undefined }}
                       className="active:opacity-70"
                     >
                       <Text numberOfLines={1} style={{ flex: 1, fontSize: TYPE.label, fontWeight: on ? "600" : "400", color: INK }}>

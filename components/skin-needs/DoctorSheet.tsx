@@ -12,7 +12,7 @@ import type { Ingredient } from "@/data/types";
 import type { Need } from "@/lib/journey";
 import { phoneRegion } from "@/lib/region";
 import { activeOf, encodeAnswers, familyOf, prescriptionIn } from "@/lib/skin-needs";
-import { BUTTON, DISPLAY_FONT, INK, MUTED, MUTED_FAINT, STONE, VERDICT, TYPE } from "@/lib/tokens";
+import { BUTTON, DISPLAY_FONT, INK, MUTED, MUTED_FAINT, STONE, VERDICT, TYPE, RADIUS, SPACE } from "@/lib/tokens";
 
 /**
  * "Talk to a doctor first" (design_handoff "october 3d", D and Dp): a product
@@ -57,7 +57,7 @@ export function DoctorSheet({ ingredients, need }: { ingredients: readonly Pick<
         </IconCircle>
       }
     >
-      <View style={{ alignItems: "center", gap: 12, paddingTop: 8, paddingHorizontal: 6 }}>
+      <View style={{ alignItems: "center", gap: SPACE.block, paddingTop: SPACE.text, paddingHorizontal: 6 }}>
         <View style={{ width: 48, height: 48, borderRadius: 24, backgroundColor: VERDICT.medium.tint, alignItems: "center", justifyContent: "center" }}>
           <Svg width={24} height={24} viewBox="0 0 24 24" fill="none">
             <Path d="M5 3v6a5 5 0 0 0 10 0V3M10 14v2a5 5 0 0 0 10 0v-3" stroke={VERDICT.medium.deep} strokeWidth={2.2} strokeLinecap="round" strokeLinejoin="round" />
@@ -73,14 +73,14 @@ export function DoctorSheet({ ingredients, need }: { ingredients: readonly Pick<
             : `This has ${found.name}, ${found.what}. A doctor should guide how you use it.`}
         </Text>
         {pregnant ? (
-          <PrimaryButton label="Close" onPress={close} style={{ marginTop: 8, width: BUTTON_WIDTH.secondary }} />
+          <PrimaryButton label="Close" onPress={close} style={{ marginTop: SPACE.text, width: BUTTON_WIDTH.secondary }} />
         ) : (
           <>
             <Pressable
               onPress={learn}
               accessibilityRole="button"
               accessibilityLabel={`Over-the-counter option: ${alternative.name}`}
-              style={{ alignSelf: "stretch", backgroundColor: STONE, borderRadius: 20, paddingVertical: 12, paddingHorizontal: 16, flexDirection: "row", alignItems: "center", gap: 12 }}
+              style={{ alignSelf: "stretch", backgroundColor: STONE, borderRadius: RADIUS.card, paddingVertical: SPACE.block, paddingHorizontal: SPACE.gutter, flexDirection: "row", alignItems: "center", gap: SPACE.block }}
               className="active:opacity-80"
             >
               <Image source={familyOf(alternative).picture} contentFit="contain" accessibilityLabel="" style={{ width: 44, height: 44 }} />
@@ -92,7 +92,7 @@ export function DoctorSheet({ ingredients, need }: { ingredients: readonly Pick<
                 <Path d="m9 18 6-6-6-6" stroke={BUTTON.primary.fill} strokeWidth={2.4} strokeLinecap="round" strokeLinejoin="round" />
               </Svg>
             </Pressable>
-            <PrimaryButton label={`Learn about ${alternative.key === "retinoids" ? "retinol" : altName}`} onPress={learn} style={{ marginTop: 8, width: BUTTON_WIDTH.secondary }} />
+            <PrimaryButton label={`Learn about ${alternative.key === "retinoids" ? "retinol" : altName}`} onPress={learn} style={{ marginTop: SPACE.text, width: BUTTON_WIDTH.secondary }} />
           </>
         )}
       </View>

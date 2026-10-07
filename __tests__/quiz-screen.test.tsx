@@ -54,6 +54,12 @@ it("goes back a step from a later step's back arrow", async () => {
   expect(mockGoBack).not.toHaveBeenCalled();
 });
 
+it("keeps the title's last two words on one line", async () => {
+  await quiz(<ConcernsStep />);
+  // The text matcher folds a non-breaking space into a plain one, so read the rendered string itself.
+  expect(screen.getByText("What would you like to work on?").props.children).toBe("What would you like to work on?");
+});
+
 it("asks with v9's words, says which question it is, and waits for an answer", async () => {
   await quiz(<ConcernsStep />);
   expect(screen.getByText("What would you like to work on?")).toBeTruthy();
