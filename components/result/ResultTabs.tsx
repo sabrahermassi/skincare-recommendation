@@ -8,6 +8,7 @@ import { BUTTON_WIDTH, PrimaryButton } from "@/components/PrimaryButton";
 import { GlassHeader } from "@/components/GlassHeader";
 import { ReferenceLink } from "@/components/ReferenceLink";
 import { SafetyShield } from "@/components/SafetyShield";
+import { SectionLabel } from "@/components/SectionLabel";
 import { IngredientsCard, type IngredientFilter } from "@/components/result/IngredientsCard";
 import { ScoreDisc, VerdictLink } from "@/components/result/ScoreRing";
 import { SegmentedSwitch } from "@/components/SegmentedSwitch";
@@ -480,11 +481,37 @@ function Reasons({ ingredients, match, profile }: { ingredients: Ingredient[]; m
           {noOrphan(`${line}${watching > 0 ? ` ${watching === 1 ? "One thing to watch" : `${watching} things to watch`} below.` : ""}`)}
         </Text>
       </View>
-      <View style={{ marginTop: SPACE.gutter, gap: SPACE.block }}>
-        {shown.map((row) => (
-          <ReasonBox key={row.key} row={row} />
-        ))}
-      </View>
+      <ReasonGroups rows={shown} order={order} colourOf={colourOf} />
+    </View>
+  );
+}
+
+/** What the green and the orange boxes are, once a result has both. Red is never labelled: it is the first thing read, and says what it is. */
+const GROUP_LABEL = { green: "Working for you", orange: "Worth watching" } as const;
+
+/**
+ * The reason boxes, grouped by colour (the squint test: what works, then what to
+ * watch, instead of one run of equal boxes). Boxes in a group sit close (8pt) and
+ * the groups are a section apart (a label's own top padding when it has one,
+ * the group's own margin when not), each opened by a small label once there are
+ * both greens and oranges. The first box of the first group leads: set a size
+ * larger than the rest.
+ */
+function ReasonGroups({ rows, order, colourOf }: { rows: Reason[]; order: ("red" | "green" | "orange")[]; colourOf: (row: Reason) => "red" | "green" | "orange" }) {
+  const groups = order.map((colour) => ({ colour, rows: rows.filter((row) => colourOf(row) === colour) })).filter((group) => group.rows.length > 0);
+  const labelled = groups.some((g) => g.colour === "green") && groups.some((g) => g.colour === "orange");
+  // A label brings its own section of space above it; a group without one has to bring that space itself.
+  const hasLabel = (colour: "red" | "green" | "orange") => labelled && colour !== "red";
+  return (
+    <View testID="reason-groups" style={{ marginTop: groups[0] && hasLabel(groups[0].colour) ? 0 : SPACE.gutter }}>
+      {groups.map((group, groupIndex) => (
+        <View key={group.colour} style={{ gap: SPACE.text, marginTop: groupIndex > 0 && !hasLabel(group.colour) ? SPACE.section : 0 }}>
+          {labelled && group.colour !== "red" ? <SectionLabel title={GROUP_LABEL[group.colour]} /> : null}
+          {group.rows.map((row, rowIndex) => (
+            <ReasonBox key={row.key} row={row} lead={groupIndex === 0 && rowIndex === 0} />
+          ))}
+        </View>
+      ))}
     </View>
   );
 }
@@ -542,14 +569,14 @@ function limitBoxes(rows: Reason[], colourOf: (row: Reason) => "red" | "green" |
  * The EU safety notice (#404) wears a shield instead of the dot, and adds the
  * regulation's link and a line that formulas vary and scans can be wrong.
  */
-function ReasonBox({ row }: { row: Reason }) {
+function ReasonBox({ row, lead = false }: { row: Reason; lead?: boolean }) {
   return (
     <View style={{ flexDirection: "row", alignItems: "flex-start", gap: SPACE.block, borderRadius: RADIUS.card, backgroundColor: row.tone.wash, padding: SPACE.gutter }}>
       {/* The dot in its halo (owner). The halo is white here: the verdict's
           own pale halo is the card's colour and would not show on it. */}
       <View style={{ marginTop: row.notice ? 0 : 2 }}>{row.notice ? <SafetyShield /> : <VerdictDot colour={row.tone.solid} halo={WHITE} />}</View>
       <View style={{ flex: 1, gap: 2 }}>
-        <Text style={{ fontSize: TYPE.body, lineHeight: 20, color: INK }}>
+        <Text style={{ fontSize: lead ? TYPE.card : TYPE.body, lineHeight: lead ? 24 : 20, color: INK }}>
           <Text style={{ fontWeight: "600" }}>{row.name}</Text>
           {row.text}
         </Text>
