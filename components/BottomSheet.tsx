@@ -4,7 +4,8 @@ import { Animated, Easing, KeyboardAvoidingView, Modal, Platform, Pressable, Scr
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 
 import { reduceMotionNow } from "@/lib/reduce-motion";
-import { INK, SCRIM, SHEET_SHADOW, WHITE, withAlpha, RADIUS, SPACE } from "@/lib/tokens";
+import { INK, SCRIM, SHEET_SHADOW, WHITE, withAlpha, RADIUS, SPACE, GLASS_FROST } from "@/lib/tokens";
+import { Glass, hasLiquidGlass, OnGlass } from "@/components/Glass";
 
 const IN_MS = 280;
 const OUT_MS = 220;
@@ -105,9 +106,11 @@ export function BottomSheet({
               floating
                 ? { marginHorizontal: FLOAT_INSET, marginBottom: FLOAT_INSET, borderRadius: RADIUS.sheet }
                 : { borderTopLeftRadius: RADIUS.sheet, borderTopRightRadius: RADIUS.sheet },
-              { maxHeight, backgroundColor: WHITE, ...SHEET_SHADOW }, // v9: pure white sheets
+              // v9: pure white sheets; a floating pop-up is Liquid Glass where the phone has it, and lights and shades itself.
+              { maxHeight, ...(floating && hasLiquidGlass ? null : { backgroundColor: WHITE, ...SHEET_SHADOW }) },
             ]}
           >
+            {floating && hasLiquidGlass ? <Glass tint={GLASS_FROST} style={[StyleSheet.absoluteFill, { borderRadius: RADIUS.sheet }]} /> : null}
             {/* Rounded clipping lives on this inner view, so the shadow above
                 isn't clipped with it. */}
             <View
@@ -135,7 +138,11 @@ export function BottomSheet({
                 style={{ position: "absolute", top: 8, alignSelf: "center", width: 36, height: 5, borderRadius: 3, backgroundColor: withAlpha(INK, 0.18) }}
               />
             )}
-            {corner ? <View style={{ position: "absolute", top: 16, right: 16 }}>{corner}</View> : null}
+            {corner ? (
+              <View style={{ position: "absolute", top: 16, right: 16 }}>
+                <OnGlass.Provider value={floating && hasLiquidGlass}>{corner}</OnGlass.Provider>
+              </View>
+            ) : null}
           </View>
         </Animated.View>
       </KeyboardAvoidingView>

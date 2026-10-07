@@ -63,7 +63,7 @@ describe("the notice, with the flag on", () => {
   });
 
   it("never fires for 358, 764 or 875, which are not prohibitions, nor for any other Annex II row", () => {
-    for (const entry of [358, 764, 875, 681, 682, 904, 1389]) {
+    for (const entry of [358, 764, 875, 681, 682, 904]) {
       expect(SAFETY_NOTICE_ENTRIES.some((listed) => listed.entry === entry)).toBe(false);
       expect(safetyNoticeFor(avoid("something", `Prohibited in cosmetics (EU Annex II/${entry})`), true)).toBeNull();
     }

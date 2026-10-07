@@ -187,8 +187,6 @@ export const EU_PROHIBITED_SOURCE: RuleSource = {
  *
  * 358, 764 and 875 are not here on purpose: 358 and 764 are exemptions (#401)
  * and 875 is unexplained, so none of them is a prohibition to tell anyone about.
- * Entry 1389 (dichloromethane, moved out of Annex III/7) is not here either: the
- * owner has not confirmed it yet.
  * Acrylamide (681) and acrylonitrile (682) join only after the owner verifies them.
  */
 export type SafetyNoticeEntry = {
@@ -229,6 +227,15 @@ export const SAFETY_NOTICE_ENTRIES: readonly SafetyNoticeEntry[] = [
     entry: 1396,
     ingredient: "borates, tetraborates, octaborates and boric acid salts and esters (sodium borate, potassium borate, borax)",
     regulation: "Regulation (EU) 2019/831, replaced by Regulation (EU) 2019/1966",
+    verified: "2026-10-07",
+    verifiedBy: "owner",
+  },
+  // Checked on the consolidated text, the amending regulations and CosIng, approved by the owner on #434, 7 October 2026.
+  { entry: 1389, ingredient: "dichloromethane (methylene chloride)", regulation: "Regulation (EU) 2019/831", verified: "2026-10-07", verifiedBy: "owner" },
+  {
+    entry: 1397,
+    ingredient: "perborates and peroxoborates (sodium perborate)",
+    regulation: "Regulation (EU) 2019/831, replaced by Regulation (EU) 2026/78",
     verified: "2026-10-07",
     verifiedBy: "owner",
   },
