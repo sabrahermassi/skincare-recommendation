@@ -56,8 +56,8 @@ export function sensitivityOf(answers: Pick<NeedAnswers, "sensitivity">): Sensit
   return answers.sensitivity ?? "some";
 }
 
-/** Skipped and "Prefer not to say" count as yes (hand-off): only the safe ones show. */
-export function safeOnly(answers: Pick<NeedAnswers, "pregnancy">): boolean {
+/** Skipped and "Prefer not to say" count as yes (hand-off): the actives left out in pregnancy stay out. */
+export function pregnancyFilterOn(answers: Pick<NeedAnswers, "pregnancy">): boolean {
   return answers.pregnancy !== "no";
 }
 
@@ -73,33 +73,33 @@ export type Options = {
  * active, or a family's actives in the order the goal prefers them, and each
  * person gets the one that suits them (owner, 3 October 2026):
  *
- * - unsafe ones are left out when pregnancy is anything but "no";
+ * - those not shown in pregnancy are left out when the answer is anything but "no";
  * - one they already use is passed over for another in the family;
  * - very sensitive skin gets the family's gentlest;
  * - otherwise the goal's first choice.
  *
  * Where the pregnancy filter takes away a place's first choice, it is named
- * as hidden, and a safe one from a nearby family fills a gap (owner). Very
+ * as hidden, and one that is shown from a nearby family fills a gap (owner). Very
  * sensitive skin sees the gentlest places first. Three at most.
  */
 export function optionsFor(answers: Pick<NeedAnswers, "goal" | "sensitivity" | "pregnancy"> & { uses?: readonly ActiveKey[] }): Options {
   const table = GOAL_OPTIONS[answers.goal];
-  const safe = safeOnly(answers);
+  const filtering = pregnancyFilterOn(answers);
   const uses = answers.uses ?? [];
   // Hidden: what the carousel would show if they weren't pregnant, and now doesn't.
   // A place past the first three would never be shown, so it hides nothing.
-  const hidden = safe ? optionsFor({ ...answers, pregnancy: "no" }).actives.filter((active) => !active.pregnancySafe) : [];
+  const hidden = filtering ? optionsFor({ ...answers, pregnancy: "no" }).actives.filter((active) => !active.shownInPregnancy) : [];
   let actives: StoryActive[] = [];
   for (const place of table.actives) {
     const candidates = (Array.isArray(place) ? place : [place]).map(activeOf).filter(hasStory);
-    const allowed = candidates.filter((active) => !(safe && !active.pregnancySafe));
+    const allowed = candidates.filter((active) => !(filtering && !active.shownInPregnancy));
     const fresh = allowed.filter((active) => !uses.includes(active.key));
     const pool = fresh.length > 0 ? fresh : allowed;
     const choice = answers.sensitivity === "high" ? pool.reduce<StoryActive | undefined>((best, active) => (!best || active.gentleness < best.gentleness ? active : best), undefined) : pool[0];
     if (choice && !actives.includes(choice)) actives.push(choice);
   }
-  if (hidden.length > 0 && table.safeBackup && !actives.some((active) => active.key === table.safeBackup)) {
-    const backup = activeOf(table.safeBackup);
+  if (hidden.length > 0 && table.pregnancyBackup && !actives.some((active) => active.key === table.pregnancyBackup)) {
+    const backup = activeOf(table.pregnancyBackup);
     if (hasStory(backup)) actives.push(backup);
   }
   // A stable sort: equally gentle ones keep the goal's order.
@@ -107,14 +107,14 @@ export function optionsFor(answers: Pick<NeedAnswers, "goal" | "sensitivity" | "
   return { actives: actives.slice(0, OPTIONS_MAX), hidden };
 }
 
-/** "Retinoids and BHA are hidden while you're pregnant or breastfeeding." */
+/** "Retinoids and BHA are hidden while you're pregnant or breastfeeding. Check with…" */
 export function hiddenLine(hidden: readonly Active[]): string | null {
   if (hidden.length === 0) return null;
   const names = hidden.map((active) => active.name);
   const list = names.length === 1 ? names[0] : `${names.slice(0, -1).join(", ")} and ${names[names.length - 1]}`;
   // One name can still be many: "Retinoids are hidden", "BHA is hidden".
   const many = names.length > 1 || names[0].endsWith("s");
-  return `${list} ${many ? "are" : "is"} hidden while you're pregnant or breastfeeding.`;
+  return `${list} ${many ? "are" : "is"} hidden while you're pregnant or breastfeeding. Check with your doctor or midwife before starting anything new.`;
 }
 
 /** The story's cards: six, or five when the active has nothing to avoid. */

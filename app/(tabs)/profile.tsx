@@ -11,7 +11,7 @@ import { answeredWithoutSignal, isPersonalized, profileHeadline } from "@/lib/pr
 import { tabBarClearance, tabRootTop } from "@/lib/tab-bar";
 import { AVATAR_FILL, CANVAS, LINE, MUTED, SPACE, TYPE, WHITE, LEADING } from "@/lib/tokens";
 import { useAppStore } from "@/store/useAppStore";
-import { useSafetyNoticeEnabled } from "@/lib/features";
+import { useSafetyNoticeEnabled, useSkinNeedsEnabled } from "@/lib/features";
 import { FitScrollView } from "@/components/FitScrollView";
 import { clearTestData, fillTestData } from "@/lib/dev-test-data";
 import { noOrphan } from "@/lib/text";
@@ -32,6 +32,8 @@ export default function Profile() {
   const profile = useAppStore((s) => s.profile);
   const safetyNoticeEnabled = useSafetyNoticeEnabled();
   const setSafetyNoticeEnabled = useAppStore((s) => s.setSafetyNoticeEnabled);
+  const skinNeedsEnabled = useSkinNeedsEnabled();
+  const setSkinNeedsEnabled = useAppStore((s) => s.setSkinNeedsEnabled);
   // Tapping the Profile tab while it is already showing scrolls back to the top.
   const scrollRef = useRef<ScrollView>(null);
   useScrollToTop(scrollRef);
@@ -118,6 +120,13 @@ export default function Profile() {
                 value={safetyNoticeEnabled ? "On" : "Off"}
                 chevron={false}
                 onPress={() => setSafetyNoticeEnabled(!safetyNoticeEnabled)}
+              />
+              <MenuRow
+                icon="leaf"
+                label="Skin needs"
+                value={skinNeedsEnabled ? "On" : "Off"}
+                chevron={false}
+                onPress={() => setSkinNeedsEnabled(!skinNeedsEnabled)}
               />
             </MenuGroup>
           ) : null}

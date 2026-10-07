@@ -244,8 +244,8 @@ export type Active = {
   match?: (string | RegExp)[];
   /** The ingredient its star saves to Saved › Ingredients. */
   save: string;
-  /** Safe while pregnant or breastfeeding. False leaves it off the carousel for anyone who said yes, skipped, or would rather not say. */
-  pregnancySafe: boolean;
+  /** Shown to someone who is pregnant or breastfeeding. Not a safety claim (#467): false leaves it off the carousel for anyone who said yes, skipped, or would rather not say. */
+  shownInPregnancy: boolean;
   /** 1 is the gentlest. Very sensitive skin sees the gentlest first. */
   gentleness: 1 | 2 | 3;
   /** An acid or a retinoid: skin has to get used to it, and it is worn at night. */
@@ -263,7 +263,7 @@ export type Active = {
   evidence?: { label: string; url: string };
   /**
    * Where the story's three claims that matter most were checked (owner, 3
-   * October 2026): safe or not while pregnant, how often to start, and what
+   * October 2026): shown or not while pregnant, how often to start, and what
    * not to layer it with. A claim left out has no published source found
    * yet. Not shown in the app: they are here so the advice can be read
    * against them.
@@ -302,7 +302,7 @@ export const ACTIVES: readonly Active[] = [
     family: "calming",
     names: ["azelaic acid"],
     save: "azelaic acid",
-    pregnancySafe: true,
+    shownInPregnancy: true,
     gentleness: 2,
     sources: {
       pregnancy: { label: "MotherToBaby: topical acne treatments in pregnancy", url: "https://mothertobaby.org/fact-sheets/topical-acne-treatments-pregnancy/", supports: "yes" },
@@ -336,7 +336,7 @@ export const ACTIVES: readonly Active[] = [
     names: ["salicylic acid"],
     match: ["salicylic acid", "betaine salicylate", "bha"],
     save: "salicylic acid",
-    pregnancySafe: false,
+    shownInPregnancy: false,
     gentleness: 2,
     sources: {
       pregnancy: { label: "AAD: is any acne treatment safe to use during pregnancy?", url: "https://www.aad.org/public/diseases/acne/derm-treat/pregnancy", supports: "no" },
@@ -370,7 +370,7 @@ export const ACTIVES: readonly Active[] = [
     family: "acne-oil",
     names: ["niacinamide"],
     save: "niacinamide",
-    pregnancySafe: true,
+    shownInPregnancy: true,
     gentleness: 1,
     sources: {
       pregnancy: { label: "Bozzo et al. 2011: safety of skin care products during pregnancy", url: "https://pmc.ncbi.nlm.nih.gov/articles/PMC3114665/", supports: "yes" },
@@ -404,7 +404,7 @@ export const ACTIVES: readonly Active[] = [
     names: ["glycerin", "sodium hyaluronate", "urea"],
     match: ["sodium hyaluronate", "hyaluronic acid", "hydrolyzed hyaluronic acid"],
     save: "sodium hyaluronate",
-    pregnancySafe: true,
+    shownInPregnancy: true,
     gentleness: 1,
     sources: {
       pregnancy: { label: "Putra et al. 2022: skin changes and safety of topical products in pregnancy", url: "https://pmc.ncbi.nlm.nih.gov/articles/PMC8884185/", supports: "yes" },
@@ -441,7 +441,7 @@ export const ACTIVES: readonly Active[] = [
     names: ["retinol"],
     match: ["retinol", "retinal", "retinaldehyde", "hydroxypinacolone retinoate", "adapalene", "retinyl retinoate", "retinyl palmitate"],
     save: "retinol",
-    pregnancySafe: false,
+    shownInPregnancy: false,
     gentleness: 3,
     sources: {
       pregnancy: { label: "Putra et al. 2022: skin changes and safety of topical products in pregnancy", url: "https://pmc.ncbi.nlm.nih.gov/articles/PMC8884185/", supports: "yes" },
@@ -477,7 +477,7 @@ export const ACTIVES: readonly Active[] = [
     family: "brighteners",
     names: ["tranexamic acid"],
     save: "tranexamic acid",
-    pregnancySafe: true,
+    shownInPregnancy: true,
     gentleness: 1,
     result: { line: "With arbutin and kojic acid, it works on uneven tone and dark marks.", found: "can work on uneven tone and dark marks." },
     story: {
@@ -507,7 +507,7 @@ export const ACTIVES: readonly Active[] = [
     match: ["alpha-arbutin", "arbutin"],
     save: "alpha-arbutin",
     // A plant cousin of hydroquinone: left out while pregnant or breastfeeding until it is checked.
-    pregnancySafe: false,
+    shownInPregnancy: false,
     gentleness: 1,
     sources: {
       pregnancy: { label: "Putra et al. 2022: skin changes and safety of topical products in pregnancy", url: "https://pmc.ncbi.nlm.nih.gov/articles/PMC8884185/", supports: "no" },
@@ -539,7 +539,7 @@ export const ACTIVES: readonly Active[] = [
     names: ["ascorbic acid", "3-o-ethyl ascorbic acid"],
     match: ["ascorbic acid", "l-ascorbic acid", "3-o-ethyl ascorbic acid", "ascorbyl glucoside", "magnesium ascorbyl phosphate", "sodium ascorbyl phosphate", "ascorbyl tetraisopalmitate"],
     save: "ascorbic acid",
-    pregnancySafe: true,
+    shownInPregnancy: true,
     gentleness: 2,
     sources: {
       pregnancy: { label: "Putra et al. 2022: skin changes and safety of topical products in pregnancy", url: "https://pmc.ncbi.nlm.nih.gov/articles/PMC8884185/", supports: "yes" },
@@ -572,7 +572,7 @@ export const ACTIVES: readonly Active[] = [
     names: ["glycolic acid"],
     match: ["glycolic acid", "lactic acid", "mandelic acid"],
     save: "glycolic acid",
-    pregnancySafe: true,
+    shownInPregnancy: true,
     gentleness: 3,
     sources: {
       pregnancy: { label: "AAD: dermatologist-approved pregnancy skin care", url: "https://www.aad.org/public/everyday-care/skin-care-secrets/routine/pregnancy-skin-care", supports: "yes" },
@@ -607,7 +607,7 @@ export const ACTIVES: readonly Active[] = [
     family: "acne-oil",
     names: ["benzoyl peroxide"],
     save: "benzoyl peroxide",
-    pregnancySafe: true,
+    shownInPregnancy: true,
     gentleness: 3,
     sources: {
       pregnancy: { label: "Chien et al. 2016: treatment of acne in pregnancy", url: "https://www.jabfm.org/content/29/2/254", supports: "yes" },
@@ -642,7 +642,7 @@ export const ACTIVES: readonly Active[] = [
     names: ["bakuchiol"],
     save: "bakuchiol",
     // Not studied in pregnancy (its old card said so): left out until it is checked.
-    pregnancySafe: false,
+    shownInPregnancy: false,
     gentleness: 1,
     sources: {
       pregnancy: { label: "Cleveland Clinic: bakuchiol, a retinol alternative", url: "https://health.clevelandclinic.org/bakuchiol/", supports: "partly" },
@@ -675,7 +675,7 @@ export const ACTIVES: readonly Active[] = [
     names: ["palmitoyl tripeptide-1"],
     match: [/^palmitoyl (tri|tetra|penta|hexa|oligo)peptide/, "acetyl hexapeptide-8"],
     save: "palmitoyl tripeptide-1",
-    pregnancySafe: true,
+    shownInPregnancy: true,
     gentleness: 1,
     result: { line: "Small proteins that help skin look firmer and smoother.", found: "can help skin look firmer and smoother." },
     story: {
@@ -705,7 +705,7 @@ export const ACTIVES: readonly Active[] = [
     names: ["ceramide np", "cholesterol"],
     match: [/^ceramide/],
     save: "ceramide np",
-    pregnancySafe: true,
+    shownInPregnancy: true,
     gentleness: 1,
     support: true,
     result: { line: "The fats your skin barrier is made of, put back from the outside.", found: "can top up the fats your skin barrier is made of." },
@@ -736,7 +736,7 @@ export const ACTIVES: readonly Active[] = [
     names: ["centella asiatica extract", "panthenol", "colloidal oatmeal", "allantoin", "bisabolol", "beta-glucan"],
     match: [/centella/, "madecassoside", "asiaticoside"],
     save: "centella asiatica extract",
-    pregnancySafe: true,
+    shownInPregnancy: true,
     gentleness: 1,
     support: true,
     result: {
@@ -770,7 +770,7 @@ export const ACTIVES: readonly Active[] = [
     family: "acne-oil",
     names: ["zinc pca", "kaolin"],
     save: "zinc pca",
-    pregnancySafe: true,
+    shownInPregnancy: true,
     gentleness: 1,
     result: { line: "Zinc helps moderate oil, and clay soaks it up from the surface.", found: "can help with oil and shine." },
   },
@@ -781,7 +781,7 @@ export const ACTIVES: readonly Active[] = [
     family: "barrier",
     names: ["squalane", "shea butter"],
     save: "squalane",
-    pregnancySafe: true,
+    shownInPregnancy: true,
     gentleness: 1,
     support: true,
     result: { line: "Soften dry skin and slow the water leaving it.", found: "can soften dry skin and slow the water leaving it." },
@@ -795,7 +795,7 @@ export const ACTIVES: readonly Active[] = [
     names: ["gluconolactone"],
     match: ["gluconolactone", "lactobionic acid"],
     save: "gluconolactone",
-    pregnancySafe: true,
+    shownInPregnancy: true,
     gentleness: 1,
     story: {
       line: "The gentlest acid: smooths without the sting.",
@@ -824,7 +824,7 @@ export const ACTIVES: readonly Active[] = [
     names: ["zinc pca"],
     match: ["zinc pca", "zinc gluconate"],
     save: "zinc pca",
-    pregnancySafe: true,
+    shownInPregnancy: true,
     gentleness: 1,
     story: {
       line: "Takes down shine, gently, every day.",
@@ -853,7 +853,7 @@ export const ACTIVES: readonly Active[] = [
     names: ["sulfur"],
     match: ["sulfur", "colloidal sulfur", "sulphur"],
     save: "sulfur",
-    pregnancySafe: true,
+    shownInPregnancy: true,
     gentleness: 2,
     sources: {
       pregnancy: { label: "Patel et al. 2016: topical scabies and lice medicines in pregnancy", url: "https://pmc.ncbi.nlm.nih.gov/articles/PMC5122270/", supports: "yes" },
@@ -885,7 +885,7 @@ export const ACTIVES: readonly Active[] = [
     names: ["colloidal oatmeal"],
     match: [/^avena sativa/, "colloidal oatmeal", "oat kernel extract", "oat kernel oil"],
     save: "colloidal oatmeal",
-    pregnancySafe: true,
+    shownInPregnancy: true,
     gentleness: 1,
     story: {
       line: "Calms itchy, dry, easily upset skin.",
@@ -914,7 +914,7 @@ export const ACTIVES: readonly Active[] = [
     names: ["panthenol"],
     match: ["panthenol", "dexpanthenol", "d-panthenol"],
     save: "panthenol",
-    pregnancySafe: true,
+    shownInPregnancy: true,
     gentleness: 1,
     sources: {
       pregnancy: { label: "Putra et al. 2022: skin changes and safety of topical products in pregnancy", url: "https://pmc.ncbi.nlm.nih.gov/articles/PMC8884185/", supports: "yes" },
@@ -946,7 +946,7 @@ export const ACTIVES: readonly Active[] = [
     names: ["glycerin"],
     match: ["glycerin", "glycerol"],
     save: "glycerin",
-    pregnancySafe: true,
+    shownInPregnancy: true,
     gentleness: 1,
     sources: {
       pregnancy: { label: "Putra et al. 2022: skin changes and safety of topical products in pregnancy", url: "https://pmc.ncbi.nlm.nih.gov/articles/PMC8884185/", supports: "yes" },
@@ -978,7 +978,7 @@ export const ACTIVES: readonly Active[] = [
     names: ["squalane"],
     match: ["squalane"],
     save: "squalane",
-    pregnancySafe: true,
+    shownInPregnancy: true,
     gentleness: 1,
     sources: {
       pregnancy: { label: "Putra et al. 2022: skin changes and safety of topical products in pregnancy", url: "https://pmc.ncbi.nlm.nih.gov/articles/PMC8884185/", supports: "partly" },
@@ -1010,7 +1010,7 @@ export const ACTIVES: readonly Active[] = [
     names: ["tocopherol"],
     match: ["tocopherol", "tocopheryl acetate"],
     save: "tocopherol",
-    pregnancySafe: true,
+    shownInPregnancy: true,
     gentleness: 1,
     sources: {
       pregnancy: { label: "Putra et al. 2022: skin changes and safety of topical products in pregnancy", url: "https://pmc.ncbi.nlm.nih.gov/articles/PMC8884185/", supports: "yes" },
@@ -1042,7 +1042,7 @@ export const ACTIVES: readonly Active[] = [
     names: ["ferulic acid"],
     match: ["ferulic acid"],
     save: "ferulic acid",
-    pregnancySafe: true,
+    shownInPregnancy: true,
     gentleness: 2,
     story: {
       line: "Makes vitamin C and E work harder.",
@@ -1071,7 +1071,7 @@ export const ACTIVES: readonly Active[] = [
     names: ["copper tripeptide-1"],
     match: ["copper tripeptide-1"],
     save: "copper tripeptide-1",
-    pregnancySafe: true,
+    shownInPregnancy: true,
     gentleness: 1,
     story: {
       line: "Supports firmness, and calms skin as it does.",
@@ -1099,7 +1099,7 @@ export const ACTIVES: readonly Active[] = [
     family: "hydrators",
     names: ["urea"],
     save: "urea",
-    pregnancySafe: true,
+    shownInPregnancy: true,
     gentleness: 1,
     sources: {
       pregnancy: { label: "Bozzo et al. 2011: safety of skin care products during pregnancy", url: "https://pmc.ncbi.nlm.nih.gov/articles/PMC3114665/", supports: "partly" },
@@ -1131,7 +1131,7 @@ export const ACTIVES: readonly Active[] = [
     names: ["green tea extract"],
     match: ["green tea extract", /^camellia sinensis/, "egcg"],
     save: "camellia sinensis leaf extract",
-    pregnancySafe: true,
+    shownInPregnancy: true,
     gentleness: 1,
     sources: {
       pregnancy: { label: "Bozzo et al. 2011: safety of skin care products during pregnancy", url: "https://pmc.ncbi.nlm.nih.gov/articles/PMC3114665/", supports: "partly" },
@@ -1162,7 +1162,7 @@ export const ACTIVES: readonly Active[] = [
     family: "uv",
     names: ["zinc oxide", "titanium dioxide"],
     save: "zinc oxide",
-    pregnancySafe: true,
+    shownInPregnancy: true,
     gentleness: 1,
     sources: {
       pregnancy: { label: "AAD: dermatologist-approved pregnancy skin care", url: "https://www.aad.org/public/everyday-care/skin-care-secrets/routine/pregnancy-skin-care", supports: "yes" },
@@ -1210,8 +1210,8 @@ export type GoalOptions = {
    * (`lib/skin-needs.ts`, `optionsFor`). Up to three places are shown.
    */
   actives: (ActiveKey | ActiveKey[])[];
-  /** Filled in when the pregnancy filter takes some away (owner: a safe option from a nearby family). */
-  safeBackup?: ActiveKey;
+  /** Filled in when the pregnancy filter takes some away (owner: one that is shown, from a nearby family). */
+  pregnancyBackup?: ActiveKey;
 };
 
 // A family's actives in the order the goal prefers them. SPF first where the
@@ -1220,17 +1220,17 @@ export type GoalOptions = {
 // thing. Every active has its own story because each person needs a
 // different one (owner, 3 October 2026).
 export const GOAL_OPTIONS: Record<GoalKey, GoalOptions> = {
-  pimples: { about: "pimples", actives: [["bha", "pha"], ["benzoyl", "niacinamide", "sulfur", "zinc"], ["retinoids", "bakuchiol"]], safeBackup: "azelaic" },
-  blackheads: { about: "clogged pores", actives: [["bha", "pha"], ["retinoids", "bakuchiol"], ["niacinamide", "zinc", "sulfur"]], safeBackup: "azelaic" },
+  pimples: { about: "pimples", actives: [["bha", "pha"], ["benzoyl", "niacinamide", "sulfur", "zinc"], ["retinoids", "bakuchiol"]], pregnancyBackup: "azelaic" },
+  blackheads: { about: "clogged pores", actives: [["bha", "pha"], ["retinoids", "bakuchiol"], ["niacinamide", "zinc", "sulfur"]], pregnancyBackup: "azelaic" },
   "red-marks": { about: "red marks", actives: [["azelaic"], "spf", ["vitamin-c", "tranexamic"], ["niacinamide"]] },
-  "dark-marks": { about: "dark marks", actives: ["spf", ["vitamin-c", "tranexamic", "arbutin"], ["aha", "pha"], ["retinoids", "bakuchiol"]], safeBackup: "azelaic" },
+  "dark-marks": { about: "dark marks", actives: ["spf", ["vitamin-c", "tranexamic", "arbutin"], ["aha", "pha"], ["retinoids", "bakuchiol"]], pregnancyBackup: "azelaic" },
   "dark-spots": { about: "uneven skin tone", actives: ["spf", ["vitamin-c", "tranexamic", "arbutin"], ["niacinamide"], ["aha", "pha"]] },
   redness: { about: "redness", actives: [["calming", "panthenol", "oat"], ["ceramides", "squalane"]] },
   hydrate: { about: "dry skin", actives: [["hydrating", "glycerin", "urea"], ["ceramides", "squalane"]] },
   dull: { about: "dull skin", actives: [["vitamin-c", "tranexamic"], "spf", ["aha", "pha"], ["green-tea", "vitamin-e", "ferulic"]] },
-  lines: { about: "lines and wrinkles", actives: ["spf", ["retinoids", "bakuchiol"], ["peptides", "copper-peptides"], ["green-tea", "ferulic", "vitamin-e"]], safeBackup: "vitamin-c" },
+  lines: { about: "lines and wrinkles", actives: ["spf", ["retinoids", "bakuchiol"], ["peptides", "copper-peptides"], ["green-tea", "ferulic", "vitamin-e"]], pregnancyBackup: "vitamin-c" },
   eczema: { about: "eczema-prone skin", actives: [["oat", "calming", "panthenol"], ["ceramides", "squalane"]] },
-  oil: { about: "oiliness", actives: [["bha", "pha"], ["niacinamide", "zinc"], ["retinoids", "bakuchiol"]], safeBackup: "azelaic" },
+  oil: { about: "oiliness", actives: [["bha", "pha"], ["niacinamide", "zinc"], ["retinoids", "bakuchiol"]], pregnancyBackup: "azelaic" },
   texture: { about: "rough texture", actives: [["aha", "pha"], ["bha"], ["retinoids", "bakuchiol"], ["urea"]] },
   barrier: { about: "your skin barrier", actives: [["ceramides", "squalane"], ["hydrating", "glycerin"], ["panthenol", "calming", "oat"]] },
 };

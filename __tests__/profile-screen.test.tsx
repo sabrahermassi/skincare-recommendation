@@ -81,6 +81,29 @@ describe("ProfileScreen", () => {
     expect(screen.queryByText("Delete my profile")).toBeNull();
   });
 
+  // #467: Skin needs is hidden until an expert has checked it; the same kind of row shows it in a development build.
+  describe("the Skin needs row", () => {
+    afterEach(() => {
+      (globalThis as { __DEV__?: boolean }).__DEV__ = true;
+      useAppStore.setState({ skinNeedsEnabled: false }, false);
+    });
+
+    it("shows Off by default and flips the switch when pressed", async () => {
+      await render(<ProfileScreen />);
+      expect(screen.getByRole("button", { name: /Skin needs.*Off/ })).toBeTruthy();
+
+      await fireEvent.press(screen.getByRole("button", { name: /Skin needs/ }));
+      expect(useAppStore.getState().skinNeedsEnabled).toBe(true);
+      expect(screen.getByRole("button", { name: /Skin needs.*On/ })).toBeTruthy();
+    });
+
+    it("is not in a release build", async () => {
+      (globalThis as { __DEV__?: boolean }).__DEV__ = false;
+      await render(<ProfileScreen />);
+      expect(screen.queryByText("Skin needs")).toBeNull();
+    });
+  });
+
   // #403: the regulatory-safety flag has a row beside "Fill with test data" in
   // a development build, and no row at all in a release build.
   describe("the EU safety notice row", () => {
