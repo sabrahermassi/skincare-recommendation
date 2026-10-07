@@ -625,7 +625,7 @@ describe("sharing a product the EU safety notice applies to", () => {
   const safe = (name: string): Ingredient => ({ id: name, name, comedogenic: 0, safety: "safe", verified: true });
   const avoid = (name: string, note: string): Ingredient => ({ id: name, name, comedogenic: 0, safety: "avoid", verified: true, note });
   const HICC = avoid("hydroxyisohexyl 3-cyclohexene carboxaldehyde", "Prohibited in cosmetics (EU Annex II/1380: not allowed on the EU market since 23 August 2019 and not to be sold there since 23 August 2021; older stock may still be around)");
-  const HYDROQUINONE = avoid("hydroquinone", "Prohibited in cosmetics (EU Annex II/1339 III/14)");
+  const UNLISTED = avoid("basic blue 26", "Prohibited in cosmetics (EU Annex II/1340)");
   const productWith = (extra: Ingredient) => ({
     id: "obf-8801234567890",
     barcode: "8801234567890",
@@ -678,9 +678,9 @@ describe("sharing a product the EU safety notice applies to", () => {
     expect(await shareFor(product)).toBe(`Brand Serum - ${matchProduct(product, OWN).score}/100 for my skin, on for.me`);
   });
 
-  it("is unchanged for hydroquinone, whose entry is not verified, even with the flag on", async () => {
+  it("is unchanged for an Annex II entry that is not on the verified list, even with the flag on", async () => {
     useAppStore.setState({ safetyNoticeEnabled: true }, false);
-    const product = productWith(HYDROQUINONE);
+    const product = productWith(UNLISTED);
     expect(await shareFor(product)).toBe(`Brand Serum - ${matchProduct(product, OWN).score}/100 for my skin, on for.me`);
   });
 });

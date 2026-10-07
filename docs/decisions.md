@@ -398,7 +398,7 @@ for an Annex II entry only when two things hold: the persisted flag
 `safetyNoticeEnabled` is on (default off, so every screen is unchanged), and the
 entry is in `SAFETY_NOTICE_ENTRIES` (`lib/safety.ts`) **with a verified date**.
 HICC (1380) and isobutylparaben (1375) were verified by the owner on 5 October
-2026; hydroquinone (1339) is listed with no date and so never fires. Entries
+2026; hydroquinone (1339) was listed with no date, and so did not fire, until the owner verified it on 7 October 2026 (Regulation (EU) No 344/2013; the entry excepts Annex III entry 14, professional artificial nail systems, which the app does not mention: the owner left it out, 7 October 2026). Entries
 358 and 764 (exemptions, #401) and 875 (unexplained) are not prohibitions and
 are not on the list; acrylamide (681) and acrylonitrile (682) join only after
 #402's fix and the owner's check. Nothing is added from memory. One function,

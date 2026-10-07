@@ -200,6 +200,13 @@ export type SafetyNoticeEntry = {
   verifiedBy: "owner" | null;
   /** In words, for the ingredient sheet, when the regulation gives dates. */
   dates?: string;
+  /**
+   * The dictionary names the entry speaks for, when it is one substance and
+   * says something only true of that substance. Without it the notice goes by
+   * the cited entry number alone, so a row a source cited under 1339 by
+   * mistake would be told it is hydroquinone.
+   */
+  names?: readonly string[];
 };
 
 export const SAFETY_NOTICE_ENTRIES: readonly SafetyNoticeEntry[] = [
@@ -239,8 +246,17 @@ export const SAFETY_NOTICE_ENTRIES: readonly SafetyNoticeEntry[] = [
     verified: "2026-10-07",
     verifiedBy: "owner",
   },
-  // Pending: the owner confirms 1339 on the current consolidated EUR-Lex text. Until then it does not fire.
-  { entry: 1339, ingredient: "hydroquinone", regulation: null, verified: null, verifiedBy: null },
+  // Checked by the owner on the consolidated text (CELEX 02009R1223-20260518), Annex II entry 1339 and
+  // Annex III entry 14, 7 October 2026.
+  {
+    entry: 1339,
+    ingredient: "hydroquinone",
+    regulation: "Regulation (EU) No 344/2013",
+    verified: "2026-10-07",
+    verifiedBy: "owner",
+    // The entry is one substance (CAS 123-31-9), under its one INCI name.
+    names: ["hydroquinone"],
+  },
 ];
 
 /** The words of the notice, every one audited by `__tests__/claims-policy.test.ts`. */
@@ -279,12 +295,18 @@ export function annexIIEntries(note: string | undefined): number[] {
 /**
  * The notice for one ingredient, or null. Needs the flag on, a recognised
  * name the dictionary marks `avoid`, and a cited Annex II entry that is on the
- * verified list with a date.
+ * verified list with a date. An entry that lists its `names` speaks only for
+ * those: any other row citing it gets no notice from it.
  */
 export function safetyNoticeFor(ingredient: Ingredient, enabled: boolean): SafetyNoticeEntry | null {
   if (!enabled || !isVerified(ingredient) || ingredient.safety !== "avoid") return null;
   const cited = annexIIEntries(ingredient.note);
-  return SAFETY_NOTICE_ENTRIES.find((entry) => entry.verified !== null && cited.includes(entry.entry)) ?? null;
+  const name = ingredient.name.trim().toLowerCase();
+  return (
+    SAFETY_NOTICE_ENTRIES.find(
+      (entry) => entry.verified !== null && cited.includes(entry.entry) && (!entry.names || entry.names.includes(name))
+    ) ?? null
+  );
 }
 
 /**

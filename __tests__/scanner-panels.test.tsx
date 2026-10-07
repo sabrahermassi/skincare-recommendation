@@ -149,7 +149,7 @@ describe("the found card and the EU safety notice", () => {
     verified: true,
     note: "Prohibited in cosmetics (EU Annex II/1380: not allowed on the EU market since 23 August 2019 and not to be sold there since 23 August 2021; older stock may still be around)",
   };
-  const HYDROQUINONE: Ingredient = { id: "hq", name: "hydroquinone", comedogenic: 0, safety: "avoid", verified: true, note: "Prohibited in cosmetics (EU Annex II/1339 III/14)" };
+  const UNLISTED: Ingredient = { id: "bb26", name: "basic blue 26", comedogenic: 0, safety: "avoid", verified: true, note: "Prohibited in cosmetics (EU Annex II/1340)" };
   const SHIELD = "Contains an ingredient not permitted in EU cosmetics. Check the label.";
   const withExtra = (extra: Ingredient): ProductWithIngredients => {
     const base = foundProduct("8801234567890");
@@ -176,9 +176,9 @@ describe("the found card and the EU safety notice", () => {
     expect(screen.getByRole("button", { name: "See the full result" }).props.accessibilityHint).toBe("Brand Toner");
   });
 
-  it("shows none for hydroquinone, whose entry is not verified", async () => {
+  it("shows none for an Annex II entry that is not on the verified list", async () => {
     useAppStore.setState({ safetyNoticeEnabled: true }, false);
-    await found(withExtra(HYDROQUINONE));
+    await found(withExtra(UNLISTED));
     expect(screen.queryByLabelText(SHIELD)).toBeNull();
   });
 });
