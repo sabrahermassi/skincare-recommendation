@@ -36,6 +36,32 @@ of 61.5 with 115 Good, 597 Fair and 395 Poor; fine lines + eczema-prone had a
 mean of 63 with 220 Good, 502 Fair and 385 Poor. Every movement was downward:
 507 and 483 scores fell, by 1 to 8 points, and 106 verdicts dropped a band.
 
+### Baseline 2026-10-07: EU "restricted" no longer charges by itself (#407)
+
+Re-measured with the same command on 2,846 products with a formula (10 refused
+for every profile), `main` against `main` + #407. Only reactive and unset
+sensitivity are charged for an Annex III ingredient, and now only the EU's
+allergen entries (CLAUDE.md, "EU restricted"). The two "not sensitive" rows are
+unchanged, bar one product that drops 1 point under a new essential-oil rule.
+
+| Profile | Scored | Mean | P25 | Median | P75 | Excellent | Good | Fair | Poor |
+|---|---|---|---|---|---|---|---|---|---|
+| oily · acne-prone · not sensitive | 2836 | 74.3 | 68 | 77 | 81 | 54 | 1634 | 925 | 223 |
+| dry · dehydrated · not sensitive | 2836 | 74.8 | 70 | 76 | 80 | 0 | 1608 | 1139 | 89 |
+| combination · dullness + dark spots · somewhat | 2836 | 63.6 | 59 | 64 | 69 | 0 | 275 | 1845 | 716 |
+| normal · redness · very sensitive | 2836 | 53.2 | 42 | 55 | 65 | 3 | 261 | 886 | 1686 |
+| dry · fine lines + eczema-prone · somewhat | 2836 | 66.3 | 60 | 67 | 74 | 4 | 666 | 1525 | 641 |
+| combination · large pores · unset | 2836 | 70.6 | 64 | 72 | 79 | 31 | 1213 | 1148 | 444 |
+
+Before it, the same four rows read: mean 62.4 (238 Good, 1,728 Fair, 870 Poor),
+51.7 (227, 874, 1,733), 65.0 (604, 1,487, 743) and 69.3 (1,138, 1,140, 538).
+Per cause, cumulatively (products moved, mean move): the double-charge fix
+alone moves about 760 products up by 2.6; removing the restricted-only charge
+adds about 1,170 moves up by 1.3; exempting benzyl alcohol adds about 350 up by
+1.2; the 2023/1545 additions move about 135 down by 1.7 and the three new rules
+about 33 down by 2.4 (4.6 for "very sensitive"). The full per-profile table and
+the list of products that move down are in the #407 PR.
+
 ### Open: the saturation constants no longer sit at the 75th percentile
 
 `CONCERN_SATURATION` is documented as the 75th percentile of the evidence a
