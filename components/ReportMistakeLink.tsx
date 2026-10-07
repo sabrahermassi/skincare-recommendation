@@ -59,7 +59,7 @@ export function ReportMistakeLink({ subject, button = false }: { subject: Mistak
 
   if (!button) {
     return (
-      <View style={{ gap: 4 }}>
+      <View style={{ gap: SPACE.tight }}>
         <Pressable
           onPress={() => void send()}
           accessibilityRole="link"

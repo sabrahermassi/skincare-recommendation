@@ -674,7 +674,7 @@ export function withAlpha(hex: string, alpha: number): string {
  * screen's sides, and `inset` inside a card or panel (7 October 2026: 25 cards
  * were already padded 20, which is not on v7's 4, 8, 12, 16, 24 and 32 scale).
  */
-export const SPACE = { text: 8, block: 12, section: 24, gutter: 16, inset: 20 } as const;
+export const SPACE = { hair: 2, tight: 4, text: 8, block: 12, gutter: 16, inset: 20, section: 24, large: 32 } as const;
 
 /**
  * The heavy shadow under the camera button, so it reads as sitting on top of the

@@ -242,7 +242,7 @@ function ProductScreen({ id, from, need, step, scanned }: { id: string; from?: s
     return (
       <View style={{ flex: 1, backgroundColor: CANVAS }}>
         <ScreenHeader />
-        <View style={{ flex: 1, alignItems: "center", justifyContent: "center", gap: SPACE.gutter, paddingHorizontal: 32 }}>
+        <View style={{ flex: 1, alignItems: "center", justifyContent: "center", gap: SPACE.gutter, paddingHorizontal: SPACE.large }}>
           <Text style={{ fontFamily: DISPLAY_FONT, fontSize: TYPE.heading, color: INK }}>
             Couldn&apos;t load this product
           </Text>
@@ -259,7 +259,7 @@ function ProductScreen({ id, from, need, step, scanned }: { id: string; from?: s
     return (
       <View style={{ flex: 1, backgroundColor: CANVAS }}>
         <ScreenHeader />
-        <View style={{ flex: 1, alignItems: "center", justifyContent: "center", gap: SPACE.gutter, paddingHorizontal: 32 }}>
+        <View style={{ flex: 1, alignItems: "center", justifyContent: "center", gap: SPACE.gutter, paddingHorizontal: SPACE.large }}>
           <Text style={{ fontFamily: DISPLAY_FONT, fontSize: TYPE.heading, color: INK }}>
             Product not found
           </Text>
@@ -418,7 +418,7 @@ function ProductHeader({ product }: { product: ProductWithIngredients }) {
       <View style={{ width: 72, height: 83, alignItems: "center", justifyContent: "center" }}>
         <ProductThumbnail product={product} size={79} />
       </View>
-      <View style={{ flex: 1, gap: 4, paddingTop: 4 }}>
+      <View style={{ flex: 1, gap: SPACE.tight, paddingTop: SPACE.tight }}>
         <Text maxFontSizeMultiplier={FONT_SCALE.ui} style={{ fontSize: TYPE.label, lineHeight: LEADING.label, color: MUTED_FAINT }}>
           {product.brand}
         </Text>

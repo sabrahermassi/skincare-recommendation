@@ -81,7 +81,7 @@ export function ProductNote({ note, onSave }: { note: string | undefined; onSave
 export function NotePreview({ note }: { note: string }) {
   const noteStyle = useNoteTextStyle(note, "preview");
   return (
-    <Text numberOfLines={2} style={{ ...noteStyle, marginTop: 6, color: MUTED }}>
+    <Text numberOfLines={2} style={{ ...noteStyle, marginTop: SPACE.tight, color: MUTED }}>
       {note}
     </Text>
   );

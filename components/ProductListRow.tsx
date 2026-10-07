@@ -56,10 +56,10 @@ export function ProductListRow({
           accessibilityRole="button"
           accessibilityLabel={`${product.name}, ${detail ?? product.brand}${score !== null ? `, ${score} out of 100` : ""}${notice ? `. ${SAFETY_NOTICE_COPY.shieldLabel}` : ""}`}
           className="active:opacity-70"
-          style={{ flex: 1, alignSelf: "stretch", flexDirection: "row", alignItems: "center", gap: SPACE.block, paddingVertical: SPACE.block, paddingLeft: SPACE.gutter, paddingRight: 4 }}
+          style={{ flex: 1, alignSelf: "stretch", flexDirection: "row", alignItems: "center", gap: SPACE.block, paddingVertical: SPACE.block, paddingLeft: SPACE.gutter, paddingRight: SPACE.tight }}
         >
           <ProductThumbnail product={product} size={BOTTLE} />
-          <View style={{ flex: 1, gap: 2 }}>
+          <View style={{ flex: 1, gap: SPACE.hair }}>
             <Text numberOfLines={2} style={{ fontSize: TYPE.label, fontWeight: "600", lineHeight: LEADING.label, color: INK }}>
               {product.name}
             </Text>
@@ -83,7 +83,7 @@ export function ProductListRow({
           importantForAccessibility="no-hide-descendants"
           accessibilityElementsHidden
           className="active:opacity-70"
-          style={{ alignSelf: "stretch", flexDirection: "row", alignItems: "center", gap: SPACE.block, paddingLeft: 4, paddingRight: SPACE.gutter }}
+          style={{ alignSelf: "stretch", flexDirection: "row", alignItems: "center", gap: SPACE.block, paddingLeft: SPACE.tight, paddingRight: SPACE.gutter }}
         >
           <ScorePill score={score} notice={notice} />
         </Pressable>

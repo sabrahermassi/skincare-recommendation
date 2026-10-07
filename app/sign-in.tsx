@@ -99,7 +99,7 @@ export default function SignIn() {
     // a shelf picture above the title; at half height it would push both
     // buttons below the fold, so the sheet leaves it out.
     <View style={{ flex: 1, backgroundColor: CANVAS }}>
-      <View style={{ paddingHorizontal: SPACE.section, paddingTop: 32, paddingBottom: insets.bottom + 32, gap: SPACE.text }}>
+      <View style={{ paddingHorizontal: SPACE.section, paddingTop: SPACE.large, paddingBottom: insets.bottom + 32, gap: SPACE.text }}>
         <Text accessibilityRole="header" style={{ textAlign: "center", fontFamily: DISPLAY_FONT, fontSize: TYPE.heading, lineHeight: LEADING.heading, letterSpacing: TRACKING.heading, color: INK }}>
           Keep your shelf
         </Text>

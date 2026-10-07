@@ -53,7 +53,7 @@ export function ConfirmSheet({
   if (stacked) {
     return (
       <BottomSheet visible={visible} onClose={onClose} floating corner={corner}>
-        <View style={{ alignItems: "center", gap: SPACE.text, paddingTop: 32 }}>
+        <View style={{ alignItems: "center", gap: SPACE.text, paddingTop: SPACE.large }}>
           <Text accessibilityRole="header" style={{ textAlign: "center", fontFamily: DISPLAY_FONT, fontSize: TYPE.heading, lineHeight: LEADING.heading, letterSpacing: TRACKING.heading, color: INK }}>
             {noOrphan(title)}
           </Text>
@@ -79,7 +79,7 @@ export function ConfirmSheet({
   }
   return (
     <BottomSheet visible={visible} onClose={onClose} floating corner={corner}>
-      <View style={{ alignItems: "center", gap: SPACE.text, paddingTop: 32 }}>
+      <View style={{ alignItems: "center", gap: SPACE.text, paddingTop: SPACE.large }}>
         <Text accessibilityRole="header" style={{ textAlign: "center", fontFamily: DISPLAY_FONT, fontSize: TYPE.heading, lineHeight: LEADING.heading, letterSpacing: TRACKING.heading, color: INK }}>
           {noOrphan(title)}
         </Text>

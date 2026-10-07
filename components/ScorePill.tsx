@@ -4,7 +4,7 @@ import { SafetyShield } from "@/components/SafetyShield";
 import { Text } from "@/components/Text";
 import { SCORE_BANDS, matchTone } from "@/lib/matching";
 import { SAFETY_NOTICE_COPY } from "@/lib/safety";
-import { EXCELLENT, VERDICT, VERDICT_NEUTRAL } from "@/lib/tokens";
+import { EXCELLENT, VERDICT, VERDICT_NEUTRAL, SPACE } from "@/lib/tokens";
 
 /** The small ring's size. v7 drew it at 26 with an 11pt number, too small to read in a list; 30 with 12pt. */
 const SIZE = 30;
@@ -37,7 +37,7 @@ export function ScorePill({ score, notice = false }: { score: number | null; not
   );
   if (!notice) return ring;
   return (
-    <View style={{ flexDirection: "row", alignItems: "center", gap: 6 }}>
+    <View style={{ flexDirection: "row", alignItems: "center", gap: SPACE.text }}>
       <SafetyShield size={18} label={SAFETY_NOTICE_COPY.shieldLabel} />
       {ring}
     </View>

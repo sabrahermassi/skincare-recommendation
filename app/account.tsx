@@ -121,7 +121,7 @@ export default function Account() {
           <SignedIn summary={accountSummary(session)} working={working} onLeave={leave} onDownload={download} />
         ) : (
           <View style={{ gap: SPACE.gutter, marginTop: SPACE.block }}>
-            <Text style={{ paddingHorizontal: 4, fontSize: TYPE.body, lineHeight: LEADING.body, color: MUTED }}>{ACCOUNT_PITCH}</Text>
+            <Text style={{ paddingHorizontal: SPACE.tight, fontSize: TYPE.body, lineHeight: LEADING.body, color: MUTED }}>{ACCOUNT_PITCH}</Text>
             <PrimaryButton
               label="Sign in"
               onPress={() => {
@@ -137,7 +137,7 @@ export default function Account() {
             (#272 review). The one notice that belongs to a signed-in screen
             is the sign-out that failed. */}
         {notice && (status !== "signed-in" || SIGNED_IN_NOTICES.has(notice)) ? (
-          <Text accessibilityLiveRegion="polite" style={{ marginTop: SPACE.gutter, paddingHorizontal: 4, fontSize: TYPE.body, lineHeight: LEADING.body, color: INK }}>
+          <Text accessibilityLiveRegion="polite" style={{ marginTop: SPACE.gutter, paddingHorizontal: SPACE.tight, fontSize: TYPE.body, lineHeight: LEADING.body, color: INK }}>
             {notice}
           </Text>
         ) : null}
@@ -220,7 +220,7 @@ function SignedIn({
 
 /** A group's note under its card (v7): 13pt, secondary. */
 function Note({ children }: { children: string }) {
-  return <Text style={{ paddingTop: SPACE.text, paddingHorizontal: 4, fontSize: TYPE.caption, lineHeight: LEADING.caption, color: MUTED }}>{children}</Text>;
+  return <Text style={{ paddingTop: SPACE.text, paddingHorizontal: SPACE.tight, fontSize: TYPE.caption, lineHeight: LEADING.caption, color: MUTED }}>{children}</Text>;
 }
 
 /** Exported for the tests. */

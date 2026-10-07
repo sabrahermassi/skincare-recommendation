@@ -40,7 +40,7 @@ export function ScanIntro({
 }) {
   return (
     <View style={{ flex: 1, paddingTop: topInset, paddingBottom: bottomInset }}>
-      <View style={{ flex: 1, alignItems: "center", justifyContent: "center", paddingHorizontal: 32 }}>
+      <View style={{ flex: 1, alignItems: "center", justifyContent: "center", paddingHorizontal: SPACE.large }}>
         <Image source={illustration} style={{ width: ART_SIZE, height: ART_SIZE }} contentFit="contain" accessibilityLabel="" />
         <Text
           accessibilityRole="header"

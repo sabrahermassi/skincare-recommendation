@@ -49,7 +49,7 @@ function Sheet({ visible, onClose, closable = true, title, line, children }: { v
         ) : undefined
       }
     >
-      <View style={{ alignItems: "center", gap: SPACE.block, paddingTop: 2, paddingHorizontal: 6 }}>
+      <View style={{ alignItems: "center", gap: SPACE.block, paddingTop: SPACE.hair, paddingHorizontal: SPACE.text }}>
         <Text accessibilityRole="header" style={{ paddingHorizontal: closable ? 40 : 0, textAlign: "center", fontFamily: DISPLAY_FONT, fontSize: TYPE.heading, lineHeight: LEADING.heading, letterSpacing: TRACKING.heading, color: INK }}>
           {title}
         </Text>
@@ -63,7 +63,7 @@ function Sheet({ visible, onClose, closable = true, title, line, children }: { v
 /** Two buttons side by side: the one we recommend filled, the other pale sage. */
 function Pair({ first, second }: { first: { label: string; onPress: () => void }; second: { label: string; onPress: () => void } }) {
   return (
-    <View style={{ marginTop: 4, flexDirection: "row", gap: SPACE.block, justifyContent: "center" }}>
+    <View style={{ marginTop: SPACE.tight, flexDirection: "row", gap: SPACE.block, justifyContent: "center" }}>
       <SheetButton label={first.label} onPress={first.onPress} filled />
       <SheetButton label={second.label} onPress={second.onPress} />
     </View>
@@ -91,7 +91,7 @@ function SheetButton({ label, onPress, filled = false, wide = false }: { label: 
 function ActiveTile({ active, badge, line, isNew = false }: { active: ActiveKey; badge?: string; line?: ReactNode; isNew?: boolean }) {
   const record = activeOf(active);
   return (
-    <View style={{ flex: 1, minWidth: 0, backgroundColor: STONE, borderRadius: RADIUS.card, padding: SPACE.block, alignItems: "center", gap: 6 }}>
+    <View style={{ flex: 1, minWidth: 0, backgroundColor: STONE, borderRadius: RADIUS.card, padding: SPACE.block, alignItems: "center", gap: SPACE.text }}>
       <Image source={familyOf(record).picture} contentFit="contain" accessibilityLabel="" style={{ width: 56, height: 54 }} />
       <Text numberOfLines={2} style={{ fontSize: TYPE.body, fontWeight: "600", textAlign: "center", color: INK }}>
         {record.name}
@@ -152,7 +152,7 @@ export function SwapOrAddSheet({
           active={taken}
           badge="In your routine"
           line={
-            <View style={{ flexDirection: "row", alignItems: "center", gap: 4 }}>
+            <View style={{ flexDirection: "row", alignItems: "center", gap: SPACE.tight }}>
               <TimeGlyph time={time} />
               <Text style={{ fontSize: TYPE.caption, color: MUTED_FAINT }}>Step {step}</Text>
             </View>
@@ -188,7 +188,7 @@ export function StartRoutineSheet({ visible, onClose, active, onStart }: { visib
   const [limit, setLimit] = useState<StepLimit>(DEFAULT_STEP_LIMIT);
   return (
     <Sheet visible={visible} onClose={onClose} title="Let's start your routine" line={`We'll add the basics around ${activeOf(active).name}: cleanse, moisturise and SPF.`}>
-      <View style={{ alignSelf: "stretch", gap: SPACE.text, marginTop: 4 }}>
+      <View style={{ alignSelf: "stretch", gap: SPACE.text, marginTop: SPACE.tight }}>
         <Text style={{ fontSize: TYPE.body, fontWeight: "600", color: INK }}>How many steps feel right?</Text>
         <SegmentedSwitch
           tone="light"

@@ -11,7 +11,7 @@ import { DISPLAY_FONT, INK, MUTED, SPACE, TYPE, LEADING, TRACKING } from "@/lib/
  */
 export function PageTitle({ title, line }: { title: string; line?: string }) {
   return (
-    <View style={{ gap: 4 }}>
+    <View style={{ gap: SPACE.tight }}>
       <Text accessibilityRole="header" style={{ fontFamily: DISPLAY_FONT, fontSize: TYPE.heading, lineHeight: LEADING.heading, letterSpacing: TRACKING.heading, color: INK }}>
         {noOrphan(title)}
       </Text>

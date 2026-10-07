@@ -170,14 +170,16 @@ once text is above its normal size, since a pair kept together can be too wide.
 
 ## Spacing
 
-`SPACE` (`lib/tokens.ts`): text 8, block 12, gutter 16, inset 20, section 24; 32
-appears in a few layouts. 16pt page margins, 20pt (`inset`) padding inside a card
-or panel (24 of them were already written as 20), 12pt between cards in a group,
-24pt between sections. Still off the scale, on purpose: 6 and 2 (the gap between
-two lines of one block, a hairline), and 10 and 14 (optical corrections on chips
-and pills); about 100 such literals remain. Write these as `SPACE.*` in `gap`, `padding` and `margin`,
-never as bare numbers. Minimum tap target `TOUCH_TARGET`: 44 on iOS (48 on
-Android).
+`SPACE` (`lib/tokens.ts`) is a 4pt grid with eight named steps: hair 2, tight 4,
+text 8, block 12, gutter 16, inset 20, section 24, large 32. 16pt page margins,
+20pt (`inset`) inside a card or panel, 12pt between cards in a group, 24pt
+between sections. Write these as `SPACE.*` in `gap`, `padding` and `margin`,
+never as bare numbers. On 7 October 2026 the off-grid values were rounded onto
+the grid (6 to 4 or 8, 10 to 8 or 12, 14 to 16, 22 and 28 to 24 or 32); what is
+left are hairlines and borders (1, 3), a few fixed sizes (40 to 144) and negative
+pulls (-4 to -16). Minimum tap target `TOUCH_TARGET`: 44 on iOS (48 on Android);
+a smaller mark gets `hitSlop` to reach it (the routine's 28pt Remove and Scan
+buttons carry 8 on each side).
 
 ## Corners
 

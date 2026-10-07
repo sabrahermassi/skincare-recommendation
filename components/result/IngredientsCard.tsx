@@ -150,7 +150,7 @@ export function IngredientsCard({
       </View>
 
       {rows.length === 0 && filter !== "all" ? (
-        <Text style={{ paddingTop: SPACE.block, paddingBottom: 4, fontSize: TYPE.body, color: MUTED }}>{EMPTY[filter]}</Text>
+        <Text style={{ paddingTop: SPACE.block, paddingBottom: SPACE.tight, fontSize: TYPE.body, color: MUTED }}>{EMPTY[filter]}</Text>
       ) : (
         rows.map((ingredient) => {
           const label = labelOf(ingredient);

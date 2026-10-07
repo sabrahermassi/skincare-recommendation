@@ -15,7 +15,7 @@ export function SectionLabel({ title }: { title: string; first?: boolean }) {
       style={{
         paddingTop: SPACE.section,
         paddingBottom: SPACE.text,
-        paddingHorizontal: 4,
+        paddingHorizontal: SPACE.tight,
         fontSize: TYPE.caption,
         fontWeight: "600",
         letterSpacing: 0.78,

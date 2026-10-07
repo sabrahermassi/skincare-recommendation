@@ -472,7 +472,7 @@ function TextLink({ label, onPress }: { label: string; onPress: () => void }) {
       onPress={onPress}
       accessibilityRole="button"
       accessibilityLabel={label}
-      style={{ minHeight: TOUCH_TARGET, paddingHorizontal: 4, justifyContent: "center" }}
+      style={{ minHeight: TOUCH_TARGET, paddingHorizontal: SPACE.tight, justifyContent: "center" }}
       className="active:opacity-70"
     >
       <Text style={{ fontSize: TYPE.label, color: LINK }}>{label}</Text>
@@ -483,7 +483,7 @@ function TextLink({ label, onPress }: { label: string; onPress: () => void }) {
 /** A group's caps label ("3 PRODUCTS", "TODAY"), and "Clear all" beside the first one. */
 function GroupLabel({ title, onClearAll, filter }: { title: string; onClearAll?: () => void; filter?: ReactNode }) {
   return (
-    <View style={{ minHeight: TOUCH_TARGET, paddingTop: SPACE.text, paddingBottom: 4, paddingLeft: 4, flexDirection: "row", alignItems: "center", justifyContent: "space-between", gap: SPACE.block }}>
+    <View style={{ minHeight: TOUCH_TARGET, paddingTop: SPACE.text, paddingBottom: SPACE.tight, paddingLeft: SPACE.tight, flexDirection: "row", alignItems: "center", justifyContent: "space-between", gap: SPACE.block }}>
       <Text accessibilityRole="header" style={{ fontSize: TYPE.caption, fontWeight: "600", letterSpacing: TRACKING.caption, textTransform: "uppercase", color: MUTED }}>
         {title}
       </Text>
@@ -505,7 +505,7 @@ function ClearSheet({ title, line, visible, onCancel, onConfirm }: { title: stri
 
 /** Under a list: how to take something off it, since a swipe can't be seen. */
 function SwipeHint({ line }: { line: string }) {
-  return <Text style={{ paddingTop: SPACE.block, paddingHorizontal: 4, textAlign: "center", fontSize: TYPE.caption, color: MUTED }}>{line}</Text>;
+  return <Text style={{ paddingTop: SPACE.block, paddingHorizontal: SPACE.tight, textAlign: "center", fontSize: TYPE.caption, color: MUTED }}>{line}</Text>;
 }
 
 /**
@@ -540,7 +540,7 @@ function ShelfPairings({ notes }: { notes: PairingNote[] }) {
         Worth knowing about your shelf
       </Text>
       {notes.map((note) => (
-        <View key={note.id} style={{ gap: 2 }}>
+        <View key={note.id} style={{ gap: SPACE.hair }}>
           <Text style={{ fontSize: TYPE.label, fontWeight: "600", color: INK }}>{note.label}</Text>
           <Text style={{ fontSize: TYPE.label, lineHeight: LEADING.label, color: MUTED }}>{note.text}</Text>
         </View>
@@ -593,7 +593,7 @@ function PlainRow({
       <View style={{ width: TILE, height: TILE, borderRadius: TILE_RADIUS, alignItems: "center", justifyContent: "center", backgroundColor: VERDICT_NEUTRAL.tint }}>
         <Ionicons name="document-text-outline" size={22} color={MUTED} />
       </View>
-      <View style={{ flex: 1, gap: 2 }}>
+      <View style={{ flex: 1, gap: SPACE.hair }}>
         <Text numberOfLines={titleLines} style={{ fontSize: TYPE.label, fontWeight: "600", lineHeight: LEADING.label, color: INK }}>
           {title}
         </Text>
@@ -714,7 +714,7 @@ function EmptyState({ tab, top }: { tab: Tab; /** Room for the screen's fixed he
     // short phone, large text).
     <FitScrollView
       style={{ flex: 1 }}
-      contentContainerStyle={{ flexGrow: 1, paddingTop: top + SPACE.section, paddingHorizontal: 32, paddingBottom: tabBarClearance(insets.bottom) }}
+      contentContainerStyle={{ flexGrow: 1, paddingTop: top + SPACE.section, paddingHorizontal: SPACE.large, paddingBottom: tabBarClearance(insets.bottom) }}
       showsVerticalScrollIndicator={false}
     >
       <View style={{ alignItems: "center", gap: SPACE.text }}>
@@ -880,7 +880,7 @@ function IngredientRow({ ingredient, label, word, onUnstar }: { ingredient: Ingr
         <Pressable
           accessibilityRole="button"
           accessibilityLabel={`${name}, ${word ?? clear}`}
-          style={{ flex: 1, gap: 3, paddingVertical: SPACE.block, paddingLeft: SPACE.gutter, paddingRight: 4 }}
+          style={{ flex: 1, gap: 3, paddingVertical: SPACE.block, paddingLeft: SPACE.gutter, paddingRight: SPACE.tight }}
           className="active:opacity-70"
         >
           <Text numberOfLines={2} style={{ fontSize: TYPE.label, fontWeight: "600", lineHeight: LEADING.label, color: INK }}>

@@ -57,7 +57,7 @@ export function DoctorSheet({ ingredients, need }: { ingredients: readonly Pick<
         </IconCircle>
       }
     >
-      <View style={{ alignItems: "center", gap: SPACE.block, paddingTop: SPACE.text, paddingHorizontal: 6 }}>
+      <View style={{ alignItems: "center", gap: SPACE.block, paddingTop: SPACE.text, paddingHorizontal: SPACE.text }}>
         <View style={{ width: 48, height: 48, borderRadius: 24, backgroundColor: VERDICT.medium.tint, alignItems: "center", justifyContent: "center" }}>
           <Svg width={24} height={24} viewBox="0 0 24 24" fill="none">
             <Path d="M5 3v6a5 5 0 0 0 10 0V3M10 14v2a5 5 0 0 0 10 0v-3" stroke={VERDICT.medium.deep} strokeWidth={2.2} strokeLinecap="round" strokeLinejoin="round" />
@@ -84,7 +84,7 @@ export function DoctorSheet({ ingredients, need }: { ingredients: readonly Pick<
               className="active:opacity-80"
             >
               <Image source={familyOf(alternative).picture} contentFit="contain" accessibilityLabel="" style={{ width: 44, height: 44 }} />
-              <View style={{ flex: 1, gap: 2 }}>
+              <View style={{ flex: 1, gap: SPACE.hair }}>
                 <Text style={{ fontSize: TYPE.caption, color: MUTED_FAINT }}>Over-the-counter option</Text>
                 <Text style={{ fontSize: TYPE.body, fontWeight: "600", color: INK }}>{alternative.key === "retinoids" ? "Retinol" : alternative.name}</Text>
               </View>

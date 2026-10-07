@@ -80,7 +80,7 @@ export default function Privacy() {
         {SECTIONS.map((section) => (
           <View key={section.title}>
             <SectionLabel title={section.title} />
-            <View style={{ gap: SPACE.text, paddingHorizontal: 4 }}>
+            <View style={{ gap: SPACE.text, paddingHorizontal: SPACE.tight }}>
               {section.lines.map((line) => (
                 <Text key={line} style={{ fontSize: TYPE.body, lineHeight: LEADING.body, color: INK }}>
                   {line}
@@ -89,7 +89,7 @@ export default function Privacy() {
             </View>
           </View>
         ))}
-        <Text style={{ marginTop: SPACE.section, paddingHorizontal: 4, fontSize: TYPE.caption, lineHeight: LEADING.caption, color: MUTED }}>
+        <Text style={{ marginTop: SPACE.section, paddingHorizontal: SPACE.tight, fontSize: TYPE.caption, lineHeight: LEADING.caption, color: MUTED }}>
           Ingredient assessments are based on your skin profile and public ingredient data. They are not medical advice.
         </Text>
       </FitScrollView>

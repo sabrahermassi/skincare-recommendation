@@ -88,10 +88,10 @@ export function ChoosePhotoInstead({
         : "";
 
   return (
-    <View style={{ alignItems: "center", gap: 4 }}>
+    <View style={{ alignItems: "center", gap: SPACE.tight }}>
       <ScreenReaderAnnouncer message={speech} />
       {state.kind === "failed" ? (
-        <View accessible accessibilityLabel={speech} style={{ alignItems: "center", gap: 2, paddingHorizontal: SPACE.block }}>
+        <View accessible accessibilityLabel={speech} style={{ alignItems: "center", gap: SPACE.hair, paddingHorizontal: SPACE.block }}>
           <Text style={{ textAlign: "center", fontSize: TYPE.label, fontWeight: "600", color: INK }}>{state.message}</Text>
           {state.hint ? <Text style={{ textAlign: "center", fontSize: TYPE.caption, color: MUTED }}>{state.hint}</Text> : null}
         </View>

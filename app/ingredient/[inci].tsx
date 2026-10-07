@@ -217,7 +217,7 @@ function IngredientDetail({
         // name we don't recognise: starring it would save a string we can say
         // nothing about (#296).
         <View style={{ flexDirection: "row", alignItems: "flex-start", gap: SPACE.block, paddingTop: SPACE.section, paddingHorizontal: SPACE.gutter }}>
-          <View style={{ flex: 1, alignItems: "flex-start", gap: SPACE.text, paddingTop: 4 }}>
+          <View style={{ flex: 1, alignItems: "flex-start", gap: SPACE.text, paddingTop: SPACE.tight }}>
             <Text accessibilityRole="header" style={{ fontFamily: DISPLAY_FONT, fontSize: TYPE.heading, lineHeight: LEADING.heading, letterSpacing: TRACKING.heading, color: INK }}>
               {displayIngredientName(primary)}
             </Text>
@@ -254,7 +254,7 @@ function IngredientDetail({
         <ReadingScale>
           <View style={{ paddingHorizontal: SPACE.gutter, gap: SPACE.block }}>
             {/* On the white sheet this one has no fill of its own (v9). */}
-            <View style={{ padding: SPACE.gutter, gap: 4 }}>
+            <View style={{ padding: SPACE.gutter, gap: SPACE.tight }}>
               <CardHeading>What it does</CardHeading>
               <Text style={{ fontSize: TYPE.body, lineHeight: LEADING.body, color: INK }}>{whatItDoes(ingredient, rule?.reason)}</Text>
             </View>
@@ -265,7 +265,7 @@ function IngredientDetail({
                 path, where "For your skin" is left out, it still gets its card
                 (Codex review on #414). */}
             {notice && !forProfile ? (
-              <View style={{ borderRadius: CARD_RADIUS, backgroundColor: tone.wash, padding: SPACE.gutter, gap: 4 }}>
+              <View style={{ borderRadius: CARD_RADIUS, backgroundColor: tone.wash, padding: SPACE.gutter, gap: SPACE.tight }}>
                 <Text style={{ fontSize: TYPE.body, fontWeight: "600", color: tone.word }}>{SAFETY_NOTICE_COPY.sheetHeadline}</Text>
                 <Text style={{ fontSize: TYPE.body, lineHeight: LEADING.body, color: INK }}>
                   {SAFETY_NOTICE_COPY.sheetBody(notice.entry)}
@@ -275,7 +275,7 @@ function IngredientDetail({
             ) : null}
 
             {forProfile ? (
-              <View style={{ borderRadius: CARD_RADIUS, backgroundColor: tone.wash, padding: SPACE.gutter, gap: 4 }}>
+              <View style={{ borderRadius: CARD_RADIUS, backgroundColor: tone.wash, padding: SPACE.gutter, gap: SPACE.tight }}>
                 <CardHeading>For your skin</CardHeading>
                 <Text style={{ fontSize: TYPE.body, fontWeight: "600", color: tone.word }}>{undecided ? ORIGIN_DEPENDENT_HEADLINE : notice ? SAFETY_NOTICE_COPY.sheetHeadline : fitHeadline(fit, helps, hurts, warning, rule, profile)}</Text>
                 {/* The EU notice says what the listing is, and for HICC its dates (#404). */}
@@ -288,7 +288,7 @@ function IngredientDetail({
                 {/* A warning's own sentence is the most specific thing we hold (#347). */}
                 {fit !== "unknown" && otherWarnings.length > 0 ? (
                   otherWarnings.map((w) => (
-                    <View key={w.origin} style={{ gap: 4 }}>
+                    <View key={w.origin} style={{ gap: SPACE.tight }}>
                       <Text style={{ fontSize: TYPE.body, lineHeight: LEADING.body, color: INK }}>{w.reason}</Text>
                     </View>
                   ))
@@ -306,7 +306,7 @@ function IngredientDetail({
                     {fitBody(fit, helps, hurts, verified, Boolean(rule), isCommonIrritant(ingredient), match !== null, cloggerConfidence(ingredient) === "high")}
                   </Text>
                 )}
-                <Text style={{ marginTop: 4, fontSize: TYPE.caption, fontWeight: "500", color: tone.word }}>{undecided ? "Not in your score" : fitTag(fit, helps, hurts, warning, match)}</Text>
+                <Text style={{ marginTop: SPACE.tight, fontSize: TYPE.caption, fontWeight: "500", color: tone.word }}>{undecided ? "Not in your score" : fitTag(fit, helps, hurts, warning, match)}</Text>
               </View>
             ) : null}
 
@@ -317,7 +317,7 @@ function IngredientDetail({
                 its claims were checked against, then the EU's inventory and
                 PubChem for a name we recognise. No card when there is none. */}
             {sources.length > 0 ? (
-              <Card style={{ padding: SPACE.gutter, gap: 4 }}>
+              <Card style={{ padding: SPACE.gutter, gap: SPACE.tight }}>
                 <CardHeading>Sources</CardHeading>
                 {sources.map((source) => (
                   <ReferenceLink key={source.url} label={source.label} url={source.url} />
@@ -326,8 +326,8 @@ function IngredientDetail({
             ) : null}
 
             {/* Good to know: neutral facts, no ticks (handoff). */}
-            <Card style={{ paddingTop: SPACE.gutter, paddingBottom: 4 }}>
-              <View style={{ paddingHorizontal: SPACE.gutter, paddingBottom: 4 }}>
+            <Card style={{ paddingTop: SPACE.gutter, paddingBottom: SPACE.tight }}>
+              <View style={{ paddingHorizontal: SPACE.gutter, paddingBottom: SPACE.tight }}>
                 <CardHeading>Good to know</CardHeading>
               </View>
               {facts.length > 0 ? (
@@ -346,10 +346,10 @@ function IngredientDetail({
               )}
             </Card>
 
-            <Text style={{ fontSize: TYPE.caption, color: MUTED, paddingHorizontal: 4 }}>Reference data from Open Beauty Facts and EU CosIng.</Text>
+            <Text style={{ fontSize: TYPE.caption, color: MUTED, paddingHorizontal: SPACE.tight }}>Reference data from Open Beauty Facts and EU CosIng.</Text>
 
             {/* A wrong name, reading or claim gets told to us (#327). */}
-            <View style={{ paddingHorizontal: 4 }}>
+            <View style={{ paddingHorizontal: SPACE.tight }}>
               <ReportMistakeLink subject={{ kind: "ingredient", name: ingredient.name }} />
             </View>
           </View>

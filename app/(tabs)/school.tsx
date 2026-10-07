@@ -147,7 +147,7 @@ export default function SkincareSchool() {
                   {/* Not one accessible block: the cards inside have to stay buttons. */}
                   <AppBubble>
                     <Text style={{ fontSize: TYPE.body, lineHeight: LEADING.body, color: INK }}>{SCHOOL_CHAT_COPY.noAnswer}</Text>
-                    <View style={{ gap: SPACE.text, marginTop: 10 }}>
+                    <View style={{ gap: SPACE.text, marginTop: SPACE.block }}>
                       {message.suggestions.map((item) => (
                         <QuestionCard key={item.id} item={item} onPress={() => ask(item)} />
                       ))}
@@ -277,7 +277,7 @@ function Suggestions({ unasked, onAsk }: { unasked: readonly SchoolQuestion[]; o
           showsHorizontalScrollIndicator={false}
           keyboardShouldPersistTaps="handled"
           // Room under the cards for their shade: a scroll view clips what falls outside it.
-          contentContainerStyle={{ gap: SPACE.block, paddingHorizontal: SPACE.gutter, paddingBottom: 4 }}
+          contentContainerStyle={{ gap: SPACE.block, paddingHorizontal: SPACE.gutter, paddingBottom: SPACE.tight }}
         >
           {unasked.map((item) => (
             <QuestionCard key={item.id} item={item} width={CARD_WIDTH} onPress={() => onAsk(item)} />
@@ -301,7 +301,7 @@ function Matches({ matches, onAsk }: { matches: readonly SchoolQuestion[]; onAsk
     <FitScrollView
       style={{ maxHeight: 220 }}
       keyboardShouldPersistTaps="handled"
-      contentContainerStyle={{ gap: SPACE.text, paddingHorizontal: SPACE.gutter, paddingBottom: 6 }}
+      contentContainerStyle={{ gap: SPACE.text, paddingHorizontal: SPACE.gutter, paddingBottom: SPACE.text }}
     >
       {matches.map((item) => (
         <QuestionCard key={item.id} item={item} onPress={() => onAsk(item)} />

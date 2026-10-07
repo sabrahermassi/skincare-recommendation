@@ -758,14 +758,14 @@ function FoundSheet({
         <View style={{ width: 52, height: 64, alignItems: "center", justifyContent: "center" }}>
           <ProductThumbnail product={product} size={64} />
         </View>
-        <View style={{ flex: 1, alignItems: "flex-start", gap: 2 }}>
+        <View style={{ flex: 1, alignItems: "flex-start", gap: SPACE.hair }}>
           <Text numberOfLines={1} style={{ fontSize: TYPE.caption, color: MUTED_FAINT }}>
             {product.brand}
           </Text>
           <Text numberOfLines={2} style={{ fontSize: TYPE.card, fontWeight: "600", lineHeight: LEADING.card, color: INK }}>
             {product.name}
           </Text>
-          <View style={{ marginTop: 6, flexDirection: "row", alignItems: "center", gap: SPACE.text }}>
+          <View style={{ marginTop: SPACE.tight, flexDirection: "row", alignItems: "center", gap: SPACE.text }}>
             <View testID="found-pill" style={{ height: 28, paddingHorizontal: SPACE.block, borderRadius: RADIUS.control, justifyContent: "center", backgroundColor: colours.deep }}>
               <Text style={{ fontSize: TYPE.caption, fontWeight: "600", color: WHITE }}>
                 {verdict ? verdict.headline : !match || match.score === null ? "See full result" : `${VERDICT_LABEL[match.verdict]} · ${match.score}/100`}
@@ -928,7 +928,7 @@ function BarcodeStage({
               <Text style={{ fontSize: TYPE.caption, fontWeight: "600", color: INK }}>{copy?.title}</Text>
               <Text style={{ fontSize: TYPE.caption, color: MUTED }}>{copy?.line}</Text>
               {copy?.note ? (
-                <Text style={{ fontSize: TYPE.caption, color: MUTED, marginTop: 2 }}>{copy.note}</Text>
+                <Text style={{ fontSize: TYPE.caption, color: MUTED, marginTop: SPACE.hair }}>{copy.note}</Text>
               ) : null}
             </View>
           </View>

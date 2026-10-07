@@ -138,7 +138,7 @@ function Questions({ draft, edited, onChange, onShow }: { draft: Draft; edited: 
                 accessibilityRole="button"
                 accessibilityLabel={`Show ${GOALS.length - shownGoals.length} more goals`}
                 hitSlop={(TOUCH_TARGET - 40) / 2}
-                style={{ height: 40, paddingHorizontal: 14, borderRadius: RADIUS.control, borderWidth: 1, borderColor: SKIN_NEEDS.line, justifyContent: "center" }}
+                style={{ height: 40, paddingHorizontal: SPACE.gutter, borderRadius: RADIUS.control, borderWidth: 1, borderColor: SKIN_NEEDS.line, justifyContent: "center" }}
                 className="active:opacity-70"
               >
                 <Text style={{ fontSize: TYPE.card, fontWeight: "600", color: LINK }}>+ {GOALS.length - shownGoals.length} more</Text>
@@ -271,7 +271,7 @@ function Chip({ label, accessibilityLabel, on, many = false, onPress }: { label:
         backgroundColor: on ? CHOSEN.fill : SURFACE,
         flexDirection: "row",
         alignItems: "center",
-        gap: 4,
+        gap: SPACE.tight,
       }}
       className="active:opacity-80"
     >
@@ -354,8 +354,8 @@ function Options({ answers, onBack, onNotPregnant }: { answers: NeedAnswers; onB
           decelerationRate="fast"
           disableIntervalMomentum
           // Room for the card's shade, which a scroll view would otherwise cut.
-          style={{ marginTop: 14 }}
-          contentContainerStyle={{ paddingLeft: CARD_SIDE, paddingRight: CARD_SIDE, paddingVertical: 10, gap: CARD_GAP }}
+          style={{ marginTop: SPACE.gutter }}
+          contentContainerStyle={{ paddingLeft: CARD_SIDE, paddingRight: CARD_SIDE, paddingVertical: SPACE.block, gap: CARD_GAP }}
           scrollEventThrottle={16}
           onScroll={(event) => setCurrent(Math.max(0, Math.min(count - 1, Math.round(event.nativeEvent.contentOffset.x / stride))))}
         >
@@ -364,8 +364,8 @@ function Options({ answers, onBack, onNotPregnant }: { answers: NeedAnswers; onB
           ))}
         </ScrollView>
 
-        <View style={{ paddingTop: 14, paddingHorizontal: SPACE.section, minHeight: 44, flexDirection: "row", alignItems: "center", justifyContent: "space-between" }}>
-          <View style={{ flexDirection: "row", gap: 6, alignItems: "center" }}>
+        <View style={{ paddingTop: SPACE.gutter, paddingHorizontal: SPACE.section, minHeight: 44, flexDirection: "row", alignItems: "center", justifyContent: "space-between" }}>
+          <View style={{ flexDirection: "row", gap: SPACE.text, alignItems: "center" }}>
             {actives.map((active, index) => (
               <Pressable
                 key={active.key}
@@ -384,7 +384,7 @@ function Options({ answers, onBack, onNotPregnant }: { answers: NeedAnswers; onB
               add another?
             </Hand>
           ) : left > 0 ? (
-            <View style={{ flexDirection: "row", alignItems: "center", gap: 6 }}>
+            <View style={{ flexDirection: "row", alignItems: "center", gap: SPACE.text }}>
               <Hand size={18} color={MUTED_FAINT} says>{`swipe for ${left} more`}</Hand>
               <Svg width={36} height={14} viewBox="0 0 40 16" fill="none">
                 <Path d="M2 9c10-6 22-6 34-1" stroke={MUTED_FAINT} strokeWidth={1.6} strokeLinecap="round" strokeLinejoin="round" />
@@ -422,7 +422,7 @@ function FamilyCard({ active, width, best, safe, inRoutine, onOpen }: { active: 
       <View style={{ height: 236 }}>
         <Image source={family.picture} contentFit="contain" accessibilityLabel="" style={{ position: "absolute", top: 14, alignSelf: "center", width: 230, height: 222 }} />
         {inRoutine ? (
-          <View style={{ position: "absolute", top: 16, left: 16, height: 28, paddingHorizontal: SPACE.block, borderRadius: RADIUS.control, backgroundColor: BUTTON.primary.fill, flexDirection: "row", alignItems: "center", gap: 6 }}>
+          <View style={{ position: "absolute", top: 16, left: 16, height: 28, paddingHorizontal: SPACE.block, borderRadius: RADIUS.control, backgroundColor: BUTTON.primary.fill, flexDirection: "row", alignItems: "center", gap: SPACE.text }}>
             <Tick size={12} color={WHITE} />
             <Text style={{ fontSize: TYPE.caption, fontWeight: "600", color: WHITE }}>In your routine</Text>
           </View>
@@ -446,14 +446,14 @@ function FamilyCard({ active, width, best, safe, inRoutine, onOpen }: { active: 
           <StarIcon filled={saved} color={saved ? STAR_ON : INK} />
         </Pressable>
       </View>
-      <View style={{ flex: 1, paddingTop: SPACE.gutter, paddingHorizontal: SPACE.section, paddingBottom: SPACE.section, gap: 4 }}>
+      <View style={{ flex: 1, paddingTop: SPACE.gutter, paddingHorizontal: SPACE.section, paddingBottom: SPACE.section, gap: SPACE.tight }}>
         <Text numberOfLines={1} adjustsFontSizeToFit style={{ fontFamily: DISPLAY_FONT, fontSize: TYPE.large, lineHeight: LEADING.large, letterSpacing: TRACKING.large, color: INK }}>
           {active.name}
         </Text>
         <Text style={{ fontSize: TYPE.caption, color: MUTED_FAINT }}>{active.sub}</Text>
         <Text style={{ marginTop: SPACE.text, fontSize: TYPE.card, lineHeight: LEADING.card, color: INK }}>{line}</Text>
         <View style={{ marginTop: "auto", flexDirection: "row", alignItems: "center", justifyContent: "space-between" }}>
-          <View style={{ gap: 6 }}>
+          <View style={{ gap: SPACE.text }}>
             <Text style={{ fontSize: TYPE.caption, fontWeight: "500", color: MUTED_FAINT }}>{storyLengthLine(active)}</Text>
             <View style={{ flexDirection: "row", gap: 3 }}>
               {Array.from({ length: cards }, (_, index) => (

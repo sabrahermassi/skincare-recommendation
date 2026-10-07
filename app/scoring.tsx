@@ -41,8 +41,8 @@ export default function HowScoringWorks() {
         </View>
       }
     >
-      <ScrollView style={{ flexShrink: 1 }} contentContainerStyle={{ paddingHorizontal: SPACE.gutter, paddingTop: SPACE.gutter, paddingBottom: 32 }} alwaysBounceVertical={false}>
-        <Text style={{ paddingHorizontal: 4, paddingBottom: SPACE.section, fontSize: TYPE.card, lineHeight: 25, color: INK }}>{SCORING_INTRO}</Text>
+      <ScrollView style={{ flexShrink: 1 }} contentContainerStyle={{ paddingHorizontal: SPACE.gutter, paddingTop: SPACE.gutter, paddingBottom: SPACE.large }} alwaysBounceVertical={false}>
+        <Text style={{ paddingHorizontal: SPACE.tight, paddingBottom: SPACE.section, fontSize: TYPE.card, lineHeight: 25, color: INK }}>{SCORING_INTRO}</Text>
 
         <View style={{ backgroundColor: STONE, borderRadius: RADIUS.panel, paddingTop: SPACE.inset, paddingHorizontal: SPACE.inset, paddingBottom: SPACE.text }}>
           <Text accessibilityRole="header" style={{ fontSize: TYPE.card, fontWeight: "600", color: INK }}>
@@ -52,7 +52,7 @@ export default function HowScoringWorks() {
             {scoreBandLines().map((band) => (
               <View key={band.verdict} accessible accessibilityLabel={`${band.range}: ${band.label}. ${band.meaning}`} style={{ alignItems: "flex-start", gap: SPACE.text, paddingBottom: SPACE.gutter }}>
                 {/* The band's colour as a filled pill: "Excellent · 90–100". `deep`, not `solid`: white on Fair's solid orange was 2.6:1. */}
-                <View style={{ height: 32, paddingHorizontal: 14, borderRadius: 16, justifyContent: "center", backgroundColor: scoreColours(band.verdict).deep }}>
+                <View style={{ height: 32, paddingHorizontal: SPACE.gutter, borderRadius: 16, justifyContent: "center", backgroundColor: scoreColours(band.verdict).deep }}>
                   <Text style={{ fontSize: TYPE.body, fontWeight: "600", color: WHITE }}>
                     {band.label.replace(/ match$/, "")} · {band.from}–{band.to}
                   </Text>
@@ -63,13 +63,13 @@ export default function HowScoringWorks() {
           </View>
         </View>
 
-        <Text accessibilityRole="header" style={{ paddingTop: 32, paddingHorizontal: 4, fontSize: TYPE.title, fontWeight: "600", color: INK }}>
+        <Text accessibilityRole="header" style={{ paddingTop: SPACE.large, paddingHorizontal: SPACE.tight, fontSize: TYPE.title, fontWeight: "600", color: INK }}>
           How we score
         </Text>
         {/* All in ink (owner): no grey signs, no sage "your score". */}
         <Text
           accessibilityLabel="Your skin plus its ingredients equals your score"
-          style={{ paddingTop: SPACE.text, paddingHorizontal: 4, fontSize: TYPE.card, fontWeight: "600", lineHeight: LEADING.card, color: INK }}
+          style={{ paddingTop: SPACE.text, paddingHorizontal: SPACE.tight, fontSize: TYPE.card, fontWeight: "600", lineHeight: LEADING.card, color: INK }}
         >
           Your skin + its ingredients = your score
         </Text>
@@ -78,9 +78,9 @@ export default function HowScoringWorks() {
             <FactorRow key={factor.title} factor={factor} divided={index > 0} />
           ))}
         </View>
-        <Text style={{ paddingTop: SPACE.block, paddingHorizontal: 4, fontSize: TYPE.card, lineHeight: 25, color: INK }}>{LABEL_ORDER}</Text>
+        <Text style={{ paddingTop: SPACE.block, paddingHorizontal: SPACE.tight, fontSize: TYPE.card, lineHeight: 25, color: INK }}>{LABEL_ORDER}</Text>
 
-        <Text accessibilityRole="header" style={{ paddingTop: 32, paddingHorizontal: 4, paddingBottom: SPACE.block, fontSize: TYPE.title, fontWeight: "600", color: INK }}>
+        <Text accessibilityRole="header" style={{ paddingTop: SPACE.large, paddingHorizontal: SPACE.tight, paddingBottom: SPACE.block, fontSize: TYPE.title, fontWeight: "600", color: INK }}>
           Good to know
         </Text>
         <View style={{ backgroundColor: STONE, borderRadius: CARD_RADIUS, overflow: "hidden" }}>
@@ -89,7 +89,7 @@ export default function HowScoringWorks() {
           ))}
         </View>
 
-        <Text style={{ paddingTop: SPACE.section, paddingHorizontal: 4, fontSize: TYPE.caption, lineHeight: LEADING.caption, color: MUTED_FAINT }}>
+        <Text style={{ paddingTop: SPACE.section, paddingHorizontal: SPACE.tight, fontSize: TYPE.caption, lineHeight: LEADING.caption, color: MUTED_FAINT }}>
           {SCORING_SOURCES} {SCORING_DISCLAIMER}
         </Text>
       </ScrollView>
