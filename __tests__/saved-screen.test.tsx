@@ -1,4 +1,4 @@
-import { act, fireEvent, render, screen } from "@testing-library/react-native";
+import { act, fireEvent, render, screen, within } from "@testing-library/react-native";
 
 /**
  * Saved, History and Ingredients (v9): one list layout, stone cards under a
@@ -231,6 +231,16 @@ describe("v9 list layout", () => {
     expect(await screen.findByText("1 product")).toBeTruthy();
     expect(screen.queryByRole("button", { name: `Remove ${NAME}` })).toBeNull();
     expect(screen.queryByText(/Swipe left/)).toBeNull();
+  });
+
+  // One row of controls over the list: the count, the step filter and Clear all.
+  it("puts the step filter and Clear all on the count's row", async () => {
+    useAppStore.setState({ savedProducts: [{ id: "aqua-ceramide-cream", savedAt: 2 }, { id: "hanbang-rice-serum", savedAt: 1 }] });
+    await render(<Saved />);
+    const count = await screen.findByText("2 products");
+    const row = within(count.parent!);
+    expect(row.getByRole("button", { name: /^Filter: / })).toBeTruthy();
+    expect(row.getByRole("button", { name: "Clear all" })).toBeTruthy();
   });
 
   it("clears the whole shelf from Clear all, after asking with one Delete button", async () => {
