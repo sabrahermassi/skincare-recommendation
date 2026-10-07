@@ -48,7 +48,8 @@ const toLast = async (cards: number) => {
 
 it("tells the BHA story in six cards, the start plan set by the sensitivity", async () => {
   await open("bha");
-  expect(screen.getByText("1 / 6")).toBeTruthy();
+  // A meta line: medium, not semibold (DESIGN.md, weights).
+  expect(screen.getByText("1 / 6")).toHaveStyle({ fontWeight: "500" });
   expect(screen.getByRole("header", { name: "Why BHA?" })).toBeTruthy();
   expect(screen.getByText("Control oil")).toBeTruthy();
   expect(screen.getByRole("link", { name: /See the evidence/ })).toBeTruthy();
