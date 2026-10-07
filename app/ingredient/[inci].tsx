@@ -20,7 +20,7 @@ import { matchProduct, positionNote, positionWeightLabel, ruleFor, type Contrain
 import { openQuiz } from "@/lib/open-quiz";
 import { CONCERN_TITLE, isPersonalized } from "@/lib/profile";
 import type { IngredientRule } from "@/lib/rules";
-import { contraindications, isOriginDependent, isVerified, ORIGIN_DEPENDENT_HEADLINE, regulatoryStatus, SAFETY_NOTICE_COPY, safetyNoticeFor } from "@/lib/safety";
+import { contraindications, euAllergenFor, isOriginDependent, isVerified, ORIGIN_DEPENDENT_HEADLINE, regulatoryCondition, regulatoryStatus, SAFETY_NOTICE_COPY, safetyNoticeFor } from "@/lib/safety";
 import { saveFromTap } from "@/lib/saving";
 import { useAppStore } from "@/store/useAppStore";
 import { CARD_RADIUS, CHOSEN, DISPLAY_FONT, HAIRLINE, INK, LINE, MUTED, SPACE, STONE, TOUCH_TARGET, TYPE, VERDICT, VERDICT_NEUTRAL, LEADING, TRACKING } from "@/lib/tokens";
@@ -204,6 +204,7 @@ function IngredientDetail({
   const facts = [
     secondary?.startsWith("(") ? { key: "Also called", value: secondary.slice(1, -1) } : null,
     verified ? { key: "EU status", value: regulatoryStatus(ingredient) } : null,
+    verified && regulatoryCondition(ingredient) ? { key: "EU limits", value: regulatoryCondition(ingredient)! } : null,
     ingredient.functions && ingredient.functions.length > 0 ? { key: "Declared as", value: sentenceCase(ingredient.functions.slice(0, 3).join(", ")) } : null,
     verified && ingredient.comedogenic > 0 ? { key: "Pores", value: comedogenicLabel(ingredient.comedogenic) } : null,
     rule?.hurts?.sensitive ? { key: "Sensitive skin", value: "A common irritant for sensitive skin" } : null,
@@ -303,7 +304,7 @@ function IngredientDetail({
                   </Pressable>
                 ) : (
                   <Text style={{ fontSize: TYPE.body, lineHeight: LEADING.body, color: INK }}>
-                    {fitBody(fit, helps, hurts, verified, Boolean(rule), isCommonIrritant(ingredient), match !== null, cloggerConfidence(ingredient) === "high")}
+                    {fitBody(fit, helps, hurts, verified, Boolean(rule), isCommonIrritant(ingredient), euAllergenFor(ingredient) !== null, match !== null, cloggerConfidence(ingredient) === "high")}
                   </Text>
                 )}
                 <Text style={{ marginTop: 4, fontSize: TYPE.caption, fontWeight: "500", color: tone.word }}>{undecided ? "Not in your score" : fitTag(fit, helps, hurts, warning, match)}</Text>
@@ -450,7 +451,9 @@ function sentenceCase(text: string): string {
  */
 function whatItDoes(ingredient: Ingredient, ruleReason: string | undefined): string {
   if (ruleReason) return ruleReason;
-  if (ingredient.note) return ingredient.note;
+  // The import's own citation ("Restricted use (EU Annex III/61)") is a status,
+  // not what the ingredient does; it has its own row under "Good to know".
+  if (ingredient.note && !EU_STATUS_NOTE.test(ingredient.note)) return ingredient.note;
 
   const functions = ingredient.functions ?? [];
   if (functions.length > 0) {
@@ -464,6 +467,8 @@ function whatItDoes(ingredient: Ingredient, ruleReason: string | undefined): str
   }
   return "We hold no declared function for this one yet.";
 }
+
+const EU_STATUS_NOTE = /^Restricted use/i;
 
 const DEPENDS_BODY = "EU rules for this ingredient depend on how it is made, which a label can't show. It doesn't change your score.";
 
@@ -502,6 +507,7 @@ function fitBody(
   verified: boolean,
   hasRule: boolean,
   commonIrritant: boolean,
+  allergen: boolean,
   inProduct: boolean,
   clogs: boolean
 ): string {
@@ -521,14 +527,17 @@ function fitBody(
     return "It is comedogenic: the published pore-clogging lists agree on it, so it may clog pores, most of all on acne-prone skin.";
   }
   if (fit === "avoid") {
-    return "The EU inventory restricts or prohibits this one, which applies to everybody rather than to your profile in particular.";
+    return "The EU inventory prohibits this one, which applies to everybody rather than to your profile in particular.";
   }
-  // Watch for everyone (#345): a restriction or pore rating doesn't explain it.
+  // Watch for everyone (#345): a pore rating doesn't explain it.
+  if (fit === "watch" && allergen) {
+    return "The EU requires this one to be named or warned about on labels, so it is flagged for everyone rather than for your profile in particular.";
+  }
   if (fit === "watch" && commonIrritant) {
     return "A fragrance or common irritant, flagged for everyone rather than for your profile in particular.";
   }
   if (fit === "watch") {
-    return "Carries a restriction or a pore rating worth knowing about, though nothing in your profile makes it a specific problem.";
+    return "Carries a pore rating worth knowing about, though nothing in your profile makes it a specific problem.";
   }
   if (inProduct) return "Nothing in your profile reacts to it, so it doesn't change your score.";
   if (!hasRule) return "Nothing in your profile reacts to it.";
