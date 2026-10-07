@@ -1311,6 +1311,12 @@ runtime-capped. `pg_cron` is already installed and already running
 the hourly licensed-cache eviction at `17 * * * *` — the pattern
 exists and this reuses it.
 
+**Checked against `main`, 7 October 2026: only the reconciliation half is
+scheduled.** `reconcile-obf.yml` re-reads rows the catalogue already holds; it
+adds none. New products still arrive only when someone runs `import:obf` by
+hand, and that script's own comment says its bookmark is not safe to import
+from incrementally. "Done" above is the reconciliation.
+
 **The reconciliation half is the part that matters, and it was a
 throwaway phrase until step 1's limits made it concrete.** Right now
 no row in the catalogue ever expires unless a licence forces it to: an
@@ -1939,7 +1945,7 @@ running real formulas through `matchProduct` and reading the
 arithmetic by hand.
 
 - **Gap 1 — a single-active hydration formula under-scores.**
-  Moved to [step 18](#step-18) on 19 September 2026, untouched: the
+  Moved to [step 18](#step-18--score-sparse-hydration-formulas-fairly) on 19 September 2026, untouched: the
   fix is not obvious and nothing in this step affects it.
 - **Gap 2 — the one worth fixing. Acne-prone/large-pores fit
   barely reacts to real irritation risk.** Benzoyl peroxide, tested
@@ -2041,8 +2047,8 @@ contradicted the score for these lists.
 **What is not done** is no longer part of this step. Every open
 item — the size of the irritation charge, the gentle forms, the actives at the
 front of an A-to-Z list, the fixture’s classifier type — moved to
-[step 17](#step-17), and gap 1 moved to
-[step 18](#step-18) — so this step’s flag depends only on the merge.
+[step 17](#step-17--calibrate-the-irritation-charge--and-close-step-16s-gaps), and gap 1 moved to
+[step 18](#step-18--score-sparse-hydration-formulas-fairly) — so this step’s flag depends only on the merge.
 
 **Done when** a chosen fix (widen
 `IRRITANT_CATEGORIES`, reweight `poreSafety`'s share of
