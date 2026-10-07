@@ -874,7 +874,7 @@ function RiskRow({ title, risk, divider = false, onPress }: { title: string; ris
           {risk.note}
         </Text>
       </View>
-      <Text style={{ fontSize: TYPE.label, fontWeight: "600", color: tone.word }}>{risk.level}</Text>
+      <Text style={{ fontSize: TYPE.label, fontWeight: "500", color: tone.word }}>{risk.level}</Text>
     </Pressable>
   );
 }
