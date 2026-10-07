@@ -5,7 +5,7 @@ import type { Ingredient, ProductWithIngredients, SkinProfile } from "@/data/typ
 import { HAZARD_SCORE_CAP, matchProduct, resetScoreCache } from "@/lib/matching";
 import { contraindications, regulatoryStatus, safetyNoticeFor } from "@/lib/safety";
 import { annexCited } from "../scripts/audit-safety-labels.mjs";
-import { BORATE_SALT, PART_I, planWrites, RENUMBERED, safetyFor, safetyFrom, toRows } from "../scripts/import-inci-dictionary.mjs";
+import { BORATE_SALT, PART_I, PERBORATE, planWrites, RENUMBERED, safetyFor, safetyFrom, toRows, UNCITED_BORATE_SALTS } from "../scripts/import-inci-dictionary.mjs";
 
 /**
  * #419: rows the dictionary import wrote as "Restricted" from a citation the regulation has since
@@ -43,14 +43,17 @@ describe("a ban the old citation hid", () => {
     ["disodium tetraborate", "III/1a III/1b", "Prohibited in cosmetics (EU Annex II/1396)"],
     ["borax", "III/1b", "Prohibited in cosmetics (EU Annex II/1396)"],
     ["dichloromethane", "III/7", "Prohibited in cosmetics (EU Annex II/1389)"],
+    ["sodium perborate", "III/1a III/12", "Prohibited in cosmetics (EU Annex II/1397)"],
+    ["sodium perborate monohydrate", "III/1a III/12", "Prohibited in cosmetics (EU Annex II/1397)"],
+    ["magnesium ascorbylborate", "", "Prohibited in cosmetics (EU Annex II/1396)"],
   ])("writes %s (%s) avoid, with the current Annex II entry", (name: string, citation: string, note: string) => {
     expect(rating(name, citation)).toEqual({ safety: "avoid", note });
   });
 
   it.each([
-    ["sodium perborate", "III/1a III/12"], // perborates are Annex II/1397 and were changed by 2026/78
+    ["sodium perborate", "III/1a III/12 III/99"], // a perborate citing something else is not touched
     ["phenyl mercuric borate", "III/17"], // Annex III/17, a different entry
-    ["magnesium ascorbylborate", ""], // no citation: listed in the PR, not guessed
+    ["calcium ascorbylborate", ""], // no citation and not reviewed: never banned on a guess
     ["potassium tetrafluoroborate", "III/1a"], // not a boric acid salt or ester
     ["sodium borate", "V/16"], // a borate citing something else is not touched
     ["boric acid", "III/1a III/14"], // an extra citation outside the old boric acid set
@@ -100,19 +103,19 @@ describe("a ban the old citation hid", () => {
     }
   });
 
-  it("fires the safety notice, with the flag on only, for exactly the four verified entries", () => {
+  it("fires the safety notice, with the flag on only, for exactly the verified entries", () => {
     for (const [name, citation, entry] of [
       ["butylphenyl methylpropional", "III/83", 1666],
       ["boric acid", "III/1a", 1395],
       ["diboron trioxide", "III/1b", 1394],
       ["sodium borate", "III/1a III/1b", 1396],
       ["potassium borate", "III/1a III/1b", 1396],
+      ["dichloromethane", "III/7", 1389],
+      ["sodium perborate", "III/1a III/12", 1397],
     ] as const) {
       expect(safetyNoticeFor(written(name, citation), true)?.entry).toBe(entry);
       expect(safetyNoticeFor(written(name, citation), false)).toBeNull();
     }
-    expect(safetyNoticeFor(written("dichloromethane", "III/7"), true)).toBeNull();
-    expect(safetyNoticeFor(row("sodium perborate", "caution", rating("sodium perborate", "III/1a III/12").note ?? null), true)).toBeNull();
     expect(safetyNoticeFor(written("butylphenyl methylpropional", "III/83"), true)?.dates).toContain("1 March 2022");
   });
 });
@@ -184,7 +187,7 @@ describe("through the whole import", () => {
     expect(byName("mea-borate")?.safety).toBe("avoid");
     expect(byName("butylphenyl methylpropional")?.note).toMatch(/II\/1666, since 1 March 2022/);
     expect(byName("turpentine")?.note).toBe("Restricted use (EU Annex III/124)");
-    expect(byName("sodium perborate")).toMatchObject({ safety: "caution", note: "Restricted use (EU Annex III/1a III/12)" });
+    expect(byName("sodium perborate")).toMatchObject({ safety: "avoid", note: "Prohibited in cosmetics (EU Annex II/1397)" });
   });
 });
 
@@ -260,5 +263,30 @@ describe("the migration says what the import says", () => {
     expect(sql).toContain("where safety = 'caution'");
     expect(statements).toContain("(1[ab]|24|61)");
     expect(statements).not.toMatch(/III\/12(?!\d)/);
+  });
+});
+
+describe("0033: the boron rows 0032 left, the same way the import writes them", () => {
+  const sql33 = readFileSync(join(__dirname, "..", "supabase", "migrations", "0033_annex_boron_followup.sql"), "utf8");
+  const statements33 = sql33.split("\n").filter((line) => !line.trimStart().startsWith("--")).join("\n");
+
+  it("bans a perborate by the importer's own name pattern and old citation", () => {
+    expect(statements33).toContain(`inci_name ~ '${PERBORATE.source}'`);
+    expect(statements33).toContain("note = 'Restricted use (EU Annex III/1a III/12)'");
+    expect(statements33).toContain(`'${rating("sodium perborate", "III/1a III/12").note}'`);
+    expect(statements33).not.toMatch(/\\b/);
+  });
+
+  it("bans each uncited borate salt the import names, with the import's note", () => {
+    for (const name of UNCITED_BORATE_SALTS) {
+      expect(statements33).toContain(`inci_name = '${name}'`);
+      expect(statements33).toContain(`'${rating(name, "").note}'`);
+    }
+  });
+
+  it("gives phenyl mercuric borate the note its Annex V/17 citation gets, and keeps it safe", () => {
+    expect(rating("phenyl mercuric borate", "V/17")).toEqual({ safety: "safe", note: "EU Annex V/17" });
+    expect(statements33).toContain("set note = 'EU Annex V/17'");
+    expect(statements33).not.toMatch(/phenyl mercuric borate'[\s\S]*safety = 'avoid'/);
   });
 });

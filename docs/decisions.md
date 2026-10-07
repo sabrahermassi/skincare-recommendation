@@ -57,20 +57,26 @@ EU bans as "Restricted use". Checked against the consolidated Regulation (EC) No
   (EU) 2021/1902, from 1 March 2022; it was cited as III/83); boric acid is 1395 and diboron
   trioxide 1394 (Regulation (EU) 2019/831); every boric acid salt or ester is 1396
   (2019/831, replaced by 2019/1966), because that regulation deleted Annex III entries 1a and
-  1b; dichloromethane is 1389 (it left Annex III/7 in 2019/831; the owner has not yet
-  confirmed it for the safety notice).
+  1b; dichloromethane is 1389 (it left Annex III/7 in 2019/831); sodium perborate is 1397
+  (2019/831, which Regulation (EU) 2026/78 replaced from 1 May 2026, merging 1398 and 1399
+  into it; Annex III/12, hydrogen peroxide, excludes it by name).
 - **Matched by INCI name and class, never by CAS:** CosIng and the regulation give
-  potassium borate different CAS numbers. Perborates (1397, changed by 2026/78), phenyl
-  mercuric borate (III/17) and a borate that cites anything else are left as they were.
+  potassium borate different CAS numbers. Magnesium ascorbylborate has no citation in the
+  taxonomy, so it is named on its own (`UNCITED_BORATE_SALTS`); CosIng lists it as II/1396.
+  Phenyl mercuric borate is Annex V/17 (a preservative allowed in eye products only): the
+  owner followed CosIng rather than reading 1396's class wording onto it, so it keeps its
+  rating with the note "EU Annex V/17", like its phenylmercuric siblings. A borate that cites
+  anything else is left as it was.
 - **Renumbered, still restricted:** Regulation (EU) 2023/1545 deleted entries 125, 126, 158,
   160-163, 165, 167 and 168 and merged them into 124, 157 and 88; 19 is now 227; and the
   old Part I numbering ("Annex III/I/256 - Directive 2012/21/EU") is the current entry by
   ingredient name. Only the note's entry number changes.
 
 `staleCitationFix` in `scripts/import-inci-dictionary.mjs` makes the corrections and
-`supabase/migrations/0032_annex_stale_citations.sql` fixes the rows already written; keep their
-notes the same (`__tests__/annex-stale-citations.test.ts`, and
-`supabase/tests/annex_stale_citations.test.sql` against a real Postgres). The score impact is
+`supabase/migrations/0032_annex_stale_citations.sql` and `0033_annex_boron_followup.sql` fix the
+rows already written; keep their notes the same (`__tests__/annex-stale-citations.test.ts`, and
+`supabase/tests/annex_stale_citations.test.sql` and `annex_boron_followup.test.sql` against a
+real Postgres). Entries 1389 and 1397 joined the safety-notice list on #434. The score impact is
 in the #419 PR.
 
 ## Routing
