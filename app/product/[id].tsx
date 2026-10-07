@@ -1,7 +1,7 @@
 import { AddToStep } from "@/components/AddToStep";
 import { router, useLocalSearchParams } from "expo-router";
 import { useEffect, useMemo, useRef, useState } from "react";
-import { ActivityIndicator, Share, View } from "react-native";
+import { ActivityIndicator, Pressable, Share, View } from "react-native";
 import Svg, { Path } from "react-native-svg";
 
 import { FirstPageMoment } from "@/components/FirstPageMoment";
@@ -25,10 +25,11 @@ import { decodeNeed, needProfile, needVerdict } from "@/lib/journey";
 import { matchProduct } from "@/lib/matching";
 import { openScanner } from "@/lib/open-scanner";
 import { productIdParam } from "@/lib/route-params";
-import { safetyNoticeHitsNow } from "@/lib/features";
+import { safetyNoticeHitsNow, useSafetyNoticeEnabled } from "@/lib/features";
+import { LIST_AGE_COPY, listAgeNotice, listAgeSentence, listAgeText, type ListAgeNotice } from "@/lib/list-age";
 import { historyWarningCount, SAFETY_NOTICE_COPY } from "@/lib/safety";
 import { saveFromTap, useCanJournal } from "@/lib/saving";
-import { CANVAS, DISPLAY_FONT, FONT_SCALE, INK, MUTED, MUTED_FAINT, SPACE, STONE, TYPE, VERDICT, WARN, LEADING, TRACKING } from "@/lib/tokens";
+import { CANVAS, DISPLAY_FONT, FONT_SCALE, INK, LEADING, MUTED, MUTED_FAINT, SPACE, STONE, TOUCH_TARGET, TRACKING, TYPE, VERDICT, WARN } from "@/lib/tokens";
 import { useAppStore } from "@/store/useAppStore";
 import NotFound from "@/app/+not-found";
 
@@ -63,9 +64,6 @@ import NotFound from "@/app/+not-found";
  * pregnancy or routine note, and the ingredient list — is the same for
  * everyone; Skin match is the score, why, and what it means for this person.
  */
-
-// See `staleNotice`.
-const STALE_AFTER_MS = 182 * 24 * 60 * 60 * 1000;
 
 /**
  * The route: the id comes from the URL, so a link can put anything in it. One
@@ -132,6 +130,8 @@ function ProductScreen({ id, from, need, step, scanned }: { id: string; from?: s
   const fillInViewScore = useAppStore((s) => s.fillInViewScore);
   const saved = savedProducts.some((p) => p.id === id);
   const canJournal = useCanJournal();
+  // Read here, above the early returns below: `listAgeNotice` needs it.
+  const safetyNoticeOn = useSafetyNoticeEnabled();
   const loggedId = useRef<string | null>(null);
   /**
    * Which id `fetchProduct` has actually confirmed still exists, distinct
@@ -271,17 +271,13 @@ function ProductScreen({ id, from, need, step, scanned }: { id: string; from?: s
 
   const match = matchProduct(product, profile);
 
-  // Six months. Long enough that a fresh catalogue never mentions it, short
-  // enough to catch a formula that predates a plausible reformulation — brands
-  // change one roughly every year or two, and the source finds out later
-  // still. A row with no `fetchedAt` says nothing rather than guessing old.
-  const fetchedAtMs = product.fetchedAt ? Date.parse(product.fetchedAt) : NaN;
-  const staleNotice =
-    Number.isFinite(fetchedAtMs) && renderedAt - fetchedAtMs > STALE_AFTER_MS
-      ? `This formula was read ${relativeTime(fetchedAtMs, renderedAt)}. If the brand has reformulated since, the verdict above is judging the old list.`
-      : null;
+  // How old the ingredient list is (#446). It replaced a notice that fired six
+  // months after `fetchedAt`, which is when *we* last read the row and says
+  // nothing about the formula's age. Only a barcode product gets one: a label
+  // scan is the bottle in hand, and shows on its own screen.
+  const listAge = listAgeNotice(product, renderedAt, safetyNoticeOn);
 
-  // Step 8's own notice: unlike `staleNotice`, which only ever guesses that a
+  // Step 8's own notice: unlike the list-age notice, which only ever says a
   // formula might be old, this one is certain — reconciliation (scripts/
   // reconcile-obf.mjs) already confirmed this exact product's ingredient list
   // changed. Shown only for a saved product, and only when the change
@@ -388,10 +384,19 @@ function ProductScreen({ id, from, need, step, scanned }: { id: string; from?: s
             {/* The person's own note (#228), only for a product on their
                 shelf, and signed in only (#300): see useCanJournal. */}
             {savedEntry && canJournal ? <ProductNote note={savedEntry.note} onSave={(note) => setNote(product.id, note)} /> : null}
-            {/* How old the formula is, once old enough to matter, and a
-                confirmed change since it was saved (step 8): WARN, so a
-                trust-relevant claim never reads as furniture. */}
-            {staleNotice ? <Text style={{ fontSize: TYPE.label, lineHeight: 17, fontWeight: "600", color: WARN }}>{staleNotice}</Text> : null}
+            {/* The year the ingredient list was photographed, plainly (#446),
+                or a verified EU ban in it and a confirmed change since it was
+                saved (step 8): WARN, so a trust-relevant claim never reads as
+                furniture. */}
+            {listAge?.kind === "dated" ? (
+              <Text style={{ fontSize: TYPE.label, lineHeight: 17, color: MUTED }}>{listAgeSentence(listAge)}</Text>
+            ) : listAge ? (
+              <ListAgeLine
+                notice={listAge}
+                // The label scan, keeping what the scan was for: a Skin needs pick or a routine step.
+                onScanLabel={() => openScanner({ mode: "photo", ...(journey && need ? { from: "journey", need } : {}), ...(step ? { step } : {}) })}
+              />
+            ) : null}
             {formulaChangedNotice ? (
               <Text style={{ fontSize: TYPE.label, lineHeight: 17, fontWeight: "600", color: WARN }}>{formulaChangedNotice}</Text>
             ) : null}
@@ -403,6 +408,31 @@ function ProductScreen({ id, from, need, step, scanned }: { id: string; from?: s
       {/* Scanned from Skin needs with a prescription-only active in it. */}
       {journey ? <DoctorSheet ingredients={product.ingredients} need={journey} /> : null}
     </View>
+  );
+}
+
+/**
+ * The banned-ingredient notice (#446): its sentence, with "Scan the label"
+ * underlined. The whole line is the button, so the target is the line and not
+ * three words.
+ */
+function ListAgeLine({ notice, onScanLabel }: { notice: Extract<ListAgeNotice, { kind: "banned" }>; onScanLabel: () => void }) {
+  const { lead, action, ending } = listAgeText(notice);
+  return (
+    <Pressable
+      onPress={onScanLabel}
+      accessibilityRole="button"
+      accessibilityLabel={listAgeSentence(notice)}
+      accessibilityHint={LIST_AGE_COPY.actionHint}
+      style={{ minHeight: TOUCH_TARGET, justifyContent: "center" }}
+      className="active:opacity-70"
+    >
+      <Text style={{ fontSize: TYPE.label, lineHeight: 17, fontWeight: "600", color: WARN }}>
+        {`${lead} `}
+        <Text style={{ fontSize: TYPE.label, lineHeight: 17, fontWeight: "600", color: WARN, textDecorationLine: "underline" }}>{action}</Text>
+        {ending}
+      </Text>
+    </Pressable>
   );
 }
 

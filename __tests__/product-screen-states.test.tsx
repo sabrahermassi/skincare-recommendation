@@ -684,3 +684,107 @@ describe("sharing a product the EU safety notice applies to", () => {
     expect(await shareFor(product)).toBe(`Brand Serum - ${matchProduct(product, OWN).score}/100 for my skin, on for.me`);
   });
 });
+
+// #446: how old a barcode result's ingredient list is, where the six-month "read … ago" notice used to be.
+describe("the product screen's notice about the ingredient list's age", () => {
+  const safe = (name: string): Ingredient => ({ id: name, name, comedogenic: 0, safety: "safe", verified: true });
+  const LILIAL: Ingredient = { id: "butylphenyl methylpropional", name: "butylphenyl methylpropional", comedogenic: 0, safety: "avoid", verified: true, note: "Prohibited in cosmetics (EU Annex II/1666, since 1 March 2022)" };
+  const productWith = (overrides: object = {}) => ({
+    id: "obf-8801234567890",
+    barcode: "8801234567890",
+    brand: "Brand",
+    name: "Toner",
+    type: "toner" as const,
+    productType: "toner",
+    price: 0,
+    volume: "",
+    suitableFor: [],
+    targets: [],
+    description: "",
+    benefits: [],
+    imageUrl: null,
+    attribution: null,
+    source: "obf",
+    // Read long ago: the old notice went by this, and it must no longer matter.
+    fetchedAt: "2024-01-01T00:00:00Z",
+    ingredientsPhotographedAt: "2018-04-08T17:29:34.000Z" as string | null,
+    ingredientIds: [],
+    ingredients: ["water", "glycerin", "niacinamide", "butylene glycol"].map(safe),
+    ...overrides,
+  });
+  const recently = () => new Date(Date.now() - 30 * 24 * 60 * 60 * 1000).toISOString();
+  const OWN = { ...EMPTY_PROFILE, baseSkinType: "oily" as const, concerns: ["acne-prone" as const], sensitivity: "none" as const };
+  const notice = () => screen.queryByRole("button", { name: /Scan the label to check/ });
+  const dated = (year: number) => screen.queryByText(`Ingredient list from ${year}.`);
+
+  beforeEach(() => {
+    useAppStore.setState({ profile: OWN, history: [], savedProducts: [] });
+    (router.push as unknown as { mockClear(): void }).mockClear();
+  });
+  afterEach(() => useAppStore.setState({ profile: EMPTY_PROFILE, history: [], savedProducts: [], safetyNoticeEnabled: false }));
+
+  async function open(product: object, params: Record<string, string> = {}) {
+    mockParams = { id: "obf-8801234567890", ...params };
+    fetched.mockReturnValueOnce(Promise.resolve({ ok: true, value: product }));
+    await render(<ProductRoute />);
+    await act(async () => {});
+    await putTeaserAway();
+  }
+
+  it("says the year the list was photographed, plainly, with no warning and no button", async () => {
+    await open(productWith());
+    expect(dated(2018)).toBeTruthy();
+    expect(notice()).toBeNull();
+  });
+
+  it("says nothing when the source has no photo of the list", async () => {
+    await open(productWith({ ingredientsPhotographedAt: null }));
+    expect(notice()).toBeNull();
+    expect(screen.queryByText(/Ingredient list from/)).toBeNull();
+  });
+
+  it("names the ingredient the EU safety notice applies to, even on a recent list, with that notice on", async () => {
+    useAppStore.setState({ safetyNoticeEnabled: true }, false);
+    await open(productWith({ ingredientsPhotographedAt: recently(), ingredients: [safe("water"), safe("glycerin"), LILIAL] }));
+    expect(notice()?.props.accessibilityLabel).toBe(
+      "This list contains Butylphenyl Methylpropional, which the EU has banned. Your bottle may have a newer formula. Scan the label to check."
+    );
+  });
+
+  it("makes no claim about the regulation with the safety notice off: the same list gets only its date", async () => {
+    await open(productWith({ ingredients: [safe("water"), safe("glycerin"), LILIAL] }));
+    expect(notice()).toBeNull();
+    expect(dated(2018)).toBeTruthy();
+  });
+
+  it("gives a recent list its year too, and no warning, however long ago the row was read", async () => {
+    await open(productWith({ ingredientsPhotographedAt: recently() }));
+    expect(notice()).toBeNull();
+    expect(screen.queryByText(/Ingredient list from \d{4}\./)).toBeTruthy();
+    expect(screen.queryByText(/This formula was read/)).toBeNull();
+  });
+
+  it("says nothing for a product that is not a barcode result, or a row read before the date existed", async () => {
+    await open(productWith({ id: "ocr-8801234567890", source: "ocr" }), { id: "ocr-8801234567890" });
+    expect(notice()).toBeNull();
+    expect(screen.queryByText(/Ingredient list from/)).toBeNull();
+    await act(async () => screen.unmount());
+    await open(productWith({ ingredientsPhotographedAt: undefined }));
+    expect(notice()).toBeNull();
+    expect(screen.queryByText(/Ingredient list from/)).toBeNull();
+  });
+
+  it("opens the label scan when the banned notice is pressed", async () => {
+    useAppStore.setState({ safetyNoticeEnabled: true }, false);
+    await open(productWith({ ingredients: [safe("water"), safe("glycerin"), LILIAL] }));
+    await fireEvent.press(notice()!);
+    expect(router.push).toHaveBeenCalledWith({ pathname: "/scanner", params: { mode: "photo" } });
+  });
+
+  it("still says when a saved product's formula has changed, beside it", async () => {
+    useAppStore.setState({ savedProducts: [{ id: "obf-8801234567890", savedAt: Date.parse("2026-01-01T00:00:00Z") }] as never });
+    await open(productWith({ formulaChangedAt: "2026-06-01T00:00:00Z" }));
+    expect(screen.getByText(/This formula has changed since you saved it/)).toBeTruthy();
+    expect(dated(2018)).toBeTruthy();
+  });
+});

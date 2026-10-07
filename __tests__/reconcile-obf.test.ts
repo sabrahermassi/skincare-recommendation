@@ -1,6 +1,6 @@
 import { fetchStoredFormulas, isParserRefresh, parserOnlyChange } from "../scripts/lib/formula-diff.mjs";
 import { parseInci } from "../scripts/lib/inci-parse.mjs";
-import { decideWrite, fetchBarcodeRows, fetchIngredients, formulaChanged, isRefinement, parseBarcodes, parseLimit, replaceArgs, unreadBarcodes } from "../scripts/reconcile-obf.mjs";
+import { decideWrite, fetchBarcodeRows, fetchIngredients, formulaChanged, isRefinement, parseBarcodes, parseLimit, replaceArgs, unchangedUpdate, unreadBarcodes } from "../scripts/reconcile-obf.mjs";
 
 /**
  * The parser got better than the one that stored these rows. A rewrite would
@@ -244,12 +244,12 @@ describe("fetchIngredients", () => {
 
   it("reads the ingredients text off a good response", async () => {
     respond({ body: { status: 1, product: { ingredients_text: "Aqua, Glycerin" } } });
-    expect(await fetchIngredients("123")).toEqual({ ok: true, text: "Aqua, Glycerin", attempts: 1 });
+    expect(await fetchIngredients("123")).toEqual({ ok: true, text: "Aqua, Glycerin", photographedAt: null, attempts: 1 });
   });
 
   it("trims the text, and tolerates a missing field as empty rather than throwing", async () => {
     respond({ body: { status: 1, product: {} } });
-    expect(await fetchIngredients("123")).toEqual({ ok: true, text: "", attempts: 1 });
+    expect(await fetchIngredients("123")).toEqual({ ok: true, text: "", photographedAt: null, attempts: 1 });
   });
 
   // The bug this replaced: a 429 retry is a second real HTTP request, but the
@@ -277,7 +277,7 @@ describe("fetchIngredients", () => {
       };
     }) as unknown as typeof global.fetch;
 
-    expect(await fetchIngredients("123")).toEqual({ ok: true, text: "Aqua", attempts: 2 });
+    expect(await fetchIngredients("123")).toEqual({ ok: true, text: "Aqua", photographedAt: null, attempts: 2 });
     expect(call).toBe(2);
   });
 
@@ -440,6 +440,27 @@ describe("replaceArgs", () => {
 
   it("refuses to build a write for an unchanged formula", () => {
     expect(() => replaceArgs(row, fresh, "unchanged")).toThrow("nothing to write");
+  });
+
+  it("carries the photo date when this read looked, null included, and no key when it did not (#446)", () => {
+    const product = (photographedAt?: string | null) => (replaceArgs(row, fresh, "refresh", photographedAt) as { p_product: Record<string, unknown> }).p_product;
+    expect(product("2018-04-08T17:29:34.000Z").ingredients_photographed_at).toBe("2018-04-08T17:29:34.000Z");
+    expect(product(null)).toHaveProperty("ingredients_photographed_at", null);
+    // No key: the function keeps the date already stored (migration 0034).
+    expect("ingredients_photographed_at" in product()).toBe(false);
+  });
+});
+
+describe("unchangedUpdate", () => {
+  const now = new Date("2026-10-07T00:00:00.000Z");
+
+  it("confirms the row today and records how old its list is, so an old row gets the date (#446)", () => {
+    expect(unchangedUpdate("2018-04-08T17:29:34.000Z", now)).toEqual({ fetched_at: "2026-10-07T00:00:00.000Z", ingredients_photographed_at: "2018-04-08T17:29:34.000Z" });
+    expect(unchangedUpdate(null, now)).toEqual({ fetched_at: "2026-10-07T00:00:00.000Z", ingredients_photographed_at: null });
+  });
+
+  it("touches only the confirmation date when the read did not look at the photos", () => {
+    expect(unchangedUpdate(undefined, now)).toEqual({ fetched_at: "2026-10-07T00:00:00.000Z" });
   });
 });
 

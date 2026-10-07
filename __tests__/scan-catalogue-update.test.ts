@@ -189,7 +189,7 @@ describe("the disk write after a scan", () => {
 
   // #268 review round 2: a current watermark must not land beside pre-scan products.
   it("holds back a metadata-only write while a scan write is waiting, then lands both together", async () => {
-    const META_KEY = "forme-catalogue-meta-v3";
+    const META_KEY = "forme-catalogue-meta-v4";
     const before = await AsyncStorage.getItem(META_KEY);
 
     addScannedToCatalogue(product("new-4", [WATER]));
@@ -206,7 +206,7 @@ describe("the disk write after a scan", () => {
   // right after would otherwise stamp the current watermark beside a
   // products blob still missing the scan.
   it("keeps a metadata-only write held back even after an unrelated write lands while the scan write is still pending", async () => {
-    const META_KEY = "forme-catalogue-meta-v3";
+    const META_KEY = "forme-catalogue-meta-v4";
 
     addScannedToCatalogue(product("new-5", [WATER]));
 
@@ -237,8 +237,8 @@ describe("the disk write after a scan", () => {
   // metadata-only write (count 42) would land right after the unrelated one
   // (count 11), instead of waiting for the scan write to actually finish.
   it("keeps a metadata-only write held back while it's queued behind an unrelated write, with the scan write already flushed behind both", async () => {
-    const META_KEY = "forme-catalogue-meta-v3";
-    const PRODUCTS_KEY = "forme-catalogue-v3";
+    const META_KEY = "forme-catalogue-meta-v4";
+    const PRODUCTS_KEY = "forme-catalogue-v4";
     // Structural cast rather than `jest.Mock` — the jest namespace is not in
     // scope here (see jest-globals.d.ts).
     const setItemMock = AsyncStorage.setItem as unknown as {

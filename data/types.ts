@@ -294,10 +294,21 @@ export type Product = {
    */
   formulaChangedAt?: string;
   /**
+   * When the ingredient list was photographed, ISO-8601: the upload time of
+   * the photo Open Beauty Facts has selected as the product's ingredients
+   * picture (#446). It is how old the list is; `fetchedAt` is only when we
+   * last read the row.
+   *
+   * `null` is an answer: the source has no photo of the list, so its age is
+   * unknown. Unset means nobody asked: a sample product, a cache or a
+   * `product-lookup` from before the column existed.
+   */
+  ingredientsPhotographedAt?: string | null;
+  /**
    * Where the row came from — "obf", "ocr", "inci_api" and so on. Decides
    * which row a shared barcode resolves to on the device (`barcodeWinner`).
-   * Absent on rows from `product-lookup`, whose narrower select doesn't
-   * carry it, and on caches written before it was kept.
+   * Absent on rows from a `product-lookup` deployed before #446, whose
+   * select did not carry it, and on caches written before it was kept.
    */
   source?: string;
   /** Ordered INCI list — references `Ingredient.id`. */

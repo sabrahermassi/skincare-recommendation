@@ -19,6 +19,7 @@ import { readFormula, type FormulaSources } from "../_shared/formula-gate.ts";
 import { guessTypeFromIngredients } from "../_shared/guess-type-from-ingredients.ts";
 import type { ParsedIngredient } from "../_shared/inci-parse.ts";
 import { isParserOnlyChange } from "../_shared/parser-refresh.ts";
+import { ingredientsPhotographedAt } from "../_shared/ingredients-photo-date.mjs";
 import { guessType } from "../_shared/product-type-classifier.mjs";
 import {
   json,
@@ -84,8 +85,8 @@ export type ProductLookupDeps = {
 
 const SELECT = `
   id, barcode, brand, name, type, area, description, image_url, volume,
-  price_krw, in_stock, suitable_for, targets, attribution, fetched_at,
-  formula_changed_at,
+  price_krw, in_stock, suitable_for, targets, source, attribution, fetched_at,
+  formula_changed_at, ingredients_photographed_at,
   product_ingredients ( position, ingredients ( inci_name, comedogenic, safety, note, verified, functions ) )
 `;
 
@@ -272,7 +273,7 @@ async function lookupOpenBeautyFacts(
   barcode: string
 ): Promise<Lookup> {
   const res = await deps.fetch(
-    `${OBF_BASE}/product/${barcode}.json?fields=code,product_name,brands,image_url,ingredients_text,quantity,categories_tags`,
+    `${OBF_BASE}/product/${barcode}.json?fields=code,product_name,brands,image_url,images,ingredients_text,quantity,categories_tags`,
     { headers: { "User-Agent": USER_AGENT }, signal: AbortSignal.timeout(SOURCE_TIMEOUT_MS) }
   );
   // A 404 is OBF's genuine answer for a barcode it has never heard of — a
@@ -329,6 +330,8 @@ async function lookupOpenBeautyFacts(
       source: "obf",
       attribution: ATTRIBUTION.obf,
       expires_at: null, // ODbL — ours to keep
+      // How old the list is (#446). `images` was asked for, so none means no photo.
+      ingredients_photographed_at: ingredientsPhotographedAt(p.images ?? null),
     },
     ingredients,
     reparse,

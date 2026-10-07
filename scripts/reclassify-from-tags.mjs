@@ -317,11 +317,9 @@ async function main() {
     // `replace_product_with_ingredients` bumps the column (migration 0009), and
     // this script deliberately does not go through it.
     //
-    // The cost is that `fetched_at` also captions "This formula was read {when}"
-    // past six months, so an old formula's age warning resets although the
-    // formula itself did not change. That is worth paying: the caption is an
-    // advisory line on one screen, while a wrong type skews the score on every
-    // view of the product.
+    // This used to cost something: the product screen captioned "This formula
+    // was read {when}" from `fetched_at`. It no longer does (#446): how old a
+    // list is comes from when it was photographed, which this does not touch.
     const { data, error } = await db
       .from("products")
       .update({ type: c.now, fetched_at: new Date().toISOString() })

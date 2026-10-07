@@ -18,6 +18,7 @@ import { EVENING_FALLBACK, EVENING_TIPS, GENERAL_TIPS, MORNING_TIPS, REST_NIGHT_
 import { LABEL_ORDER, SCORING_DISCLAIMER, SCORING_INTRO, SCORING_SOURCES, scoreBandLines, scoreFactors, scoreNotes } from "@/lib/scoring-explainer";
 import { EU_ALLERGEN_CONDITION, EU_ALLERGEN_COPY, EU_ALLERGEN_ENTRIES } from "@/lib/eu-allergens";
 import { displayIngredientName } from "@/lib/ingredient-name";
+import { LIST_AGE_COPY, listAgeSentence } from "@/lib/list-age";
 import { SAFETY_NOTICE_COPY, SAFETY_NOTICE_ENTRIES, contraindications } from "@/lib/safety";
 import { EMPTY_PROFILE } from "@/store/useAppStore";
 
@@ -191,6 +192,14 @@ const SAFETY_NOTICE_CLAIMS: OwnedClaim[] = [
 // list, with and without the unset-sensitivity note (the `contraindications`
 // collection below runs at "high", over sample ingredients that hold none of
 // these names), plus the words the sheet and the risk card use.
+// #446: the notice about how old a barcode result's ingredient list is, each
+// sentence whole, as a screen reader says it.
+const LIST_AGE_CLAIMS: OwnedClaim[] = [
+  { source: "LIST_AGE_COPY.dated", text: listAgeSentence({ kind: "dated", year: 2018 }) },
+  { source: "LIST_AGE_COPY.banned", text: listAgeSentence({ kind: "banned", ingredient: "Name" }) },
+  { source: "LIST_AGE_COPY.actionHint", text: LIST_AGE_COPY.actionHint },
+];
+
 const EU_ALLERGEN_CLAIMS: OwnedClaim[] = [
   ...EU_ALLERGEN_ENTRIES.flatMap((entry) =>
     entry.names.flatMap((name) => {
@@ -215,6 +224,7 @@ const EU_ALLERGEN_CLAIMS: OwnedClaim[] = [
 
 const OWNED_CLAIMS: OwnedClaim[] = [
   ...EU_ALLERGEN_CLAIMS,
+  ...LIST_AGE_CLAIMS,
   // #406: the oily-skin pore row on Skin match, as it is read: names, then this.
   { source: "PORE_COUNTS_TEXT", text: `Coconut Oil ${PORE_COUNTS_TEXT}` },
   ...NOTE_CLAIMS,
