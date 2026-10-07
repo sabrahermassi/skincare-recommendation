@@ -27,6 +27,8 @@ const BASE = ["water", "glycerin", "butylene glycol", "xanthan gum"].map(safe);
 const HICC = avoid("hydroxyisohexyl 3-cyclohexene carboxaldehyde", "Prohibited in cosmetics (EU Annex II/1380: not allowed on the EU market since 23 August 2019 and not to be sold there since 23 August 2021; older stock may still be around)");
 const ISOBUTYLPARABEN = avoid("isobutylparaben", "Prohibited in cosmetics (EU Annex II/1375)");
 const HYDROQUINONE = avoid("hydroquinone", "Prohibited in cosmetics (EU Annex II/1339 III/14)");
+// An Annex II row whose entry is not on the verified list (1340, Basic Blue 26).
+const UNLISTED = avoid("basic blue 26", "Prohibited in cosmetics (EU Annex II/1340)");
 
 const PROFILE: SkinProfile = { ...EMPTY_PROFILE, concerns: ["dullness"], baseSkinType: "normal" };
 
@@ -103,8 +105,15 @@ describe("with the flag on", () => {
     expect(screen.getByText(/Isobutylparaben is listed as not permitted in EU cosmetics\./i)).toBeTruthy();
   });
 
-  it("says nothing new for hydroquinone, whose entry the owner has not verified", async () => {
+  it("says it for hydroquinone, verified on 7 October 2026", async () => {
     await show([HYDROQUINONE], PROFILE);
+    await openMatch();
+    expect(screen.getByText(SAFETY_NOTICE_COPY.matchLine)).toBeTruthy();
+    expect(screen.getByText(/Hydroquinone is listed as not permitted in EU cosmetics\./i)).toBeTruthy();
+  });
+
+  it("says nothing new for an Annex II entry that is not on the verified list", async () => {
+    await show([UNLISTED], PROFILE);
     await openMatch();
     expect(screen.getByText("Contains something worth avoiding for your skin.")).toBeTruthy();
     expect(screen.getByText(/flagged as best avoided/i)).toBeTruthy();
@@ -129,13 +138,13 @@ describe("with the flag on", () => {
   });
 
   it("adds no card to a product with nothing on the verified list", async () => {
-    await show([HYDROQUINONE], EMPTY_PROFILE);
+    await show([UNLISTED], EMPTY_PROFILE);
     await openMatch();
     expect(screen.queryByText(SAFETY_NOTICE_COPY.cardTitle)).toBeNull();
   });
 
   it("says 'Check label' and why on the Ingredients tab, and keeps Avoid for an unverified Annex II row", async () => {
-    await show([HICC, HYDROQUINONE], PROFILE);
+    await show([HICC, UNLISTED], PROFILE);
     await openIngredients();
     expect(screen.getByText(SAFETY_NOTICE_COPY.listWord)).toBeTruthy();
     expect(screen.getByText(SAFETY_NOTICE_COPY.listLine)).toBeTruthy();

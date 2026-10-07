@@ -19,7 +19,7 @@ import { LABEL_ORDER, SCORING_DISCLAIMER, SCORING_INTRO, SCORING_SOURCES, scoreB
 import { EU_ALLERGEN_CONDITION, EU_ALLERGEN_COPY, EU_ALLERGEN_ENTRIES } from "@/lib/eu-allergens";
 import { displayIngredientName } from "@/lib/ingredient-name";
 import { LIST_AGE_COPY, listAgeSentence } from "@/lib/list-age";
-import { SAFETY_NOTICE_COPY, SAFETY_NOTICE_ENTRIES, contraindications } from "@/lib/safety";
+import { SAFETY_NOTICE_COPY, SAFETY_NOTICE_ENTRIES, contraindications, safetyNoticeDetail } from "@/lib/safety";
 import { EMPTY_PROFILE } from "@/store/useAppStore";
 
 type OwnedClaim = { source: string; text: string };
@@ -184,7 +184,7 @@ const SAFETY_NOTICE_CLAIMS: OwnedClaim[] = [
   { source: "SAFETY_NOTICE_COPY.shareLine", text: SAFETY_NOTICE_COPY.shareLine("Brand", "Serum") },
   ...SAFETY_NOTICE_ENTRIES.map((entry) => ({
     source: `SAFETY_NOTICE_COPY.sheetBody.${entry.entry}`,
-    text: `${SAFETY_NOTICE_COPY.sheetBody(entry.entry)}${entry.dates ? ` ${entry.dates}` : ""}`,
+    text: `${SAFETY_NOTICE_COPY.sheetBody(entry.entry)}${safetyNoticeDetail(entry)}`,
   })),
 ];
 

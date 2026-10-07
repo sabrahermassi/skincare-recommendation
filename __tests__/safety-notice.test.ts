@@ -1,5 +1,5 @@
 import type { Ingredient } from "@/data/types";
-import { annexIIEntries, SAFETY_NOTICE_ENTRIES, safetyNoticeFor, safetyNoticeHits } from "@/lib/safety";
+import { annexIIEntries, SAFETY_NOTICE_ENTRIES, safetyNoticeDetail, safetyNoticeFor, safetyNoticeHits } from "@/lib/safety";
 
 /**
  * #404: the EU safety notice speaks only for the Annex II entries the owner
@@ -16,6 +16,8 @@ function avoid(name: string, note: string, overrides: Partial<Ingredient> = {}):
 const HICC = avoid("hydroxyisohexyl 3-cyclohexene carboxaldehyde", HICC_NOTE);
 const ISOBUTYLPARABEN = avoid("isobutylparaben", "Prohibited in cosmetics (EU Annex II/1375)");
 const HYDROQUINONE = avoid("hydroquinone", "Prohibited in cosmetics (EU Annex II/1339 III/14)");
+// An Annex II row whose entry is not on the verified list (1340, Basic Blue 26).
+const UNLISTED = avoid("basic blue 26", "Prohibited in cosmetics (EU Annex II/1340)");
 
 describe("which Annex II entries a note cites", () => {
   it("reads Annex II and never Annex III", () => {
@@ -46,9 +48,28 @@ describe("the notice, with the flag on", () => {
     expect(safetyNoticeFor(ISOBUTYLPARABEN, true)).toMatchObject({ regulation: "Regulation (EU) No 358/2014", verified: "2026-10-05" });
   });
 
-  it("never fires for an entry with no verified date: hydroquinone stays on the list, silent", () => {
-    expect(SAFETY_NOTICE_ENTRIES.some((entry) => entry.entry === 1339 && entry.verified === null)).toBe(true);
-    expect(safetyNoticeFor(HYDROQUINONE, true)).toBeNull();
+  it("fires for hydroquinone, verified by the owner on 7 October 2026, and carries its one exception", () => {
+    const hydroquinone = safetyNoticeFor(HYDROQUINONE, true)!;
+    expect(hydroquinone).toMatchObject({ entry: 1339, regulation: "Regulation (EU) No 344/2013", verified: "2026-10-07", verifiedBy: "owner" });
+    // Annex II/1339 reads "with the exception of entry 14 in Annex III": professional artificial nail systems, 0,02 %.
+    expect(hydroquinone.exception).toMatch(/professional artificial nail products/);
+    expect(hydroquinone.exception).toMatch(/0\.02%/);
+    expect(hydroquinone.exception).toMatch(/Annex III, entry 14/);
+    expect(safetyNoticeDetail(hydroquinone)).toBe(` ${hydroquinone.exception}`);
+    // The row cites both annexes; only the Annex II entry is what the notice goes by.
+    expect(annexIIEntries(HYDROQUINONE.note)).toEqual([1339]);
+  });
+
+  it("adds an entry's dates, then its exception, after the sheet's body, and nothing for an entry with neither", () => {
+    expect(safetyNoticeDetail(safetyNoticeFor(HICC, true)!)).toMatch(/^ It has not been allowed on the EU market since 23 August 2019/);
+    expect(safetyNoticeDetail(safetyNoticeFor(ISOBUTYLPARABEN, true)!)).toBe("");
+    expect(safetyNoticeDetail({ entry: 1, ingredient: "x", regulation: "r", verified: "2026-10-07", verifiedBy: "owner", dates: "A.", exception: "B." })).toBe(" A. B.");
+  });
+
+  it("never fires for an Annex II entry that is not on the list, or one still waiting for its date", () => {
+    expect(safetyNoticeFor(UNLISTED, true)).toBeNull();
+    // None is waiting today: 1339 was the last. One added without a date must stay silent.
+    expect(SAFETY_NOTICE_ENTRIES.filter((entry) => entry.verified === null)).toEqual([]);
     for (const pending of SAFETY_NOTICE_ENTRIES.filter((entry) => entry.verified === null)) {
       expect(safetyNoticeFor(avoid("pending", `Prohibited in cosmetics (EU Annex II/${pending.entry})`), true)).toBeNull();
     }
@@ -76,8 +97,8 @@ describe("the notice, with the flag on", () => {
   });
 
   it("names each ingredient of a product once", () => {
-    const hits = safetyNoticeHits([HICC, ISOBUTYLPARABEN, HYDROQUINONE, avoid("hydroxyisohexyl 3-cyclohexene carboxaldehyde", HICC_NOTE)], true);
-    expect(hits.map((hit) => hit.ingredient.name)).toEqual(["hydroxyisohexyl 3-cyclohexene carboxaldehyde", "isobutylparaben"]);
+    const hits = safetyNoticeHits([HICC, ISOBUTYLPARABEN, UNLISTED, HYDROQUINONE, avoid("hydroxyisohexyl 3-cyclohexene carboxaldehyde", HICC_NOTE)], true);
+    expect(hits.map((hit) => hit.ingredient.name)).toEqual(["hydroxyisohexyl 3-cyclohexene carboxaldehyde", "isobutylparaben", "hydroquinone"]);
   });
 });
 
