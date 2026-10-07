@@ -306,7 +306,7 @@ function IngredientDetail({
                     {fitBody(fit, helps, hurts, verified, Boolean(rule), isCommonIrritant(ingredient), match !== null, cloggerConfidence(ingredient) === "high")}
                   </Text>
                 )}
-                <Text style={{ marginTop: 4, fontSize: TYPE.caption, fontWeight: "600", color: tone.word }}>{undecided ? "Not in your score" : fitTag(fit, helps, hurts, warning, match)}</Text>
+                <Text style={{ marginTop: 4, fontSize: TYPE.caption, fontWeight: "500", color: tone.word }}>{undecided ? "Not in your score" : fitTag(fit, helps, hurts, warning, match)}</Text>
               </View>
             ) : null}
 
