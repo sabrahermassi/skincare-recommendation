@@ -1,5 +1,5 @@
 import type { Ingredient } from "@/data/types";
-import { LIST_AGE_COPY, LIST_OLD_AFTER_YEARS, listAgeNotice, listAgeSentence, listAgeText } from "@/lib/list-age";
+import { LIST_AGE_COPY, listAgeNotice, listAgeSentence, listAgeText } from "@/lib/list-age";
 
 /**
  * #446: what the product screen says about how old a barcode result's
@@ -22,24 +22,19 @@ const product = (overrides: object = {}) => ({
 });
 
 describe("listAgeNotice", () => {
-  it("says the year for a list photographed more than two years ago", () => {
-    expect(listAgeNotice(product(), NOW, false)).toEqual({ kind: "old", year: 2018 });
-  });
-
-  it("says nothing for a list photographed within two years, to the day", () => {
-    expect(LIST_OLD_AFTER_YEARS).toBe(2);
-    expect(listAgeNotice(product({ ingredientsPhotographedAt: "2025-03-01T00:00:00Z" }), NOW, false)).toBeNull();
-    expect(listAgeNotice(product({ ingredientsPhotographedAt: "2024-10-07T12:00:00Z" }), NOW, false)).toBeNull();
-    expect(listAgeNotice(product({ ingredientsPhotographedAt: "2024-10-07T11:59:59Z" }), NOW, false)).toEqual({ kind: "old", year: 2024 });
+  it("gives the year for any dated list, old or recent: no age alone is a warning", () => {
+    expect(listAgeNotice(product(), NOW, false)).toEqual({ kind: "dated", year: 2018 });
+    expect(listAgeNotice(product({ ingredientsPhotographedAt: "2026-07-01T00:00:00Z" }), NOW, false)).toEqual({ kind: "dated", year: 2026 });
   });
 
   it("takes the year in UTC, so it does not change with the phone's time zone", () => {
-    expect(listAgeNotice(product({ ingredientsPhotographedAt: "2020-12-31T23:30:00Z" }), NOW, false)).toEqual({ kind: "old", year: 2020 });
+    expect(listAgeNotice(product({ ingredientsPhotographedAt: "2020-12-31T23:30:00Z" }), NOW, false)).toEqual({ kind: "dated", year: 2020 });
   });
 
-  it("says the age is unknown when the source has no photo of the list, or a date that is not one", () => {
-    expect(listAgeNotice(product({ ingredientsPhotographedAt: null }), NOW, false)).toEqual({ kind: "unknown" });
-    expect(listAgeNotice(product({ ingredientsPhotographedAt: "soon" }), NOW, false)).toEqual({ kind: "unknown" });
+  it("says nothing when the source has no photo of the list, a date that is not one, or one in the future", () => {
+    expect(listAgeNotice(product({ ingredientsPhotographedAt: null }), NOW, false)).toBeNull();
+    expect(listAgeNotice(product({ ingredientsPhotographedAt: "soon" }), NOW, false)).toBeNull();
+    expect(listAgeNotice(product({ ingredientsPhotographedAt: "2027-01-01T00:00:00Z" }), NOW, false)).toBeNull();
   });
 
   it("says nothing when nobody asked for the date: a row from before it existed", () => {
@@ -50,7 +45,7 @@ describe("listAgeNotice", () => {
     expect(listAgeNotice(product({ id: "ocr-123", source: "ocr" }), NOW, true)).toBeNull();
     expect(listAgeNotice(product({ id: "cosrx-snail-essence", source: undefined, ingredientsPhotographedAt: null }), NOW, true)).toBeNull();
     // A scan answered by a function that sends no `source`: the id says it.
-    expect(listAgeNotice(product({ source: undefined }), NOW, false)).toEqual({ kind: "old", year: 2018 });
+    expect(listAgeNotice(product({ source: undefined }), NOW, false)).toEqual({ kind: "dated", year: 2018 });
   });
 
   describe("a list holding an ingredient the EU safety notice applies to", () => {
@@ -62,34 +57,29 @@ describe("listAgeNotice", () => {
       expect(listAgeNotice(withLilial({ ingredientsPhotographedAt: null }), NOW, true)).toEqual({ kind: "banned", ingredient: "Butylphenyl Methylpropional" });
     });
 
-    it("falls back to the age with the safety notice off: no claim about the regulation is made", () => {
-      expect(listAgeNotice(withLilial(), NOW, false)).toEqual({ kind: "old", year: 2018 });
-      expect(listAgeNotice(withLilial({ ingredientsPhotographedAt: "2026-09-01T00:00:00Z" }), NOW, false)).toBeNull();
+    it("falls back to the plain date with the safety notice off: no claim about the regulation is made", () => {
+      expect(listAgeNotice(withLilial(), NOW, false)).toEqual({ kind: "dated", year: 2018 });
+      expect(listAgeNotice(withLilial({ ingredientsPhotographedAt: null }), NOW, false)).toBeNull();
     });
 
     it("never calls an ingredient banned on the dictionary's word alone", () => {
       // `avoid` with no Annex II entry, and an entry the owner has not verified.
       const unsourced = product({ ingredients: [avoid("isopropyl myristate", "Often flagged for clogging pores")] });
-      expect(listAgeNotice(unsourced, NOW, true)).toEqual({ kind: "old", year: 2018 });
-      expect(listAgeNotice(product({ ingredients: [HYDROQUINONE] }), NOW, true)).toEqual({ kind: "old", year: 2018 });
+      expect(listAgeNotice(unsourced, NOW, true)).toEqual({ kind: "dated", year: 2018 });
+      expect(listAgeNotice(product({ ingredients: [HYDROQUINONE] }), NOW, true)).toEqual({ kind: "dated", year: 2018 });
     });
   });
 });
 
 describe("the words", () => {
-  it("are the three sentences of the issue, each ending on the label scan", () => {
-    expect(listAgeSentence({ kind: "old", year: 2018 })).toBe(
-      "This ingredient list was photographed in 2018. The brand may have changed the formula since. Scan the label to check your bottle."
-    );
-    expect(listAgeSentence({ kind: "unknown" })).toBe("We don't know how old this ingredient list is. Scan the label to check your bottle.");
+  it("are a plain date, and the banned sentence ending on the label scan", () => {
+    expect(listAgeSentence({ kind: "dated", year: 2018 })).toBe("Ingredient list from 2018.");
     expect(listAgeSentence({ kind: "banned", ingredient: "Butylphenyl Methylpropional" })).toBe(
       "This list contains Butylphenyl Methylpropional, which the EU has banned. Your bottle may have a newer formula. Scan the label to check."
     );
   });
 
-  it("split around the words that open the scan", () => {
-    for (const notice of [{ kind: "old", year: 2018 }, { kind: "unknown" }, { kind: "banned", ingredient: "X" }] as const) {
-      expect(listAgeText(notice).action).toBe(LIST_AGE_COPY.action);
-    }
+  it("split the banned sentence around the words that open the scan", () => {
+    expect(listAgeText({ kind: "banned", ingredient: "X" }).action).toBe(LIST_AGE_COPY.action);
   });
 });

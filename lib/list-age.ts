@@ -13,43 +13,38 @@ import { safetyNoticeHits } from "@/lib/safety";
  * (`ingredientsPhotographedAt`), so that is what this reads.
  *
  * Only ever an explanation: nothing here changes a score.
+ *
+ * No age alone is a warning (owner, 7 October 2026). Nobody publishes how often
+ * a cosmetic formula changes: brands reformulate irregularly (regulation,
+ * supply, customer demand), and many products never change. So a cutoff of two
+ * or three years would put a warning on most barcode results with nothing to
+ * back it. The date is shown plainly, and only a list holding an EU ban the
+ * owner has verified is called out. A list with no photo date says nothing.
  */
-
-/** A list photographed longer ago than this gets the notice. Brands change a formula every year or two. */
-export const LIST_OLD_AFTER_YEARS = 2;
 
 export type ListAgeNotice =
   /** The list holds an ingredient the EU safety notice applies to: the bottle in hand may no longer have it. */
   | { kind: "banned"; ingredient: string }
-  /** Photographed more than `LIST_OLD_AFTER_YEARS` ago. */
-  | { kind: "old"; year: number }
-  /** The source has no photo of the list, so nothing says how old it is. */
-  | { kind: "unknown" };
+  /** The year the list was photographed: information, not a warning. */
+  | { kind: "dated"; year: number };
 
-/**
- * The words, audited by `__tests__/claims-policy.test.ts`. Each notice is its
- * lead, then "Scan the label" (which opens the label scan), then its ending.
- */
+/** The words, audited by `__tests__/claims-policy.test.ts`. */
 export const LIST_AGE_COPY = {
-  old: (year: number) => `This ingredient list was photographed in ${year}. The brand may have changed the formula since.`,
-  unknown: "We don't know how old this ingredient list is.",
+  dated: (year: number) => `Ingredient list from ${year}.`,
   banned: (ingredient: string) => `This list contains ${ingredient}, which the EU has banned. Your bottle may have a newer formula.`,
   action: "Scan the label",
-  toCheckBottle: " to check your bottle.",
   toCheck: " to check.",
   actionHint: "Opens the label scan",
 } as const;
 
-/** A notice as the three parts the screen renders: the lead, the tappable words, the ending. */
-export function listAgeText(notice: ListAgeNotice): { lead: string; action: string; ending: string } {
-  const { action } = LIST_AGE_COPY;
-  if (notice.kind === "banned") return { lead: LIST_AGE_COPY.banned(notice.ingredient), action, ending: LIST_AGE_COPY.toCheck };
-  if (notice.kind === "old") return { lead: LIST_AGE_COPY.old(notice.year), action, ending: LIST_AGE_COPY.toCheckBottle };
-  return { lead: LIST_AGE_COPY.unknown, action, ending: LIST_AGE_COPY.toCheckBottle };
+/** The banned notice as the three parts the screen renders: the lead, the tappable words, the ending. */
+export function listAgeText(notice: Extract<ListAgeNotice, { kind: "banned" }>): { lead: string; action: string; ending: string } {
+  return { lead: LIST_AGE_COPY.banned(notice.ingredient), action: LIST_AGE_COPY.action, ending: LIST_AGE_COPY.toCheck };
 }
 
 /** The whole sentence, for a screen reader and for the claims audit. */
 export function listAgeSentence(notice: ListAgeNotice): string {
+  if (notice.kind === "dated") return LIST_AGE_COPY.dated(notice.year);
   const { lead, action, ending } = listAgeText(notice);
   return `${lead} ${action}${ending}`;
 }
@@ -64,9 +59,8 @@ function fromOpenBeautyFacts(product: Pick<ProductWithIngredients, "id" | "sourc
 }
 
 /**
- * The notice for this product, or null: a recent list, a label-scan or sample
- * product, or a row read before the date existed (unset is "nobody asked",
- * which is not the same as "unknown").
+ * The notice for this product, or null: a label-scan or sample product, a list
+ * with no photo date, or a row read before the date existed.
  *
  * `safetyNoticeOn` is the regulatory-safety flag (`lib/features.ts`). The
  * "banned" wording is a claim about the regulation, so it is made only for an
@@ -87,9 +81,6 @@ export function listAgeNotice(
   if (hit) return { kind: "banned", ingredient: displayIngredientName(hit.ingredient.name) };
 
   const photographed = photographedAt === null ? null : new Date(photographedAt);
-  if (photographed === null || Number.isNaN(photographed.getTime())) return { kind: "unknown" };
-
-  const oldFrom = new Date(photographed);
-  oldFrom.setUTCFullYear(oldFrom.getUTCFullYear() + LIST_OLD_AFTER_YEARS);
-  return now > oldFrom.getTime() ? { kind: "old", year: photographed.getUTCFullYear() } : null;
+  if (photographed === null || Number.isNaN(photographed.getTime()) || photographed.getTime() > now) return null;
+  return { kind: "dated", year: photographed.getUTCFullYear() };
 }

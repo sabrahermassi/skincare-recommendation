@@ -195,8 +195,7 @@ const SAFETY_NOTICE_CLAIMS: OwnedClaim[] = [
 // #446: the notice about how old a barcode result's ingredient list is, each
 // sentence whole, as a screen reader says it.
 const LIST_AGE_CLAIMS: OwnedClaim[] = [
-  { source: "LIST_AGE_COPY.old", text: listAgeSentence({ kind: "old", year: 2018 }) },
-  { source: "LIST_AGE_COPY.unknown", text: listAgeSentence({ kind: "unknown" }) },
+  { source: "LIST_AGE_COPY.dated", text: listAgeSentence({ kind: "dated", year: 2018 }) },
   { source: "LIST_AGE_COPY.banned", text: listAgeSentence({ kind: "banned", ingredient: "Name" }) },
   { source: "LIST_AGE_COPY.actionHint", text: LIST_AGE_COPY.actionHint },
 ];

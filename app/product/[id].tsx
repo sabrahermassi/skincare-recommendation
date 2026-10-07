@@ -384,10 +384,13 @@ function ProductScreen({ id, from, need, step, scanned }: { id: string; from?: s
             {/* The person's own note (#228), only for a product on their
                 shelf, and signed in only (#300): see useCanJournal. */}
             {savedEntry && canJournal ? <ProductNote note={savedEntry.note} onSave={(note) => setNote(product.id, note)} /> : null}
-            {/* How old the ingredient list is, when that is old or unknown
-                (#446), and a confirmed change since it was saved (step 8):
-                WARN, so a trust-relevant claim never reads as furniture. */}
-            {listAge ? (
+            {/* The year the ingredient list was photographed, plainly (#446),
+                or a verified EU ban in it and a confirmed change since it was
+                saved (step 8): WARN, so a trust-relevant claim never reads as
+                furniture. */}
+            {listAge?.kind === "dated" ? (
+              <Text style={{ fontSize: TYPE.label, lineHeight: 17, color: MUTED }}>{listAgeSentence(listAge)}</Text>
+            ) : listAge ? (
               <ListAgeLine
                 notice={listAge}
                 // The label scan, keeping what the scan was for: a Skin needs pick or a routine step.
@@ -409,10 +412,11 @@ function ProductScreen({ id, from, need, step, scanned }: { id: string; from?: s
 }
 
 /**
- * The list-age notice (#446): its sentence, with "Scan the label" underlined.
- * The whole line is the button, so the target is the line and not three words.
+ * The banned-ingredient notice (#446): its sentence, with "Scan the label"
+ * underlined. The whole line is the button, so the target is the line and not
+ * three words.
  */
-function ListAgeLine({ notice, onScanLabel }: { notice: ListAgeNotice; onScanLabel: () => void }) {
+function ListAgeLine({ notice, onScanLabel }: { notice: Extract<ListAgeNotice, { kind: "banned" }>; onScanLabel: () => void }) {
   const { lead, action, ending } = listAgeText(notice);
   return (
     <Pressable

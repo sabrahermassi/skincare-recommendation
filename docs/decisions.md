@@ -90,8 +90,17 @@ in the import, the reconcile job and `product-lookup`. Null means OBF has no pho
 - **A writer that did not look cannot wipe the date.** `replace_product_with_ingredients` keeps
   the stored value when `p_product` has no such key, and replaces it (null included) when it has.
 - **The product screen's notice** (`lib/list-age.ts`) replaced the old one that fired six
-  months after `fetched_at`. It shows for an OBF row only: photographed more than two years
-  ago, or no photo at all. A label scan is the bottle in hand and never shows it.
+  months after `fetched_at`. For an OBF row with a photo date it shows the year plainly
+  ("Ingredient list from 2019."), never as a warning; with no photo date it says nothing. A
+  label scan is the bottle in hand and never shows it.
+- **No age alone is a warning (owner, 7 October 2026).** The first version warned past two
+  years and on a missing date, which put it on nearly every barcode result (of the first 132
+  backfilled, 58 had no photo and 66 of the other 74 were over two years old). Nobody
+  publishes how often a cosmetic formula changes: an industry poll (Cosmetics & Toiletries)
+  has 35% reformulating regularly, 52% occasionally, 13% rarely or never, and brands give
+  regulation, supply and customer demand as the reasons, on no fixed schedule. So any cutoff
+  would be a guess. The one change that is predictable is an EU ban, which is the only case
+  that gets a warning.
 - **"Which the EU has banned" is said only where the safety notice may say it:** an ingredient
   on the owner-verified list (`SAFETY_NOTICE_ENTRIES`), with the safety-notice flag on. The
   issue asked for it on any `avoid` ingredient; `avoid` also covers rows that are not EU bans

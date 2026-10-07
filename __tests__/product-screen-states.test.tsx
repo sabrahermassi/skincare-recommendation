@@ -715,6 +715,7 @@ describe("the product screen's notice about the ingredient list's age", () => {
   const recently = () => new Date(Date.now() - 30 * 24 * 60 * 60 * 1000).toISOString();
   const OWN = { ...EMPTY_PROFILE, baseSkinType: "oily" as const, concerns: ["acne-prone" as const], sensitivity: "none" as const };
   const notice = () => screen.queryByRole("button", { name: /Scan the label to check/ });
+  const dated = (year: number) => screen.queryByText(`Ingredient list from ${year}.`);
 
   beforeEach(() => {
     useAppStore.setState({ profile: OWN, history: [], savedProducts: [] });
@@ -730,16 +731,16 @@ describe("the product screen's notice about the ingredient list's age", () => {
     await putTeaserAway();
   }
 
-  it("says the year a list photographed more than two years ago was photographed in", async () => {
+  it("says the year the list was photographed, plainly, with no warning and no button", async () => {
     await open(productWith());
-    expect(notice()?.props.accessibilityLabel).toBe(
-      "This ingredient list was photographed in 2018. The brand may have changed the formula since. Scan the label to check your bottle."
-    );
+    expect(dated(2018)).toBeTruthy();
+    expect(notice()).toBeNull();
   });
 
-  it("says it does not know, when the source has no photo of the list", async () => {
+  it("says nothing when the source has no photo of the list", async () => {
     await open(productWith({ ingredientsPhotographedAt: null }));
-    expect(notice()?.props.accessibilityLabel).toBe("We don't know how old this ingredient list is. Scan the label to check your bottle.");
+    expect(notice()).toBeNull();
+    expect(screen.queryByText(/Ingredient list from/)).toBeNull();
   });
 
   it("names the ingredient the EU safety notice applies to, even on a recent list, with that notice on", async () => {
@@ -750,30 +751,32 @@ describe("the product screen's notice about the ingredient list's age", () => {
     );
   });
 
-  it("makes no claim about the regulation with the safety notice off: the same list gets the age notice, or none", async () => {
+  it("makes no claim about the regulation with the safety notice off: the same list gets only its date", async () => {
     await open(productWith({ ingredients: [safe("water"), safe("glycerin"), LILIAL] }));
-    expect(notice()?.props.accessibilityLabel).toMatch(/^This ingredient list was photographed in 2018\./);
-    await act(async () => screen.unmount());
-    await open(productWith({ ingredientsPhotographedAt: recently(), ingredients: [safe("water"), safe("glycerin"), LILIAL] }));
     expect(notice()).toBeNull();
+    expect(dated(2018)).toBeTruthy();
   });
 
-  it("says nothing for a recent list, however long ago the row was read", async () => {
+  it("gives a recent list its year too, and no warning, however long ago the row was read", async () => {
     await open(productWith({ ingredientsPhotographedAt: recently() }));
     expect(notice()).toBeNull();
+    expect(screen.queryByText(/Ingredient list from \d{4}\./)).toBeTruthy();
     expect(screen.queryByText(/This formula was read/)).toBeNull();
   });
 
   it("says nothing for a product that is not a barcode result, or a row read before the date existed", async () => {
-    await open(productWith({ id: "ocr-8801234567890", source: "ocr", ingredientsPhotographedAt: null }), { id: "ocr-8801234567890" });
+    await open(productWith({ id: "ocr-8801234567890", source: "ocr" }), { id: "ocr-8801234567890" });
     expect(notice()).toBeNull();
+    expect(screen.queryByText(/Ingredient list from/)).toBeNull();
     await act(async () => screen.unmount());
     await open(productWith({ ingredientsPhotographedAt: undefined }));
     expect(notice()).toBeNull();
+    expect(screen.queryByText(/Ingredient list from/)).toBeNull();
   });
 
-  it("opens the label scan when pressed", async () => {
-    await open(productWith());
+  it("opens the label scan when the banned notice is pressed", async () => {
+    useAppStore.setState({ safetyNoticeEnabled: true }, false);
+    await open(productWith({ ingredients: [safe("water"), safe("glycerin"), LILIAL] }));
     await fireEvent.press(notice()!);
     expect(router.push).toHaveBeenCalledWith({ pathname: "/scanner", params: { mode: "photo" } });
   });
@@ -782,6 +785,6 @@ describe("the product screen's notice about the ingredient list's age", () => {
     useAppStore.setState({ savedProducts: [{ id: "obf-8801234567890", savedAt: Date.parse("2026-01-01T00:00:00Z") }] as never });
     await open(productWith({ formulaChangedAt: "2026-06-01T00:00:00Z" }));
     expect(screen.getByText(/This formula has changed since you saved it/)).toBeTruthy();
-    expect(notice()).not.toBeNull();
+    expect(dated(2018)).toBeTruthy();
   });
 });
