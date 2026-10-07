@@ -6,6 +6,7 @@ import * as api from "@/data/api";
 import { openScanner } from "@/lib/open-scanner";
 import { forgetRoutine } from "@/lib/routine-builder";
 import { EVENING_TIPS, MORNING_TIPS } from "@/lib/skin-tips";
+import { HOME_TILE } from "@/lib/tokens";
 import { EMPTY_PROFILE, useAppStore } from "@/store/useAppStore";
 
 /**
@@ -54,6 +55,14 @@ it("shows Start your routine, the two tiles and the tip, and nothing of the old 
   for (const gone of ["Skincare Routine", "Skin Needs"]) expect(screen.queryByRole("button", { name: gone })).toBeNull();
   expect(screen.getByText("Skincare tip")).toBeTruthy();
   expect(screen.getByText("A quick one for your skin")).toBeTruthy();
+});
+
+it("gives both Explore tiles one tint, so the routine card is the only warm one", async () => {
+  await render(<Home />);
+  for (const tile of ["Scan Any Product", "Find Your Actives"]) {
+    // The tint sits on the card inside the pressable (BounceCard's animated view).
+    expect(screen.getByRole("button", { name: tile }).children[0]).toHaveStyle({ backgroundColor: HOME_TILE.tile });
+  }
 });
 
 it("opens the routine, the scanner and Skin needs from their cards", async () => {

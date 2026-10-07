@@ -159,7 +159,9 @@ letter on the routine, and the "!" mark in the scanner's announcement.
 `noOrphan` (`lib/text.ts`), which joins the last two words with a non-breaking
 space. Every centred title and short line uses it: page, quiz and question-card
 titles, empty states (Saved's own included), pop-ups and sheets, error screens
-and the result's title and summary. A new centred heading should too.
+and the result's title and summary. A new centred heading should too. The exception is a title that shares a row
+with another element (a question card's beside its tag): it keeps normal wrapping
+once text is above its normal size, since a pair kept together can be too wide.
 
 ## Spacing
 

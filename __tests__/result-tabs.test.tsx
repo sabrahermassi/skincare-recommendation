@@ -12,6 +12,7 @@ import { reasonOrder, ResultTabs } from "@/components/result/ResultTabs";
 import { Text } from "@/components/Text";
 import type { Ingredient, SkinProfile } from "@/data/types";
 import { matchProduct } from "@/lib/matching";
+import { SPACE } from "@/lib/tokens";
 import { EMPTY_PROFILE } from "@/store/useAppStore";
 
 const scrollToCalls: unknown[] = [];
@@ -206,6 +207,28 @@ describe("the groups of boxes", () => {
     await openMatch();
     expect(screen.getByText("Working for you")).toBeTruthy();
     expect(screen.getByText("Worth watching")).toBeTruthy();
+  });
+
+  it("keeps the intro's space above a red group that has no label, and a label's own space when it leads", async () => {
+    const profile = { ...EMPTY_PROFILE, baseSkinType: "dry" as const, sensitivity: "some" as const, concerns: ["dehydrated" as const] };
+    await showWith(
+      [{ ...ingredient("some prohibited substance"), safety: "avoid" }, ...["niacinamide", "panthenol", "sodium hyaluronate", "parfum"].map(ingredient)],
+      profile,
+    );
+    await openMatch();
+    expect(screen.getByText("Working for you")).toBeTruthy();
+    expect(screen.getByText("Worth watching")).toBeTruthy();
+    // Red leads and wears no label, so the container brings the gap itself.
+    expect(screen.getByTestId("reason-groups")).toHaveStyle({ marginTop: SPACE.gutter });
+  });
+
+  it("lets the first label bring the space when green leads", async () => {
+    await show(
+      ["niacinamide", "panthenol", "sodium hyaluronate", "ceramide np", "allantoin", "squalane", "centella asiatica extract", "tocopherol", "parfum"],
+      { ...EMPTY_PROFILE, baseSkinType: "dry", sensitivity: "some", concerns: ["dehydrated"] },
+    );
+    await openMatch();
+    expect(screen.getByTestId("reason-groups")).toHaveStyle({ marginTop: 0 });
   });
 
   it("adds no label to a result that is all green", async () => {
