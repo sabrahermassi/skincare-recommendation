@@ -636,13 +636,6 @@ export const FONT_SCALE = {
 } as const;
 
 /**
- * The handwritten face for a journal note (#229), and nothing else — the
- * mirror of `tailwind.config.js`'s `fontFamily.note`. Whether a given note
- * actually gets it is `lib/note-font.ts`'s call, never a component's.
- */
-export const NOTE_FONT = "Caveat_500Medium";
-
-/**
  * Tip of the day (v7 update, 29 September 2026, read off the hand-off): a
  * white paper note on Home — the one place tape is allowed. Handwriting at
  * 22/1.25 with room for two lines, small paper corners, a three-layer soft

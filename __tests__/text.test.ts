@@ -69,6 +69,6 @@ describe("defaultFontScale", () => {
   it("gives everything else the UI ceiling", () => {
     expect(defaultFontScale(undefined, undefined)).toBe(FONT_SCALE.ui);
     expect(defaultFontScale("text-sm", { fontSize: 14 })).toBe(FONT_SCALE.ui);
-    expect(defaultFontScale(undefined, { fontFamily: "Caveat_500Medium" })).toBe(FONT_SCALE.ui);
+    expect(defaultFontScale(undefined, { fontFamily: "Kalam_400Regular" })).toBe(FONT_SCALE.ui);
   });
 });

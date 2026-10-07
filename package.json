@@ -35,7 +35,6 @@
     "check:cors": "node scripts/check-cors.mjs"
   },
   "dependencies": {
-    "@expo-google-fonts/caveat": "^0.4.2",
     "@expo-google-fonts/figtree": "^0.4.1",
     "@expo-google-fonts/kalam": "^0.4.1",
     "@expo-google-fonts/pt-serif": "^0.4.1",

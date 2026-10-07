@@ -125,9 +125,8 @@ Everything is the system font (SF Pro) except these, loaded in `app/_layout.tsx`
 | Face | Token | Where |
 |---|---|---|
 | PT Serif Bold, upright | `DISPLAY_FONT` | one big title per screen, ingredient names, the score number, the onboarding headline |
-| Kalam Bold / Regular | `HAND_FONT_BOLD` / `HAND_FONT` | Home's "Hi there!" (34), the skincare tip, Find your actives' notes |
+| Kalam Bold / Regular | `HAND_FONT_BOLD` / `HAND_FONT` | Home's "Hi there!" (34), the skincare tip, Find your actives' notes, a person's own notes on a product (the one handwriting face; `lib/note-font.ts` falls back to the system font for Hangul, Cyrillic, emoji, larger text and Bold Text) |
 | Figtree SemiBold | `MENU_FONT` | the soft profile menu's row names |
-| Caveat Medium | `NOTE_FONT` | a person's own notes; loaded after first paint (`lib/note-font.ts`) |
 
 `TYPE` scale: caption 13, label 15, body 15, card 17, title 20, heading 24,
 large 30, display 34 (the score). Each size has its line height in `LEADING`
