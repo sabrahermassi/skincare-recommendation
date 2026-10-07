@@ -20,7 +20,7 @@ import {
   type RuleCategory,
   type RuleSource,
 } from "./rules";
-import { contraindications, formulaCoverage, isVerified, type Contraindication } from "./safety";
+import { contraindications, euAllergenFor, formulaCoverage, isVerified, type Contraindication } from "./safety";
 
 /**
  * The verdict engine — fit minus penalties.
@@ -203,6 +203,13 @@ const TYPE_SATURATION = 12;
 export const PORE_SATURATION = 3;
 
 const MAX_IRRITATION_PENALTY = 34;
+/**
+ * What an EU-labelled allergen with no irritant rule of its own charges at the
+ * top of the list (#407): the weight the generic "caution" charge used to
+ * carry. An ingredient that also has an irritant rule is charged that rule's
+ * weight instead when it is the higher.
+ */
+export const ALLERGEN_CHARGE = 2.5;
 const MAX_PORE_PENALTY = 22;
 
 /** Concerns whose fit is decided by pore-cleanliness rather than by actives. */
@@ -259,6 +266,10 @@ const FRAGRANCE_POSITION_FLOOR_HIGH = 0.7;
  * where the floor changes something. Chosen by weight rather than by charge
  * (#368 review): by charge, an essential oil near the top — already above the
  * floor — could take it from a parfum at the end.
+ *
+ * An EU fragrance allergen that no rule names (vanillin, linalyl acetate) weighs
+ * `ALLERGEN_CHARGE`, below every fragrance rule, so it is the main scent only
+ * when nothing heavier is in the formula (#407, Codex review).
  */
 function flooredFragrance(ingredients: Ingredient[], positionFactors: number[]): number {
   let best = -1;
@@ -266,10 +277,11 @@ function flooredFragrance(ingredients: Ingredient[], positionFactors: number[]):
   ingredients.forEach((ingredient, position) => {
     if (!isVerified(ingredient)) return;
     const rule = findRule(ingredient);
-    if (rule?.category !== "fragrance") return;
-    if (rule.weight > bestWeight || (rule.weight === bestWeight && positionFactors[position] <= positionFactors[best])) {
+    const weight = rule ? (rule.category === "fragrance" ? rule.weight : 0) : euAllergenFor(ingredient)?.kind === "fragrance" ? ALLERGEN_CHARGE : 0;
+    if (weight === 0) return;
+    if (weight > bestWeight || (weight === bestWeight && positionFactors[position] <= positionFactors[best])) {
       best = position;
-      bestWeight = rule.weight;
+      bestWeight = weight;
     }
   });
   return best;
@@ -453,9 +465,10 @@ function computeMatch(
   let typeEvidence = 0;
   let irritation = 0;
   let scored = 0;
-  // Positions whose rule already charged a declared reactive-skin harm as
-  // irritation, so the generic caution charge below does not bill them again.
-  const reactiveCharged = new Set<number>();
+  // What each position's rule already charged as irritation, so the EU
+  // allergen charge below tops it up to the higher of the two instead of
+  // billing the same ingredient twice (#407).
+  const ruleIrritation = new Map<number, number>();
   const irritants: string[] = [];
 
   // Computed once: an alphabetical tail (an OTC drug label) is read as
@@ -547,8 +560,8 @@ function computeMatch(
       if (hurtsIrritation) {
         irritation += irritationWeight;
         irritants.push(ingredient.name);
+        ruleIrritation.set(position, irritationWeight);
       }
-      if (hurtsReactiveSkin && !hurtsIrritantCategory) reactiveCharged.add(position);
 
       // Evidence is counted when the rule applied any signal, not when the net
       // effect is non-zero: a benefit that exactly equals its harm nets to zero
@@ -589,17 +602,24 @@ function computeMatch(
     }
   });
 
-  // Regulatory caution flags add irritation risk for anyone who said their
-  // skin reacts, or didn't say (#183) — the rules table names specific
-  // sensitisers, this catches the EU-restricted ones it does not. An
-  // ingredient whose rule already charged it as a reactive-skin irritant is
-  // not charged again here. `contraindications` lists the same ingredients
-  // on the same condition, so the count on screen and the charge agree.
-  for (const [position, ingredient] of product.ingredients.entries()) {
-    if (!isVerified(ingredient) || ingredient.safety !== "caution") continue;
-    if (!treatAsReactive(profile)) continue;
-    if (reactiveCharged.has(position)) continue;
-    irritation += 2.5 * positionFactors[position] * contact.harm;
+  // EU allergens add irritation risk for anyone who said their skin reacts, or
+  // didn't say (#183) — the rules table names the common sensitisers, this
+  // catches the EU-labelled ones it does not (#407). "Restricted" (Annex III)
+  // alone adds nothing: it says allowed with conditions, for everyone. An
+  // ingredient whose rule already charged it is topped up to this charge, never
+  // billed twice, so it is charged once at the higher of the two. The
+  // warnings (`contraindications`) list the same ingredients on the same
+  // condition (`euAllergenFor`), so the count on screen and the charge agree.
+  if (treatAsReactive(profile)) {
+    for (const [position, ingredient] of product.ingredients.entries()) {
+      if (!euAllergenFor(ingredient)) continue;
+      const factor = position === floored ? Math.max(positionFactors[position], FRAGRANCE_POSITION_FLOOR_HIGH) : positionFactors[position];
+      const charge = ALLERGEN_CHARGE * factor * contact.harm;
+      const already = ruleIrritation.get(position) ?? 0;
+      if (charge <= already) continue;
+      irritation += charge - already;
+      if (!irritants.includes(ingredient.name)) irritants.push(ingredient.name);
+    }
   }
 
   // Acne fit is "what is in here that clogs pores", not "does it contain acne
@@ -675,8 +695,8 @@ function computeMatch(
   // best avoided must not outrank one that doesn't, however well the rest of
   // it reads.
   //
-  // Only the `hazard` tier does this. The `irritant` tier — an EU-restricted
-  // ingredient on skin the user says reacts — is still listed as a warning,
+  // Only the `hazard` tier does this. The `irritant` tier — an EU-labelled
+  // allergen on skin the user says reacts — is still listed as a warning,
   // but it is charged to the irritation penalty above instead, where the
   // three sensitivity levels can scale it. Capping on it too was both a
   // double charge and a cliff: it put 40% of the catalogue at "Poor" for
