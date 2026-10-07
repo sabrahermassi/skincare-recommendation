@@ -15,9 +15,11 @@ import { EMPTY_PROFILE, useAppStore } from "@/store/useAppStore";
 
 jest.setTimeout(30_000);
 
+const mockRedirect = jest.fn((_props: { href: string }) => null);
 jest.mock("expo-router", () => ({
   router: { back: jest.fn(), push: jest.fn(), replace: jest.fn(), canGoBack: jest.fn(() => true) },
   useLocalSearchParams: jest.fn(),
+  Redirect: (props: { href: string }) => mockRedirect(props),
 }));
 jest.mock("react-native-safe-area-context", () => ({
   useSafeAreaInsets: () => ({ top: 0, bottom: 0, left: 0, right: 0 }),
@@ -31,6 +33,8 @@ const byIds = jest.mocked(fetchProductsByIds);
 const ACNE = { ...EMPTY_PROFILE, baseSkinType: "oily" as const, concerns: ["acne-prone" as const] };
 
 beforeEach(() => {
+  // Skin needs is behind a dev-only switch (#467): on here.
+  useAppStore.setState({ skinNeedsEnabled: true });
   // A routine already built from this skin profile (opened once), unless a test says otherwise.
   useAppStore.setState({ profile: ACNE, routineBuilt: true, routineActives: [], routineStarted: false, routineStepLimit: 4, routinePicks: {}, savedIngredients: [] });
   byIds.mockResolvedValue({ ok: true, value: [] } as never);
@@ -82,6 +86,13 @@ it("tells a story with nothing to avoid in five cards", async () => {
   expect(screen.getByText("Every day, from the start. It's a gentle one.")).toBeTruthy();
   await toLast(4);
   expect(screen.getByRole("header", { name: "When shopping" })).toBeTruthy();
+});
+
+it("sends a link to a story back to Home while the switch is off (#467)", async () => {
+  useAppStore.setState({ skinNeedsEnabled: false });
+  jest.mocked(useLocalSearchParams).mockReturnValue({ active: "bha", answers: "oil.some.no." });
+  await render(<JourneyStory />);
+  expect(mockRedirect).toHaveBeenCalledWith({ href: "/" });
 });
 
 it("closes on the cross, and refuses a link it can't read", async () => {

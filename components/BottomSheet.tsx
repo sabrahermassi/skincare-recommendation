@@ -4,6 +4,7 @@ import { Animated, Easing, KeyboardAvoidingView, Modal, Platform, Pressable, Scr
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 
 import { reduceMotionNow } from "@/lib/reduce-motion";
+import { SHEET_EASE } from "@/lib/sheet-ease";
 import { INK, SCRIM, SHEET_SHADOW, WHITE, withAlpha, RADIUS, SPACE, GLASS_FROST } from "@/lib/tokens";
 import { Glass, hasLiquidGlass, OnGlass } from "@/components/Glass";
 
@@ -67,6 +68,10 @@ export function BottomSheet({
   const { height } = useWindowDimensions();
   const [mounted, setMounted] = useState(visible);
   const [progress] = useState(() => new Animated.Value(0));
+  // How far the card travels: its own height once it has one, so it is moving
+  // in view for the whole slide. From the screen's height a short card spent
+  // the first part of it out of sight and arrived in a rush.
+  const [travel] = useState(() => new Animated.Value(height));
   // Mounted as soon as it is asked for, during render rather than in the
   // effect below; unmounted only once the slide-down has finished.
   if (visible && !mounted) setMounted(true);
@@ -75,7 +80,7 @@ export function BottomSheet({
     const animation = Animated.timing(progress, {
       toValue: visible ? 1 : 0,
       duration: reduceMotionNow() ? 0 : visible ? IN_MS : OUT_MS,
-      easing: visible ? Easing.out(Easing.cubic) : Easing.in(Easing.cubic),
+      easing: visible ? SHEET_EASE : Easing.in(Easing.cubic),
       useNativeDriver: Platform.OS !== "web",
     });
     animation.start(({ finished }) => {
@@ -84,7 +89,7 @@ export function BottomSheet({
     return () => animation.stop();
   }, [visible, progress]);
 
-  const translateY = progress.interpolate({ inputRange: [0, 1], outputRange: [height, 0] });
+  const translateY = Animated.multiply(travel, progress.interpolate({ inputRange: [0, 1], outputRange: [1, 0] }));
   const maxHeight = height - insets.top - TOP_GAP - (floating ? FLOAT_INSET : 0);
   // v7 pop-up padding: SPACE.section top and bottom, 16 at the sides.
   const padding = bare
@@ -99,7 +104,11 @@ export function BottomSheet({
           {floating ? <BlurView intensity={FLOAT_BLUR} tint="default" style={StyleSheet.absoluteFill} /> : null}
           <Pressable onPress={onClose} accessibilityLabel="Close" style={{ flex: 1, backgroundColor: SCRIM }} />
         </Animated.View>
-        <Animated.View style={{ transform: [{ translateY }] }}>
+        <Animated.View
+          // Measured here, not on the card: a floating card's inset is part of the way down too.
+          onLayout={(e) => travel.setValue(e.nativeEvent.layout.height)}
+          style={{ transform: [{ translateY }] }}
+        >
           <View
             testID="sheet-card"
             style={[

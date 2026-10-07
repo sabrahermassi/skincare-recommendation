@@ -211,6 +211,14 @@ type AppState = {
    */
   safetyNoticeEnabled: boolean;
   setSafetyNoticeEnabled: (on: boolean) => void;
+  /**
+   * Whether Skin needs is shown (#467, see lib/features.ts): off by default,
+   * because its advice has not been checked by an expert yet. A device
+   * setting like the flag above, and a new key with a first-run value, so it
+   * needs no migration either.
+   */
+  skinNeedsEnabled: boolean;
+  setSkinNeedsEnabled: (on: boolean) => void;
 
   /**
    * Whether this install has already cleared whatever an earlier install left
@@ -387,6 +395,7 @@ export const PERSISTED_KEYS = [
   "routineBuilt",
   "tipRead",
   "safetyNoticeEnabled",
+  "skinNeedsEnabled",
   "secureStoreClaimed",
   "shelfOwner",
   "shelfQueue",
@@ -411,6 +420,7 @@ export function partializeState(state: AppState): PersistedState {
     routineBuilt: state.routineBuilt,
     tipRead: state.tipRead,
     safetyNoticeEnabled: state.safetyNoticeEnabled,
+    skinNeedsEnabled: state.skinNeedsEnabled,
     secureStoreClaimed: state.secureStoreClaimed,
     shelfOwner: state.shelfOwner,
     shelfQueue: state.shelfQueue,
@@ -434,6 +444,7 @@ const INITIAL_STATE = {
   routineBuilt: false,
   tipRead: null as string | null,
   safetyNoticeEnabled: false,
+  skinNeedsEnabled: false,
   secureStoreClaimed: false,
   shelfOwner: null as string | null,
   shelfQueue: [] as ShelfOp[],
@@ -937,6 +948,7 @@ export const useAppStore = create<AppState>()(
       removeRoutineActive: (active) => set((state) => ({ routineActives: state.routineActives.filter((entry) => entry.active !== active) })),
       setTipRead: (id) => set({ tipRead: id }),
       setSafetyNoticeEnabled: (on) => set({ safetyNoticeEnabled: on }),
+      setSkinNeedsEnabled: (on) => set({ skinNeedsEnabled: on }),
       setRoutineBuilt: (built = true) => set({ routineBuilt: built }),
       clearSavedProducts: () =>
         set((state) => ({
@@ -1032,6 +1044,7 @@ export const useAppStore = create<AppState>()(
         set((state) => ({
           ...INITIAL_STATE,
           safetyNoticeEnabled: state.safetyNoticeEnabled,
+          skinNeedsEnabled: state.skinNeedsEnabled,
           secureStoreClaimed: state.secureStoreClaimed,
           shelfOwner: state.shelfOwner,
           // Changes parked from an earlier sign-out are shelf data too.

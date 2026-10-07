@@ -135,6 +135,40 @@ entry 157 does not print. Left out (5), four because CosIng has no record under 
 Beauty Facts name CosIng does not use: recognising that is the owner's call. The effect on
 scores is in the #439 PR.
 
+**The official Annex II and III text, parsed (7 October 2026, #455, step 2 of 9).** The safety
+notice rests on nine entries checked by hand and on entry numbers Open Beauty Facts cites, which have
+been wrong several times (#419, #434). `scripts/lib/eu-annex-parse.mjs` reads both annexes from the
+Publications Office's copy of the consolidated Regulation (EC) No 1223/2009 (EUR-Lex itself answers a
+script with an empty HTTP 202), and `npm run import:eu-annexes` fetches the newest text, parses it and
+writes `.eu-annexes.json` with `--apply`. It writes no database row: step 3 adds the tables.
+
+- **Counts, 18 May 2026 text (02009R1223-20260518):** Annex II is 1,945 table rows: 3 header,
+  47 marker, 1 footnote, 1,762 entries (25 "Moved or deleted") and 132 continuation rows. Annex III is 740:
+  3 header, 136 marker, 379 entries (3 moved or deleted, 4 printed as a number with nothing beside it)
+  and 222 continuation rows. Every row is one of those, and the run stops if any is not. The other
+  578 `<tr>` of the file's 3,263 belong to Annexes I and IV to X.
+- **Numbers the text does not print:** Annex II 382, 1398, 1399, 1427 and 1669; Annex III 1, 7, 13, 79,
+  83, 101, 125, 126, 158, 160-163, 165, 167, 168 and 311. There is nothing to keep for them. A source
+  that cites one of them is citing a number that is not in the text.
+- **An entry can span several rows.** A class entry (borates, 1396) lists its salts in rows of their
+  own; they are kept as `members`. An Annex III entry written over several rows keeps one set of
+  conditions per row. Some `rowspan`s in the file run past the
+  entry they belong to (Annex III entry 73's glossary name covers entry 74's row too), which shifts that
+  entry one column to the right: read naively, 108 Annex III rows came out wider than the table's nine
+  columns. A new entry never inherits cells from the one above, and none comes out irregular now.
+- **The amendment mark** comes from a row of its own (`▼M32`, `▼B` for the original text, `▼C6` for a
+  corrigendum) that holds until the next one, or from the reference cell (`►M4 22`). The act it names is
+  read from the list at the top of the file. For the nine entries on `SAFETY_NOTICE_ENTRIES`, the parser's
+  entry, substance and amending act agree with what the owner verified by hand (`__tests__/eu-annex-parse.test.ts`).
+- **What the regulation prints oddly is kept, not repaired:** a CAS number with a stray space
+  ("72623- 86-0") is read as 72623-86-0; an index number printed in the EC column (15 Annex II rows,
+  such as 613-062-00-4) is not an EC number, so it is kept as `unparsed.ec` and listed in `warnings`;
+  a qualifier such as "HCl" or "Na" in a CAS cell is kept the same way, without a warning.
+- **Credit line assumed for the text, until the owner confirms the reuse terms:** "Source: EUR-Lex,
+  consolidated text of Regulation (EC) No 1223/2009 on cosmetic products (CELEX 02009R1223-20260518),
+  © European Union, https://eur-lex.europa.eu/, 1998-2026. A documentation tool with no legal effect: only
+  the Official Journal text is authentic." It is written into the output file and nowhere in the app yet.
+
 ## Routing
 
 **Never navigate from a layout file.** This is not theoretical caution —
@@ -636,6 +670,26 @@ decisions:
   (`components/AddToStep.tsx`). From anywhere else, and for a label photo
   (no product to keep), there is no Add button; the old one on every result
   is gone. Actives are added from Skin needs stories.
+
+### Skin needs is hidden until an expert has checked it (#467, 7 October 2026)
+
+The credibility audit of 7 October 2026 found Skin needs telling pregnant
+people which actives were "safe" ("Safe while pregnant or breastfeeding",
+"safe options", "pregnancy-safe options"), in a file whose own header says all
+of its copy is placeholder. Two things followed, both the owner's decision:
+
+- **No "safe" anywhere in it.** The filter is described by what it does
+  ("We leave out ingredients commonly advised against in pregnancy"), the
+  options are "worth knowing", and the lines that speak to someone pregnant
+  end by sending them to their doctor or midwife. The field is
+  `shownInPregnancy`, not `pregnancySafe`: it says what the screen does, not
+  what is true of the ingredient.
+- **The section is off** behind `skinNeedsEnabled` (`lib/features.ts`), read
+  as `__DEV__ && saved` like the safety-notice flag, with a dev-only Profile
+  row. Off, Home has one Explore tile and `/journey` and `/journey-story`
+  redirect to Home, so a scan "from Skin needs" cannot start either. Actives
+  someone already added to their routine stay in it. Turn it on for everyone
+  only after a dermatologist has checked `lib/skin-needs-data.ts`.
 
 ### EU "restricted" (Annex III) never adds an irritation charge by itself (#407)
 

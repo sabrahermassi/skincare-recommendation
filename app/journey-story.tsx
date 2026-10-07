@@ -1,5 +1,5 @@
 import { Image } from "expo-image";
-import { router, useLocalSearchParams } from "expo-router";
+import { Redirect, router, useLocalSearchParams } from "expo-router";
 import { useCallback, useEffect, useMemo, useState } from "react";
 import { AccessibilityInfo, Animated, PanResponder, Pressable, View, useWindowDimensions } from "react-native";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
@@ -46,6 +46,7 @@ import type { ActiveKey } from "@/lib/skin-needs-data";
 import { reduceMotionNow } from "@/lib/reduce-motion";
 import { useOwnProducts } from "@/lib/use-own-products";
 import { BUTTON, CANVAS, ICON_SHADOW, INK, MUTED, MUTED_FAINT, SKIN_NEEDS, SPACE, SURFACE, WHITE, TYPE } from "@/lib/tokens";
+import { useSkinNeedsEnabled } from "@/lib/features";
 import { useAppStore } from "@/store/useAppStore";
 
 type CardKey = "why" | "start" | "when" | "pairs" | "avoid" | "shop";
@@ -60,7 +61,12 @@ const CLOSE_DRAG = 90;
  * The last card adds the active to the routine: for.me picks the routine and
  * the step, and asks only when there is a choice to make.
  */
-export default function JourneyStory() {
+export default function JourneyStoryGate() {
+  // Hidden until an expert has checked the advice (#467): with the switch off, nothing here can be reached.
+  return useSkinNeedsEnabled() ? <JourneyStory /> : <Redirect href="/" />;
+}
+
+function JourneyStory() {
   const params = useLocalSearchParams<{ active?: string; answers?: string }>();
   const answers = useMemo(() => decodeAnswers(params.answers, GOALS.map((goal) => goal.key)), [params.answers]);
   const record = findActive(params.active);

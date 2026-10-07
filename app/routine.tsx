@@ -15,6 +15,7 @@ import { PageTitle } from "@/components/PageTitle";
 import { BUTTON_WIDTH, PrimaryButton } from "@/components/PrimaryButton";
 import { StoryAwareHeader } from "@/components/ScreenHeader";
 import { SegmentedSwitch } from "@/components/SegmentedSwitch";
+import { SwapFade } from "@/components/SwapFade";
 import { Text } from "@/components/Text";
 import { useSafetyNoticeHits } from "@/lib/features";
 import { SAFETY_NOTICE_COPY } from "@/lib/safety";
@@ -220,7 +221,7 @@ function Steps({ personalized }: { personalized: boolean }) {
           </View>
         ) : null}
 
-        <View>
+        <SwapFade on={time}>
           {steps.map((row, i) => (
             <StepCard
               key={`${time}-${row.key}`}
@@ -238,7 +239,7 @@ function Steps({ personalized }: { personalized: boolean }) {
               last={i === steps.length - 1}
             />
           ))}
-        </View>
+        </SwapFade>
         <Text style={{ paddingTop: SPACE.gutter, paddingHorizontal: SPACE.text, textAlign: "center", fontSize: TYPE.caption, lineHeight: LEADING.caption, color: MUTED }}>
           {personalized
             ? "Picked from our catalogue for your skin profile. Scan a product to see whether it fits a step, and add your own from its result."

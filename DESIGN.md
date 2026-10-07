@@ -358,8 +358,9 @@ the scanner, How scoring works and the ingredient sheet slide up.
 - **Home**: "Hi there!" in Kalam bold 34; the top card is Start your routine
   until there is one, then today's routine (`RoutineCard`, 212pt, `RADIUS.panel`);
   an Explore group label (`SectionLabel`) over two tiles in one tint (Scan Any
-  Product, Find Your Actives); the skincare tip as an envelope, its title a
-  step below the routine card's, that opens into a note. While the routine builds,
+  Product, Find Your Actives); the skincare tip as an envelope with its letter
+  in it, its title a step below the routine card's. The letter is the note: it
+  leaves the envelope and the tip is written on it (no card). While the routine builds,
   `HomeSkeleton` shows grey shapes in the same room.
 - **Product result** (`app/product/[id]`, `components/result/ResultTabs`): the
   header (bottle, brand 15 `MUTED_FAINT`, name 17 semibold, type 13 `MUTED`) and
@@ -397,9 +398,24 @@ the scanner, How scoring works and the ingredient sheet slide up.
 
 ## Motion and accessibility
 
-- Sheets rise on a cubic ease and the segmented thumb springs. Everything
+- Sheets rise over their own height on iOS's sheet curve (`lib/sheet-ease.ts`),
+  the segmented thumb springs and what it switches fades in (`SwapFade`), and
+  Home and the intro fade into each other. Everything
   checks Reduce Motion (`lib/reduce-motion.ts`): with it on, things just appear
   (no slide, zero-length animations).
+- **The intro's pictures pass each other** (`components/shell/OnboardingShell.tsx`):
+  the one leaving drifts off, shrinks and fades as the next drifts in from the
+  other side, both on screen together; the words slide and land first. Skip,
+  the dots and the button never move.
+- **The tip's opening** (`components/home/SkincareTip.tsx`) is Home's one
+  authored moment. The envelope comes from its place on Home to the middle; the
+  letter starts out of the pocket halfway there, is clear of it as the envelope
+  arrives, and grows into the page while the envelope goes. One even ease for
+  both, and the envelope is never still. Slow the first time a tip is opened
+  (`PACE.ritual`, the tip then written across the page), quick on "Read again".
+  The picture is in layers for this (`tip-envelope-open`, `tip-letter`,
+  `tip-envelope-front`, and `tip-letter-open` for the page); `tip-envelope` is
+  the three put together, and a new drawing needs all of them redone.
 - **The score arrives** (`ScoreRing`): the arc draws round from 12 o'clock and
   the number comes up, 700ms the first time a result opens and 350ms after. The
   number is the real one throughout; only its opacity moves.
@@ -449,8 +465,9 @@ the scanner, How scoring works and the ingredient sheet slide up.
   (four 17pt line heights under a 15pt label, two paddings of 11 and 13, three
   spelled-out trackings), and three animations that skipped Reduce Motion now
   check it. Left alone on purpose: the story cards' own sizes, the scoring
-  sheet's reading leading (25), and Find your actives' hint under the deck,
-  which is cut off on a 6.1 inch phone and is being replaced in another change.
+  sheet's reading leading (25), and the foot of Find your actives' deck,
+  which was cut off on a 6.1 inch phone before the deck's motion landed and has
+  not been looked at since.
 - **Icons are two sets, not SF Symbols:** Ionicons (`@expo/vector-icons`: menu rows,
   routine, scoring sheet, camera, saved) and the app's own SVG marks (tab bar,
   hearts, stars, ticks, shield). Each screen keeps to one. Moving to SF Symbols

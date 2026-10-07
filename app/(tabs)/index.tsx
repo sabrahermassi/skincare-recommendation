@@ -8,7 +8,7 @@ import { BounceCard } from "@/components/BounceCard";
 import { FitScrollView } from "@/components/FitScrollView";
 import { HomeSkeleton } from "@/components/home/HomeSkeleton";
 import { StartRoutineCard, TodayRoutineCard } from "@/components/home/RoutineCard";
-import { TipEnvelope, TipNote } from "@/components/home/SkincareTip";
+import { TipEnvelope, TipNote, type TipOrigin } from "@/components/home/SkincareTip";
 import { SectionLabel } from "@/components/SectionLabel";
 import { Text } from "@/components/Text";
 import { EVENING_FROM_HOUR, timeOfDay, tipFor, todayIn } from "@/lib/home-today";
@@ -20,6 +20,7 @@ import { basicRoutine, recallRoutine, type Routine } from "@/lib/routine-builder
 import { today as weekday } from "@/lib/skin-needs";
 import { tabBarClearance, tabRootTop } from "@/lib/tab-bar";
 import { CANVAS, HAND_FONT_BOLD, HOME_TILE, INK, MUTED, SPACE, TYPE, RADIUS, LEADING } from "@/lib/tokens";
+import { useSkinNeedsEnabled } from "@/lib/features";
 import { useAppStore } from "@/store/useAppStore";
 
 // The two tiles' watercolours (transparent ground).
@@ -46,16 +47,18 @@ const TILE_RADIUS = RADIUS.card;
  */
 export default function Home() {
   const insets = useSafeAreaInsets();
+  // Skin needs is hidden until an expert has checked it (#467).
+  const skinNeeds = useSkinNeedsEnabled();
   // The screens the top card and the actives tile open are drawn ahead of the
   // tap (owner: a card must open at once), a moment after Home itself has
   // painted. Not the scanner: drawing it would switch the camera on.
   useEffect(() => {
     const timer = setTimeout(() => {
       router.prefetch("/routine");
-      router.prefetch("/journey");
+      if (skinNeeds) router.prefetch("/journey");
     }, PREFETCH_AFTER_MS);
     return () => clearTimeout(timer);
-  }, []);
+  }, [skinNeeds]);
 
   const now = useHomeClock();
   // Read again each time Home comes back into view, so it follows a routine just built or changed.
@@ -77,6 +80,9 @@ export default function Home() {
   const read = useAppStore((s) => s.tipRead) === tip.id;
   const setTipRead = useAppStore((s) => s.setTipRead);
   const [tipOpen, setTipOpen] = useState(false);
+  const [tipOrigin, setTipOrigin] = useState<TipOrigin | null>(null);
+  // Unread when tapped: it opens slowly, once.
+  const [tipFirst, setTipFirst] = useState(false);
 
   const openRoutine = () => router.push("/routine");
   return (
@@ -97,8 +103,8 @@ export default function Home() {
 
         <SectionLabel title="Explore" />
         <View style={{ flexDirection: "row", gap: SPACE.block }}>
-          <Tile label="Scan Any Product" description="Barcode or label" art={SCAN_ART} fill={HOME_TILE.tile} onPress={() => openScanner()} />
-          <Tile label="Find Your Actives" description="Ingredients that suit you" art={ACTIVES_ART} fill={HOME_TILE.tile} onPress={() => router.push("/journey")} />
+          <Tile label="Scan Any Product" description="Barcode or label" art={SCAN_ART} fill={HOME_TILE.tile} wide={!skinNeeds} onPress={() => openScanner()} />
+          {skinNeeds ? <Tile label="Find Your Actives" description="Ingredients that suit you" art={ACTIVES_ART} fill={HOME_TILE.tile} onPress={() => router.push("/journey")} /> : null}
         </View>
 
         {pending ? (
@@ -109,14 +115,17 @@ export default function Home() {
           <TipEnvelope
             tip={tip}
             read={read}
-            onOpen={() => {
+            open={tipOpen}
+            onOpen={(origin) => {
+              setTipFirst(!read);
               setTipRead(tip.id);
+              setTipOrigin(origin);
               setTipOpen(true);
             }}
           />
         )}
       </FitScrollView>
-      {pending ? null : <TipNote tip={tip} visible={tipOpen} onClose={() => setTipOpen(false)} />}
+      {pending ? null : <TipNote tip={tip} visible={tipOpen} origin={tipOrigin} first={tipFirst} onClose={() => setTipOpen(false)} />}
     </View>
   );
 }
@@ -178,14 +187,14 @@ function useHomeClock(): Date {
 }
 
 /** One of Explore's two square tiles (hand-off): its picture filling the room above, then its name and one line. */
-function Tile({ label, description, art, fill, onPress }: { label: string; description: string; art: number; fill: string; onPress: () => void }) {
+function Tile({ label, description, art, fill, wide = false, onPress }: { label: string; description: string; art: number; fill: string; /** Alone in its row (Skin needs hidden, #467): twice as wide as tall, not a square the width of the screen. */ wide?: boolean; onPress: () => void }) {
   return (
     <BounceCard
       onPress={onPress}
       pressedScale={0.94}
       accessibilityLabel={label}
       grow
-      style={{ aspectRatio: 1, borderRadius: TILE_RADIUS, backgroundColor: fill, paddingBottom: SPACE.gutter, overflow: "hidden" }}
+      style={{ aspectRatio: wide ? 2 : 1, borderRadius: TILE_RADIUS, backgroundColor: fill, paddingBottom: SPACE.gutter, overflow: "hidden" }}
     >
       <View style={{ flex: 1, paddingTop: SPACE.block, paddingHorizontal: SPACE.block }}>
         <Image source={art} contentFit="contain" accessibilityLabel="" style={{ flex: 1 }} />

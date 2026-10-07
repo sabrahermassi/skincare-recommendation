@@ -236,6 +236,7 @@ describe("what survives an app restart", () => {
       "secureStoreClaimed",
       "shelfOwner",
       "shelfQueue",
+      "skinNeedsEnabled",
       "tipRead",
     ]);
 
@@ -455,6 +456,32 @@ describe("history log", () => {
 
     s().toggleSaved("b");
     expect(s().history.map((h) => h.id)).toEqual(["a"]);
+  });
+});
+
+describe("the Skin needs switch (#467)", () => {
+  afterEach(() => useAppStore.setState({ skinNeedsEnabled: false }, false));
+
+  it("is off on a first run, a setter flips it, and it is kept", () => {
+    expect(s().skinNeedsEnabled).toBe(false);
+    s().setSkinNeedsEnabled(true);
+    expect(s().skinNeedsEnabled).toBe(true);
+    expect(partializeState(s()).skinNeedsEnabled).toBe(true);
+  });
+
+  it("reads back as off from a stored blob that predates it", async () => {
+    const { skinNeedsEnabled: _omitted, ...before } = partializeState(s());
+    await formeStorage.setItem(useAppStore.persist.getOptions().name as string, JSON.stringify({ state: before, version: 10 }));
+
+    await useAppStore.persist.rehydrate();
+
+    expect(s().skinNeedsEnabled).toBe(false);
+  });
+
+  it("is a device setting: Delete my profile keeps it", () => {
+    s().setSkinNeedsEnabled(true);
+    s().resetApp();
+    expect(s().skinNeedsEnabled).toBe(true);
   });
 });
 

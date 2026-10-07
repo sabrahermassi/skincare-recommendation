@@ -110,15 +110,20 @@ export function scaleThatFits(windowHeight: number, band: { top: number; bottom:
  */
 const MAX_FONT_SCALE = 1.3;
 
-// Moving between screens: the pictures stay where they are and cross-fade, while
-// the words slide out one way and the next ones slide in from the other. The
-// cross-fade lasts as long as the words take, so the new picture is arriving as
-// the new words do. Skip, the dots and the button stay put — animating the whole
+// Moving between screens: the pictures pass each other (owner, 7 October 2026: one
+// comes as the other goes, and they overlap on the way). The one leaving drifts
+// off a little and shrinks as it fades; the one arriving drifts in from the other
+// side and grows, both on screen together for most of it. The words slide out one
+// way and the next ones slide in from the other, and have landed before the
+// pictures finish. Skip, the dots and the button stay put — animating the whole
 // page is what this shell used to get wrong.
 const SLIDE_OFFSET = 48;
-const SLIDE_OUT_MS = 150;
-const SLIDE_IN_MS = 250;
-const PICTURE_FADE_MS = SLIDE_OUT_MS + SLIDE_IN_MS;
+const SLIDE_OUT_MS = 200;
+const SLIDE_IN_MS = 360;
+const PICTURE_FADE_MS = 760;
+/** How far a picture drifts sideways, and how small it is, when it is not the one shown. */
+const PICTURE_DRIFT = 28;
+const PICTURE_AWAY_SCALE = 0.94;
 
 export type OnboardingScreenContent = {
   /** Explicit line breaks, not auto-wrap — up to 2 lines; the headline band
@@ -171,6 +176,8 @@ export function OnboardingShell({ screens, activeIndex, onNext, onSkip, onBack }
   const [translateX] = useState(() => new Animated.Value(0));
   // One opacity per picture: they sit on top of each other and cross-fade.
   const [pictureOpacity] = useState(() => screens.map((_, i) => new Animated.Value(i === activeIndex ? 1 : 0)));
+  // Which side each picture is off to when it is not shown: +1 right, -1 left.
+  const [pictureSide] = useState(() => screens.map(() => new Animated.Value(1)));
   // `null` until the phone has answered, and treated as "reduce" until then, so no
   // slide plays on a guess.
   const reduceMotion = useRef<boolean | null>(null);
@@ -199,12 +206,14 @@ export function OnboardingShell({ screens, activeIndex, onNext, onSkip, onBack }
     const outMs = reduced ? 0 : SLIDE_OUT_MS;
     const inMs = reduced ? 0 : SLIDE_IN_MS;
 
+    // Going forward, the new picture comes from the right and the old one leaves to the left.
+    pictureSide.forEach((side, i) => side.setValue(i === activeIndex ? direction : -direction));
     const pictures = Animated.parallel(
       pictureOpacity.map((value, i) =>
         Animated.timing(value, {
           toValue: i === activeIndex ? 1 : 0,
           duration: reduced ? 0 : PICTURE_FADE_MS,
-          easing: Easing.inOut(Easing.cubic),
+          easing: Easing.inOut(Easing.sin),
           useNativeDriver,
         })
       )
@@ -238,7 +247,7 @@ export function OnboardingShell({ screens, activeIndex, onNext, onSkip, onBack }
       slideOut.stop();
       pictures.stop();
     };
-  }, [activeIndex, opacity, translateX, pictureOpacity, screens]);
+  }, [activeIndex, opacity, translateX, pictureOpacity, pictureSide, screens]);
 
   // A swipe is read from raw touches, not a pan responder, so it never takes
   // a touch away from Skip, Back or Continue: a tap travels nowhere and turns
@@ -271,7 +280,7 @@ export function OnboardingShell({ screens, activeIndex, onNext, onSkip, onBack }
         touchStart.current = null;
       }}
     >
-      {/* The pictures: they do not move, they cross-fade. Decorative, so out of
+      {/* The pictures: they pass each other as they cross-fade. Decorative, so out of
           the way of touches and the accessibility tree alike. */}
       <View pointerEvents="none" style={StyleSheet.absoluteFill}>
         <View
@@ -286,7 +295,18 @@ export function OnboardingShell({ screens, activeIndex, onNext, onSkip, onBack }
           {screens.map((screenContent, i) => (
             <Animated.View
               key={i}
-              style={[StyleSheet.absoluteFill, { alignItems: "center", justifyContent: "center", opacity: pictureOpacity[i] }]}
+              style={[
+                StyleSheet.absoluteFill,
+                {
+                  alignItems: "center",
+                  justifyContent: "center",
+                  opacity: pictureOpacity[i],
+                  transform: [
+                    { translateX: Animated.multiply(pictureSide[i], pictureOpacity[i].interpolate({ inputRange: [0, 1], outputRange: [PICTURE_DRIFT, 0] })) },
+                    { scale: pictureOpacity[i].interpolate({ inputRange: [0, 1], outputRange: [PICTURE_AWAY_SCALE, 1] }) },
+                  ],
+                },
+              ]}
             >
               <Image
                 source={screenContent.illustrationSource}

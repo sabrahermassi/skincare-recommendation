@@ -266,7 +266,7 @@ describe("the ingredient page's layout", () => {
 // nothing from the saved skin profile, so the sheet does not say how the
 // ingredient fits it either.
 it("leaves out For your skin when opened from a Skin needs result", async () => {
-  useAppStore.setState({ profile: { ...EMPTY_PROFILE, concerns: ["hyperpigmentation"] } });
+  useAppStore.setState({ profile: { ...EMPTY_PROFILE, concerns: ["hyperpigmentation"] }, skinNeedsEnabled: true });
   mockParams = { inci: "niacinamide", product: "p", from: "journey" };
   (fetchProduct as unknown as { mockResolvedValue(value: unknown): void }).mockResolvedValue({ ok: true, value: PRODUCT });
   await render(<IngredientRoute />);
@@ -277,13 +277,25 @@ it("leaves out For your skin when opened from a Skin needs result", async () => 
 
   await open("niacinamide", { concerns: ["hyperpigmentation"] });
   expect(screen.getByText("For your skin")).toBeTruthy();
+  useAppStore.setState({ skinNeedsEnabled: false });
+});
+
+// #467: with Skin needs hidden, an old link from it is an ordinary ingredient page.
+it("keeps For your skin on an old Skin needs link while Skin needs is hidden", async () => {
+  useAppStore.setState({ profile: { ...EMPTY_PROFILE, concerns: ["hyperpigmentation"] }, skinNeedsEnabled: false });
+  mockParams = { inci: "niacinamide", product: "p", from: "journey" };
+  (fetchProduct as unknown as { mockResolvedValue(value: unknown): void }).mockResolvedValue({ ok: true, value: PRODUCT });
+  await render(<IngredientRoute />);
+  await act(async () => {});
+  expect(screen.getByText("For your skin")).toBeTruthy();
+  mockParams = {};
 });
 
 
 // #404: the EU safety notice on the ingredient's own sheet, only for the
 // entries the owner verified and only with the flag on.
 describe("the EU safety notice on the ingredient page", () => {
-  afterEach(() => useAppStore.setState({ safetyNoticeEnabled: false }, false));
+  afterEach(() => useAppStore.setState({ safetyNoticeEnabled: false, skinNeedsEnabled: false }, false));
 
   // As the dictionary writes them (0030): prohibited, with the Annex II entry in the note.
   const HICC = ingredient("hydroxyisohexyl 3-cyclohexene carboxaldehyde", {
@@ -318,7 +330,7 @@ describe("the EU safety notice on the ingredient page", () => {
   // Codex review on #414: opened from a Skin needs result the "For your skin"
   // card is left out, and the notice still has to be said.
   it("says it on a Skin needs path too, where 'For your skin' is left out", async () => {
-    useAppStore.setState({ safetyNoticeEnabled: true }, false);
+    useAppStore.setState({ safetyNoticeEnabled: true, skinNeedsEnabled: true }, false);
     mockParams = { inci: "hydroxyisohexyl 3-cyclohexene carboxaldehyde", product: "p", from: "journey" };
     (fetchProduct as unknown as { mockResolvedValue(value: unknown): void }).mockResolvedValue({ ok: true, value: withThem });
     await render(<IngredientRoute />);

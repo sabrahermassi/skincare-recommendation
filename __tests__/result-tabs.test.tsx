@@ -250,6 +250,13 @@ it("starts a tab at its top, so Ingredients does not open scrolled past its risk
   expect(scrollToCalls).toContainEqual({ y: 0, animated: false });
 });
 
+it("has the first tab simply there, and brings the next one in from clear", async () => {
+  await show(["niacinamide"], { ...EMPTY_PROFILE, baseSkinType: "dry" });
+  expect(screen.getByTestId("swap-fade")).toHaveStyle({ opacity: 1 });
+  await openIngredients();
+  expect(screen.getByTestId("swap-fade")).toHaveStyle({ opacity: 0 });
+});
+
 describe("the order of the boxes", () => {
   it("leads with what works on a good or excellent match", () => {
     expect(reasonOrder("excellent")).toEqual(["red", "green", "orange"]);

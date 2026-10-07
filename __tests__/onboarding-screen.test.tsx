@@ -57,6 +57,21 @@ it("shows one watercolor hero per screen, in order", async () => {
   expect(screen.getAllByTestId("image").map((image) => image.props.source)).toEqual(HEROES);
 });
 
+// The pictures pass each other between screens (7 October 2026): the one shown is at rest and
+// full size, the others wait faded out, a little to the side and a little smaller.
+it("rests the shown hero and holds the others aside, faded and smaller", async () => {
+  await render(<Onboarding />);
+  const placed = screen.getAllByTestId("image").map((image) => {
+    const style = StyleSheet.flatten(image.parent?.props.style as StyleProp<ViewStyle>);
+    const moves = Object.assign({}, ...((style?.transform as object[] | undefined) ?? [])) as { translateX: number; scale: number };
+    return { opacity: style?.opacity, ...moves };
+  });
+  expect(placed[0]).toEqual({ opacity: 1, translateX: 0, scale: 1 });
+  expect(placed[1].opacity).toBe(0);
+  expect(Math.abs(placed[1].translateX)).toBeGreaterThan(0);
+  expect(placed[1].scale).toBeLessThan(1);
+});
+
 it("paints the intro on the app's one background colour and no other", async () => {
   await render(<Onboarding />);
   const painted = backgrounds(screen.toJSON());
