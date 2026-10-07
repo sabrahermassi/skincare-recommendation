@@ -73,7 +73,7 @@ EU bans as "Restricted use". Checked against the consolidated Regulation (EC) No
   ingredient name. Only the note's entry number changes.
 
 `staleCitationFix` in `scripts/import-inci-dictionary.mjs` makes the corrections and
-`supabase/migrations/0032_annex_stale_citations.sql` and `0033_annex_boron_followup.sql` fix the
+`supabase/migrations/0032_annex_stale_citations.sql` and `0034_annex_boron_followup.sql` fix the
 rows already written; keep their notes the same (`__tests__/annex-stale-citations.test.ts`, and
 `supabase/tests/annex_stale_citations.test.sql` and `annex_boron_followup.test.sql` against a
 real Postgres). Entries 1389 and 1397 joined the safety-notice list on #434. The score impact is

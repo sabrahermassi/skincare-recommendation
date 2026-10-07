@@ -266,27 +266,27 @@ describe("the migration says what the import says", () => {
   });
 });
 
-describe("0033: the boron rows 0032 left, the same way the import writes them", () => {
-  const sql33 = readFileSync(join(__dirname, "..", "supabase", "migrations", "0033_annex_boron_followup.sql"), "utf8");
-  const statements33 = sql33.split("\n").filter((line) => !line.trimStart().startsWith("--")).join("\n");
+describe("0034: the boron rows 0032 left, the same way the import writes them", () => {
+  const sql34 = readFileSync(join(__dirname, "..", "supabase", "migrations", "0034_annex_boron_followup.sql"), "utf8");
+  const statements34 = sql34.split("\n").filter((line) => !line.trimStart().startsWith("--")).join("\n");
 
   it("bans a perborate by the importer's own name pattern and old citation", () => {
-    expect(statements33).toContain(`inci_name ~ '${PERBORATE.source}'`);
-    expect(statements33).toContain("note = 'Restricted use (EU Annex III/1a III/12)'");
-    expect(statements33).toContain(`'${rating("sodium perborate", "III/1a III/12").note}'`);
-    expect(statements33).not.toMatch(/\\b/);
+    expect(statements34).toContain(`inci_name ~ '${PERBORATE.source}'`);
+    expect(statements34).toContain("note = 'Restricted use (EU Annex III/1a III/12)'");
+    expect(statements34).toContain(`'${rating("sodium perborate", "III/1a III/12").note}'`);
+    expect(statements34).not.toMatch(/\\b/);
   });
 
   it("bans each uncited borate salt the import names, with the import's note", () => {
     for (const name of UNCITED_BORATE_SALTS) {
-      expect(statements33).toContain(`inci_name = '${name}'`);
-      expect(statements33).toContain(`'${rating(name, "").note}'`);
+      expect(statements34).toContain(`inci_name = '${name}'`);
+      expect(statements34).toContain(`'${rating(name, "").note}'`);
     }
   });
 
   it("gives phenyl mercuric borate the note its Annex V/17 citation gets, and keeps it safe", () => {
     expect(rating("phenyl mercuric borate", "V/17")).toEqual({ safety: "safe", note: "EU Annex V/17" });
-    expect(statements33).toContain("set note = 'EU Annex V/17'");
-    expect(statements33).not.toMatch(/phenyl mercuric borate'[\s\S]*safety = 'avoid'/);
+    expect(statements34).toContain("set note = 'EU Annex V/17'");
+    expect(statements34).not.toMatch(/phenyl mercuric borate'[\s\S]*safety = 'avoid'/);
   });
 });
