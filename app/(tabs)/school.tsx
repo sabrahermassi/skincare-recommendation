@@ -1,6 +1,6 @@
 import { useScrollToTop } from "expo-router";
 import { useEffect, useMemo, useRef, useState } from "react";
-import { Keyboard, KeyboardAvoidingView, Platform, Pressable, ScrollView, View } from "react-native";
+import { Animated, Easing, Keyboard, KeyboardAvoidingView, Platform, Pressable, ScrollView, View } from "react-native";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 
 import { HeartMark } from "@/components/icons/HeartMark";
@@ -18,6 +18,11 @@ import { FitScrollView } from "@/components/FitScrollView";
 // The School's face: a plain circle with the app's own heart mark, the one
 // the app icon is drawn from, until there is a mascot of its own (#352).
 const AVATAR = 32;
+// A turn of the conversation arrives: the question comes up into place, and the
+// answer a beat after it, as a reply does. The greeting is simply there.
+const ARRIVE_MS = 240;
+const ARRIVE_RISE = SPACE.text;
+const REPLY_AFTER_MS = 180;
 // A suggested question's card (v7).
 const CARD_WIDTH = 200;
 const CARD_MIN_HEIGHT = 56;
@@ -136,23 +141,31 @@ export default function SkincareSchool() {
             >
               {message.kind === "asked" ? (
                 <>
-                  <UserBubble text={message.item.question} />
-                  <AppBubble label={`Answer: ${message.item.answer}`}>
-                    <Text style={{ fontSize: TYPE.body, lineHeight: LEADING.body, color: INK }}>{message.item.answer}</Text>
-                  </AppBubble>
+                  <Arrive>
+                    <UserBubble text={message.item.question} />
+                  </Arrive>
+                  <Arrive after={REPLY_AFTER_MS}>
+                    <AppBubble label={`Answer: ${message.item.answer}`}>
+                      <Text style={{ fontSize: TYPE.body, lineHeight: LEADING.body, color: INK }}>{message.item.answer}</Text>
+                    </AppBubble>
+                  </Arrive>
                 </>
               ) : (
                 <>
-                  <UserBubble text={message.text} />
+                  <Arrive>
+                    <UserBubble text={message.text} />
+                  </Arrive>
                   {/* Not one accessible block: the cards inside have to stay buttons. */}
-                  <AppBubble>
-                    <Text style={{ fontSize: TYPE.body, lineHeight: LEADING.body, color: INK }}>{SCHOOL_CHAT_COPY.noAnswer}</Text>
-                    <View style={{ gap: SPACE.text, marginTop: SPACE.block }}>
-                      {message.suggestions.map((item) => (
-                        <QuestionCard key={item.id} item={item} onPress={() => ask(item)} />
-                      ))}
-                    </View>
-                  </AppBubble>
+                  <Arrive after={REPLY_AFTER_MS}>
+                    <AppBubble>
+                      <Text style={{ fontSize: TYPE.body, lineHeight: LEADING.body, color: INK }}>{SCHOOL_CHAT_COPY.noAnswer}</Text>
+                      <View style={{ gap: SPACE.text, marginTop: SPACE.block }}>
+                        {message.suggestions.map((item) => (
+                          <QuestionCard key={item.id} item={item} onPress={() => ask(item)} />
+                        ))}
+                      </View>
+                    </AppBubble>
+                  </Arrive>
                 </>
               )}
             </View>
@@ -200,6 +213,21 @@ function useKeyboardUp(): boolean {
     };
   }, []);
   return up;
+}
+
+/** Brings a bubble up into place as it joins the conversation; with Reduce Motion on it is just there. */
+function Arrive({ after = 0, children }: { after?: number; children: React.ReactNode }) {
+  const [shown] = useState(() => new Animated.Value(reduceMotionNow() ? 1 : 0));
+  useEffect(() => {
+    const animation = Animated.timing(shown, { toValue: 1, duration: ARRIVE_MS, delay: after, easing: Easing.out(Easing.cubic), useNativeDriver: Platform.OS !== "web" });
+    animation.start();
+    return () => animation.stop();
+  }, [shown, after]);
+  return (
+    <Animated.View testID="arrive" style={{ opacity: shown, transform: [{ translateY: shown.interpolate({ inputRange: [0, 1], outputRange: [ARRIVE_RISE, 0] }) }] }}>
+      {children}
+    </Animated.View>
+  );
 }
 
 /** The School's side of the conversation: on the left, beside its avatar. */

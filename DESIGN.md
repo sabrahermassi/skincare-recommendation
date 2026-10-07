@@ -403,6 +403,8 @@ the scanner, How scoring works and the ingredient sheet slide up.
 - **The score arrives** (`ScoreRing`): the arc draws round from 12 o'clock and
   the number comes up, 700ms the first time a result opens and 350ms after. The
   number is the real one throughout; only its opacity moves.
+- **School's turns arrive** (`Arrive` in `app/(tabs)/school.tsx`): a question
+  comes up into place and its answer 180ms after it. The greeting is just there.
 - Tap targets follow `TOUCH_TARGET` (44). One known exception: `ReferenceLink`
   is 36pt tall. Icon buttons carry a spoken label.
 - Contrast ratios are noted beside tokens in `lib/tokens.ts`. Nothing computed is
