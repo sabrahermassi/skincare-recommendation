@@ -308,6 +308,38 @@ const UNCITED_BORATE_SALTS = new Set(["magnesium ascorbylborate"]);
 /** The Annex III citations an old boric-acid-class row carries: 1a, 1b, and the amine and zinc entries some also cite. */
 const BORIC_ACID_CITATIONS = new Set(["1a", "1b", "24", "61"]);
 
+/**
+ * Bans the taxonomy does not show as bans (#468, the audit of 7 October 2026). Each was read off
+ * the consolidated Regulation (EC) No 1223/2009 (version 18.05.2026) and is listed the same way
+ * in CosIng. Mirrored by supabase/migrations/0035_annex_ii_bans_and_safrole.sql.
+ *
+ * 4-Methylbenzylidene camphor: Annex II/1730, added by Regulation (EU) 2024/996. The taxonomy
+ * still cites its old UV-filter entry, Annex VI/18, which that regulation deleted. The dates are
+ * the entry's own footnote, said plainly because older stock may still be around.
+ */
+const FOUR_MBC = /^4[ -]methylbenzylidene camphor$/;
+const FOUR_MBC_CITATION = /^(?:annex\s+)?VI\/18$/i;
+const FOUR_MBC_NOTE =
+  "Prohibited in cosmetics (EU Annex II/1730: not to be placed on the EU market since 1 May 2025 and not to be sold there since 1 May 2026; older stock may still be around)";
+/**
+ * Octamethylcyclotetrasiloxane (D4): Annex II/1388, added by Regulation (EU) 2019/831. The
+ * taxonomy gives it no citation at all. Listed by name, like `UNCITED_BORATE_SALTS`, so an
+ * uncited row is never banned on a guess: cyclomethicone, a mixture that may hold D4, is not here.
+ */
+const UNCITED_BANS = new Map([["cyclotetrasiloxane", "Prohibited in cosmetics (EU Annex II/1388)"]]);
+
+/**
+ * Annex II/360 is the entry for safrole, "except for normal content in the natural essences
+ * used and provided the concentration does not exceed 100 ppm in the finished product, 50 ppm
+ * in products for dental and oral hygiene". The taxonomy cites it ("II/360 R3") on the essences
+ * themselves, which the import read as a flat ban. Same shape as the furocoumarin correction
+ * above: an entry whose only Annex II citation is 360, and whose name is one of the plants
+ * checked, is `safe` with a note that says what the entry limits. Safrole itself keeps the ban.
+ */
+const SAFROLE_ESSENCE_SOURCE = /(^|[^a-z])(cinnamomum camphora|sassafras)([^a-z]|$)/;
+const SAFROLE_ESSENCE_NOTE =
+  "Natural essence. EU Annex II/360 limits safrole in the finished product (100 ppm; 50 ppm in dental and oral hygiene products), not the ingredient itself";
+
 /** Regulation (EU) 2023/1545 deleted entries 125, 126, 158, 160-163, 165, 167 and 168, merged into 124 (turpentine), 157 (rose ketones) and 88 (limonene). 19 is now 227. */
 const RENUMBERED = new Map([
   ["125", "124"], ["126", "124"],
@@ -343,6 +375,8 @@ function renumberCitation(text) {
 /** The rating a stale citation corrects to, or null when this row is not one of the reviewed cases. */
 function staleCitationFix(canonical, text) {
   if (!text && UNCITED_BORATE_SALTS.has(canonical)) return { safety: "avoid", note: BORATE_SALT_NOTE };
+  if (!text && UNCITED_BANS.has(canonical)) return { safety: "avoid", note: UNCITED_BANS.get(canonical) };
+  if (FOUR_MBC.test(canonical) && FOUR_MBC_CITATION.test(text)) return { safety: "avoid", note: FOUR_MBC_NOTE };
   if (!text || annexTwoEntries(text).length > 0) return null;
   const entries = annexThreeEntries(text);
   const only = (...wanted) => entries.length > 0 && entries.every((e) => wanted.includes(e));
@@ -370,7 +404,7 @@ function staleCitationFix(canonical, text) {
  * (EU Annex III/88)" is also what an ordinary row citing entry 88 gets, so the note alone does
  * not say a correction happened (`isStaleRenumber` reads the row being replaced instead).
  */
-const STALE_FIX_NOTES = new Set([LILIAL_NOTE, DICHLOROMETHANE_NOTE, BORIC_ACID_NOTE, DIBORON_TRIOXIDE_NOTE, BORATE_SALT_NOTE, PERBORATE_NOTE]);
+const STALE_FIX_NOTES = new Set([LILIAL_NOTE, DICHLOROMETHANE_NOTE, BORIC_ACID_NOTE, DIBORON_TRIOXIDE_NOTE, BORATE_SALT_NOTE, PERBORATE_NOTE, FOUR_MBC_NOTE, ...UNCITED_BANS.values()]);
 
 /**
  * True when `row` only renumbers the citation `current` already carries: same rating, and the
@@ -397,6 +431,10 @@ function safetyFor(canonical, restriction) {
   if (entries.length > 0 && entries.every((entry) => entry === "358") && NATURAL_ESSENCE_SOURCE.test(canonical)) {
     const rest = text.replace(/(?:\bannex\s+)?\bII\/358\b(\s+R1?\b)?/i, "").trim();
     return rest ? safetyFrom(rest) : { safety: "safe", note: NATURAL_ESSENCE_NOTE };
+  }
+  if (entries.length > 0 && entries.every((entry) => entry === "360") && SAFROLE_ESSENCE_SOURCE.test(canonical)) {
+    const rest = text.replace(/(?:\bannex\s+)?\bII\/360\b(\s+R\d?\b)?/i, "").trim();
+    return rest ? safetyFrom(rest) : { safety: "safe", note: SAFROLE_ESSENCE_NOTE };
   }
   const rating = safetyFrom(restriction);
   // A named exemption holds only for the entry it was reviewed against: a taxonomy that
@@ -523,6 +561,7 @@ function isReviewedCorrection(row) {
   const note = row.note ?? "";
   return (
     note === NATURAL_ESSENCE_NOTE ||
+    note === SAFROLE_ESSENCE_NOTE ||
     note === ORIGIN_DEPENDENT_NOTE ||
     note.startsWith(`${DMSO_NOTE} (`) ||
     note.startsWith(`${REFINED_GRADE_NOTE} (`) ||
@@ -696,6 +735,8 @@ export {
   PART_I,
   planWrites,
   RENUMBERED,
+  SAFROLE_ESSENCE_SOURCE,
+  UNCITED_BANS,
   safetyFor,
   safetyFrom,
   sharedLabelForms,

@@ -72,7 +72,8 @@ export function regulatoryStatus(ingredient: Ingredient): string {
   if (ingredient.safety === "avoid") return "Prohibited";
   if (ingredient.safety === "caution" || euAllergenEntry(ingredient.name)) return EU_ALLERGEN_COPY.limits;
   if (ingredient.note?.startsWith(REFINED_GRADE_NOTE_START)) return "Allowed when refined";
-  if (ingredient.note?.startsWith(NATURAL_ESSENCE_NOTE_START)) return "Allowed, with a limit on furocoumarins";
+  // Two entries are written this way: 358 limits furocoumarins, 360 limits safrole (#468).
+  if (ingredient.note?.startsWith(NATURAL_ESSENCE_NOTE_START)) return ingredient.note.includes("safrole") ? "Allowed, with a limit on safrole" : "Allowed, with a limit on furocoumarins";
   if (isOriginDependent(ingredient)) return ORIGIN_DEPENDENT_HEADLINE;
   return EU_ALLERGEN_COPY.noneListed;
 }
@@ -257,6 +258,14 @@ export const SAFETY_NOTICE_ENTRIES: readonly SafetyNoticeEntry[] = [
     // The entry is one substance (CAS 123-31-9), under its one INCI name.
     names: ["hydroquinone"],
   },
+  // Pending (#468, the audit of 7 October 2026): the owner confirms each on the current consolidated
+  // EUR-Lex text. Until then none fires. The dictionary marks the first two as prohibited today; the
+  // other three are not changed there yet (dates and one label still to check).
+  { entry: 1730, ingredient: "4-methylbenzylidene camphor", regulation: null, verified: null, verifiedBy: null },
+  { entry: 1388, ingredient: "cyclotetrasiloxane (octamethylcyclotetrasiloxane, D4)", regulation: null, verified: null, verifiedBy: null },
+  { entry: 1703, ingredient: "benzophenone", regulation: null, verified: null, verifiedBy: null },
+  { entry: 1721, ingredient: "pentasodium pentetate", regulation: null, verified: null, verifiedBy: null },
+  { entry: 1575, ingredient: "styrene", regulation: null, verified: null, verifiedBy: null },
 ];
 
 /** The words of the notice, every one audited by `__tests__/claims-policy.test.ts`. */

@@ -637,6 +637,31 @@ decisions:
   (no product to keep), there is no Add button; the old one on every result
   is gone. Actives are added from Skin needs stories.
 
+### Two bans shown as allowed, and the safrole entry (#468, 7 October 2026)
+
+The credibility audit compared every dictionary row with the consolidated
+Regulation (EC) No 1223/2009 (version 18.05.2026) by CAS number. Fixed in
+migration 0035 and in the import, each also listed that way in CosIng:
+
+- **4-methylbenzylidene camphor** is Annex II/1730 (Regulation (EU) 2024/996;
+  not placed on the market from 1 May 2025, not sold from 1 May 2026). The
+  dictionary still cited its deleted UV-filter entry, Annex VI/18.
+- **Cyclotetrasiloxane** (D4) is Annex II/1388. It had no citation.
+  Cyclomethicone, a mixture that may hold D4, is left alone.
+- **Annex II/360 limits safrole**, it does not ban the camphor-tree and
+  sassafras essences that cite it. Same treatment as the furocoumarin entry
+  (358): `safe`, with a note that says what the entry limits.
+
+**Left alone, on purpose.** Benzophenone (II/1703), pentasodium pentetate
+(II/1721) and styrene (II/1575) are on the owner's to-verify list in
+`lib/safety.ts` but unchanged in the dictionary until their dates and one
+label are checked. And three rows the audit first called wrong are not:
+CosIng itself puts dimethicone/PEG-3/PPG-15 crosspolymer under II/182,
+polyurethane-84 under II/201 and myroxylon balsamum balsam oil under II/1136,
+though the regulation's wording for those entries names another substance.
+That is a disagreement between the two official sources, for Phase 2's review
+list (#457), not something to settle by hand here.
+
 ### EU "restricted" (Annex III) never adds an irritation charge by itself (#407)
 
 Moved here from `CLAUDE.md`, which keeps the one-line rule. It means *allowed
