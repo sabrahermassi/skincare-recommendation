@@ -7,7 +7,7 @@ import { CloseCross, IconCircle } from "@/components/IconCircle";
 import { Text } from "@/components/Text";
 import { mistakeReportUrl, type MistakeSubject } from "@/lib/report-mistake";
 import { supportEmail } from "@/lib/support-email";
-import { BUTTON, DESTRUCTIVE_OUTLINE, DISPLAY_FONT, FONT_SCALE, INK, MUTED, OPTION_LINE, PLACEHOLDER, STONE, TOUCH_TARGET, TYPE, RADIUS, SPACE } from "@/lib/tokens";
+import { BUTTON, DESTRUCTIVE_OUTLINE, DISPLAY_FONT, FONT_SCALE, INK, MUTED, OPTION_LINE, PLACEHOLDER, STONE, TOUCH_TARGET, TYPE, RADIUS, SPACE, LEADING, TRACKING } from "@/lib/tokens";
 import { BUTTON_HEIGHT } from "@/components/PrimaryButton";
 import { noOrphan } from "@/lib/text";
 
@@ -52,7 +52,7 @@ export function ReportMistakeLink({ subject, button = false }: { subject: Mistak
       });
   };
   const failure = mailFailed && email ? (
-    <Text selectable style={{ fontSize: TYPE.caption, lineHeight: 18, color: MUTED }}>
+    <Text selectable style={{ fontSize: TYPE.caption, lineHeight: LEADING.caption, color: MUTED }}>
       {`We couldn't open a mail app on this phone. You can write to ${email} instead.`}
     </Text>
   ) : null;
@@ -106,10 +106,10 @@ export function ReportMistakeLink({ subject, button = false }: { subject: Mistak
       >
         <View style={{ alignItems: "center", paddingHorizontal: SPACE.text }}>
           <Image source={REPORT_ART} contentFit="contain" accessibilityLabel="" style={{ width: 132, height: 132 }} />
-          <Text accessibilityRole="header" style={{ marginTop: SPACE.text, textAlign: "center", fontFamily: DISPLAY_FONT, fontSize: TYPE.heading, lineHeight: 28, letterSpacing: -0.5, color: INK }}>
+          <Text accessibilityRole="header" style={{ marginTop: SPACE.text, textAlign: "center", fontFamily: DISPLAY_FONT, fontSize: TYPE.heading, lineHeight: LEADING.heading, letterSpacing: TRACKING.heading, color: INK }}>
             {sent ? "Thank you" : "Report a mistake"}
           </Text>
-          <Text style={{ marginTop: SPACE.text, maxWidth: 300, textAlign: "center", fontSize: TYPE.body, lineHeight: 21, color: MUTED }}>
+          <Text style={{ marginTop: SPACE.text, maxWidth: 300, textAlign: "center", fontSize: TYPE.body, lineHeight: LEADING.body, color: MUTED }}>
             {noOrphan(sent ? "We'll check this product and fix it if something's off." : "What looks wrong about this product?")}
           </Text>
           {sent ? null : (
@@ -159,7 +159,7 @@ export function ReportMistakeLink({ subject, button = false }: { subject: Mistak
             }}
             className="active:opacity-80"
           >
-            <Text style={{ fontSize: TYPE.card, fontWeight: "600", letterSpacing: -0.17, color: sent ? BUTTON.primary.label : ready ? DESTRUCTIVE_OUTLINE.label : PLACEHOLDER }}>{sent ? "Done" : "Send report"}</Text>
+            <Text style={{ fontSize: TYPE.card, fontWeight: "600", letterSpacing: TRACKING.card, color: sent ? BUTTON.primary.label : ready ? DESTRUCTIVE_OUTLINE.label : PLACEHOLDER }}>{sent ? "Done" : "Send report"}</Text>
           </Pressable>
         </View>
       </BottomSheet>

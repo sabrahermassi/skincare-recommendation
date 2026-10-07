@@ -67,6 +67,8 @@ import {
   WHITE,
   withAlpha,
   RADIUS,
+  LEADING,
+  TRACKING,
 } from "@/lib/tokens";
 import { TAB_BAR_HEIGHT } from "@/lib/tab-bar";
 import { noOrphan } from "@/lib/text";
@@ -705,11 +707,11 @@ function NoMatchSheet({
       )}
       <Text
         accessibilityRole="header"
-        style={{ marginTop: SPACE.block, textAlign: "center", fontFamily: DISPLAY_FONT, fontSize: TYPE.heading, lineHeight: 28, letterSpacing: -0.5, color: INK }}
+        style={{ marginTop: SPACE.block, textAlign: "center", fontFamily: DISPLAY_FONT, fontSize: TYPE.heading, lineHeight: LEADING.heading, letterSpacing: TRACKING.heading, color: INK }}
       >
         {noOrphan(copy.title)}
       </Text>
-      <Text style={{ marginTop: SPACE.text, maxWidth: 300, textAlign: "center", fontSize: TYPE.body, lineHeight: 21, color: MUTED }}>{noOrphan(copy.line)}</Text>
+      <Text style={{ marginTop: SPACE.text, maxWidth: 300, textAlign: "center", fontSize: TYPE.body, lineHeight: LEADING.body, color: MUTED }}>{noOrphan(copy.line)}</Text>
       <PrimaryButton label={primaryLabel} onPress={onPrimary} style={{ width: BUTTON_WIDTH.secondary, marginTop: SPACE.section }} />
     </ScanPopup>
   );
@@ -760,7 +762,7 @@ function FoundSheet({
           <Text numberOfLines={1} style={{ fontSize: TYPE.caption, color: MUTED_FAINT }}>
             {product.brand}
           </Text>
-          <Text numberOfLines={2} style={{ fontSize: TYPE.card, fontWeight: "600", lineHeight: 21, color: INK }}>
+          <Text numberOfLines={2} style={{ fontSize: TYPE.card, fontWeight: "600", lineHeight: LEADING.card, color: INK }}>
             {product.name}
           </Text>
           <View style={{ marginTop: 6, flexDirection: "row", alignItems: "center", gap: SPACE.text }}>

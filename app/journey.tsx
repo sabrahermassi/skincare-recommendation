@@ -19,7 +19,7 @@ import { reduceMotionNow } from "@/lib/reduce-motion";
 import { encodeAnswers, familyOf, hiddenLine, holdsActive, optionsFor, safeOnly, storyLength, storyLengthLine, type NeedAnswers, type StoryActive } from "@/lib/skin-needs";
 import { useOwnProducts } from "@/lib/use-own-products";
 import { ACTIVES_IN_USE, GOAL_OPTIONS, type ActiveKey } from "@/lib/skin-needs-data";
-import { BUTTON, CANVAS, CANVAS_GLASS, CHOSEN, DISPLAY_FONT, ICON_SHADOW, INK, LINK, MUTED, MUTED_FAINT, SKIN_NEEDS, SPACE, STAR_ON, SURFACE, TOUCH_TARGET, WHITE, TYPE, RADIUS } from "@/lib/tokens";
+import { BUTTON, CANVAS, CANVAS_GLASS, CHOSEN, DISPLAY_FONT, ICON_SHADOW, INK, LINK, MUTED, MUTED_FAINT, SKIN_NEEDS, SPACE, STAR_ON, SURFACE, TOUCH_TARGET, WHITE, TYPE, RADIUS, LEADING, TRACKING } from "@/lib/tokens";
 import { useAppStore } from "@/store/useAppStore";
 import { noOrphan } from "@/lib/text";
 
@@ -230,13 +230,13 @@ function QuestionCard({ title, tag, note, children }: { title: string; tag: stri
   return (
     <View style={{ backgroundColor: SURFACE, borderRadius: RADIUS.panel, padding: 20, gap: SPACE.gutter }}>
       <View style={{ flexDirection: "row", alignItems: "baseline", justifyContent: "space-between", gap: SPACE.text }}>
-        <Text accessibilityRole="header" style={{ flex: 1, fontSize: TYPE.title, fontWeight: "600", lineHeight: 24, color: INK }}>
+        <Text accessibilityRole="header" style={{ flex: 1, fontSize: TYPE.title, fontWeight: "600", lineHeight: LEADING.title, color: INK }}>
           {fontScale > 1 ? title : noOrphan(title)}
         </Text>
         <Text style={{ fontSize: TYPE.caption, fontWeight: "600", color: MUTED_FAINT }}>{tag}</Text>
       </View>
       {children}
-      {note ? <Text style={{ fontSize: TYPE.caption, lineHeight: 19, color: MUTED_FAINT }}>{noOrphan(note)}</Text> : null}
+      {note ? <Text style={{ fontSize: TYPE.caption, lineHeight: LEADING.caption, color: MUTED_FAINT }}>{noOrphan(note)}</Text> : null}
     </View>
   );
 }
@@ -314,10 +314,10 @@ function Options({ answers, onBack, onNotPregnant }: { answers: NeedAnswers; onB
       </View>
       <FitScrollView contentContainerStyle={{ paddingBottom: insets.bottom + SPACE.section }}>
         <View style={{ paddingTop: SPACE.gutter, paddingHorizontal: SPACE.section, gap: SPACE.block }}>
-          <Text accessibilityRole="header" style={{ fontFamily: DISPLAY_FONT, fontSize: TYPE.large, lineHeight: 34, letterSpacing: -0.6, color: INK }}>
+          <Text accessibilityRole="header" style={{ fontFamily: DISPLAY_FONT, fontSize: TYPE.large, lineHeight: LEADING.large, letterSpacing: TRACKING.large, color: INK }}>
             What can help with {GOAL_OPTIONS[answers.goal].about}?
           </Text>
-          <Text style={{ fontSize: TYPE.body, lineHeight: 21, color: MUTED }}>
+          <Text style={{ fontSize: TYPE.body, lineHeight: LEADING.body, color: MUTED }}>
             {count === 1
               ? `Based on your answers, here is 1 ${safe ? "safe option" : "option worth knowing"}.`
               : `Based on your answers, here are ${count} ${safe ? "safe options" : "options worth knowing"}.`}
@@ -333,9 +333,9 @@ function Options({ answers, onBack, onNotPregnant }: { answers: NeedAnswers; onB
             <View style={{ flexDirection: "row", alignItems: "center", gap: SPACE.text }}>
               <InfoIcon />
               {answers.pregnancy === "yes" ? (
-                <Text style={{ flex: 1, fontSize: TYPE.caption, lineHeight: 18, color: MUTED }}>{hiddenLine(hidden)}</Text>
+                <Text style={{ flex: 1, fontSize: TYPE.caption, lineHeight: LEADING.caption, color: MUTED }}>{hiddenLine(hidden)}</Text>
               ) : (
-                <Text style={{ flex: 1, fontSize: TYPE.caption, lineHeight: 18, color: MUTED }}>
+                <Text style={{ flex: 1, fontSize: TYPE.caption, lineHeight: LEADING.caption, color: MUTED }}>
                   Showing pregnancy-safe options. Not pregnant?{" "}
                   <Text onPress={onNotPregnant} accessibilityRole="button" accessibilityLabel="Not pregnant: show every option" style={{ fontWeight: "600", color: BUTTON.primary.fill }}>
                     Change
@@ -447,11 +447,11 @@ function FamilyCard({ active, width, best, safe, inRoutine, onOpen }: { active: 
         </Pressable>
       </View>
       <View style={{ flex: 1, paddingTop: SPACE.gutter, paddingHorizontal: SPACE.section, paddingBottom: SPACE.section, gap: 4 }}>
-        <Text numberOfLines={1} adjustsFontSizeToFit style={{ fontFamily: DISPLAY_FONT, fontSize: TYPE.large, lineHeight: 34, letterSpacing: -0.6, color: INK }}>
+        <Text numberOfLines={1} adjustsFontSizeToFit style={{ fontFamily: DISPLAY_FONT, fontSize: TYPE.large, lineHeight: LEADING.large, letterSpacing: TRACKING.large, color: INK }}>
           {active.name}
         </Text>
         <Text style={{ fontSize: TYPE.caption, color: MUTED_FAINT }}>{active.sub}</Text>
-        <Text style={{ marginTop: SPACE.text, fontSize: TYPE.card, lineHeight: 23, color: INK }}>{line}</Text>
+        <Text style={{ marginTop: SPACE.text, fontSize: TYPE.card, lineHeight: LEADING.card, color: INK }}>{line}</Text>
         <View style={{ marginTop: "auto", flexDirection: "row", alignItems: "center", justifyContent: "space-between" }}>
           <View style={{ gap: 6 }}>
             <Text style={{ fontSize: TYPE.caption, fontWeight: "600", color: MUTED_FAINT }}>{storyLengthLine(active)}</Text>

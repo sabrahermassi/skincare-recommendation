@@ -4,7 +4,7 @@ import { PageTitle } from "@/components/PageTitle";
 import { ScreenHeader } from "@/components/ScreenHeader";
 import { SectionLabel } from "@/components/SectionLabel";
 import { Text } from "@/components/Text";
-import { CANVAS, CARD_RADIUS, INK, MUTED, SPACE, SURFACE, TYPE } from "@/lib/tokens";
+import { CANVAS, CARD_RADIUS, INK, MUTED, SPACE, SURFACE, TYPE, LEADING } from "@/lib/tokens";
 import { FitScrollView } from "@/components/FitScrollView";
 
 // The facts behind each line are recorded in docs/privacy-disclosures.md.
@@ -75,21 +75,21 @@ export default function Privacy() {
         <PageTitle title="Privacy policy" />
         {/* The short version first (v7), on a stone card (v9). */}
         <View style={{ marginTop: SPACE.gutter, borderRadius: CARD_RADIUS, backgroundColor: SURFACE, padding: SPACE.gutter }}>
-          <Text style={{ fontSize: TYPE.body, lineHeight: 21, color: INK }}>In short: no ads, no selling your data, and no account needed to scan.</Text>
+          <Text style={{ fontSize: TYPE.body, lineHeight: LEADING.body, color: INK }}>In short: no ads, no selling your data, and no account needed to scan.</Text>
         </View>
         {SECTIONS.map((section) => (
           <View key={section.title}>
             <SectionLabel title={section.title} />
             <View style={{ gap: SPACE.text, paddingHorizontal: 4 }}>
               {section.lines.map((line) => (
-                <Text key={line} style={{ fontSize: TYPE.body, lineHeight: 22.5, color: INK }}>
+                <Text key={line} style={{ fontSize: TYPE.body, lineHeight: LEADING.body, color: INK }}>
                   {line}
                 </Text>
               ))}
             </View>
           </View>
         ))}
-        <Text style={{ marginTop: SPACE.section, paddingHorizontal: 4, fontSize: TYPE.caption, lineHeight: 18, color: MUTED }}>
+        <Text style={{ marginTop: SPACE.section, paddingHorizontal: 4, fontSize: TYPE.caption, lineHeight: LEADING.caption, color: MUTED }}>
           Ingredient assessments are based on your skin profile and public ingredient data. They are not medical advice.
         </Text>
       </FitScrollView>

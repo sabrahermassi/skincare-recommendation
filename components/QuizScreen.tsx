@@ -9,7 +9,7 @@ import { Text } from "@/components/Text";
 import { noOrphan } from "@/lib/text";
 import { goBackOrHome } from "@/lib/go-back";
 import { quizStepCount } from "@/lib/profile";
-import { BUTTON, CANVAS, DISPLAY_FONT, DIVIDER, INK, MUTED, SPACE, TYPE } from "@/lib/tokens";
+import { BUTTON, CANVAS, DISPLAY_FONT, DIVIDER, INK, MUTED, SPACE, TYPE, LEADING, TRACKING } from "@/lib/tokens";
 import { FitScrollView } from "@/components/FitScrollView";
 
 type Props = {
@@ -108,10 +108,10 @@ export function QuizScreen({
           keyboardShouldPersistTaps="handled"
         >
           <View style={{ alignItems: "center", gap: SPACE.text, paddingHorizontal: SPACE.text, paddingBottom: SPACE.section }}>
-            <Text accessibilityRole="header" style={{ textAlign: "center", fontFamily: DISPLAY_FONT, fontSize: TYPE.heading, lineHeight: 28, letterSpacing: -0.5, color: INK }}>
+            <Text accessibilityRole="header" style={{ textAlign: "center", fontFamily: DISPLAY_FONT, fontSize: TYPE.heading, lineHeight: LEADING.heading, letterSpacing: TRACKING.heading, color: INK }}>
               {noOrphan(title)}
             </Text>
-            {subtitle ? <Text style={{ maxWidth: 320, textAlign: "center", fontSize: TYPE.body, lineHeight: 21, color: MUTED }}>{noOrphan(subtitle)}</Text> : null}
+            {subtitle ? <Text style={{ maxWidth: 320, textAlign: "center", fontSize: TYPE.body, lineHeight: LEADING.body, color: MUTED }}>{noOrphan(subtitle)}</Text> : null}
           </View>
           {children}
         </FitScrollView>

@@ -16,7 +16,7 @@ import {
   type ScoreFactor,
   type ScoreNote,
 } from "@/lib/scoring-explainer";
-import { CARD_RADIUS, CHOSEN, DISPLAY_FONT, HAIRLINE, INK, MUTED, MUTED_FAINT, scoreColours, SPACE, STONE, TYPE, VERDICT, VERDICT_NEUTRAL, WHITE, RADIUS } from "@/lib/tokens";
+import { CARD_RADIUS, CHOSEN, DISPLAY_FONT, HAIRLINE, INK, MUTED, MUTED_FAINT, scoreColours, SPACE, STONE, TYPE, VERDICT, VERDICT_NEUTRAL, WHITE, RADIUS, LEADING, TRACKING } from "@/lib/tokens";
 
 /**
  * How scoring works (#325) — where the number comes from, in plain English:
@@ -32,7 +32,7 @@ export default function HowScoringWorks() {
     <SheetScreen
       header={
         <View style={{ flexDirection: "row", alignItems: "center", justifyContent: "space-between", gap: SPACE.block, paddingTop: SPACE.section, paddingHorizontal: SPACE.gutter }}>
-          <Text accessibilityRole="header" style={{ flex: 1, fontFamily: DISPLAY_FONT, fontSize: TYPE.heading, lineHeight: 28, letterSpacing: -0.5, color: INK }}>
+          <Text accessibilityRole="header" style={{ flex: 1, fontFamily: DISPLAY_FONT, fontSize: TYPE.heading, lineHeight: LEADING.heading, letterSpacing: TRACKING.heading, color: INK }}>
             How scoring works
           </Text>
           <IconCircle onPress={goBackOrHome} accessibilityLabel="Close">
@@ -57,7 +57,7 @@ export default function HowScoringWorks() {
                     {band.label.replace(/ match$/, "")} · {band.from}–{band.to}
                   </Text>
                 </View>
-                <Text style={{ fontSize: TYPE.body, lineHeight: 21, color: MUTED }}>{band.meaning}</Text>
+                <Text style={{ fontSize: TYPE.body, lineHeight: LEADING.body, color: MUTED }}>{band.meaning}</Text>
               </View>
             ))}
           </View>
@@ -69,7 +69,7 @@ export default function HowScoringWorks() {
         {/* All in ink (owner): no grey signs, no sage "your score". */}
         <Text
           accessibilityLabel="Your skin plus its ingredients equals your score"
-          style={{ paddingTop: SPACE.text, paddingHorizontal: 4, fontSize: TYPE.card, fontWeight: "600", lineHeight: 22, color: INK }}
+          style={{ paddingTop: SPACE.text, paddingHorizontal: 4, fontSize: TYPE.card, fontWeight: "600", lineHeight: LEADING.card, color: INK }}
         >
           Your skin + its ingredients = your score
         </Text>
@@ -89,7 +89,7 @@ export default function HowScoringWorks() {
           ))}
         </View>
 
-        <Text style={{ paddingTop: SPACE.section, paddingHorizontal: 4, fontSize: TYPE.caption, lineHeight: 19, color: MUTED_FAINT }}>
+        <Text style={{ paddingTop: SPACE.section, paddingHorizontal: 4, fontSize: TYPE.caption, lineHeight: LEADING.caption, color: MUTED_FAINT }}>
           {SCORING_SOURCES} {SCORING_DISCLAIMER}
         </Text>
       </ScrollView>
@@ -111,7 +111,7 @@ function FactorRow({ factor, divided }: { factor: ScoreFactor; divided: boolean 
       </View>
       <View style={{ flex: 1, gap: 3 }}>
         <Text style={{ fontSize: TYPE.label, fontWeight: "600", lineHeight: 26, color: INK }}>{factor.title}</Text>
-        <Text style={{ fontSize: TYPE.body, lineHeight: 21, color: MUTED }}>{factor.body}</Text>
+        <Text style={{ fontSize: TYPE.body, lineHeight: LEADING.body, color: MUTED }}>{factor.body}</Text>
       </View>
     </View>
   );
@@ -132,7 +132,7 @@ function NoteRow({ note, divided }: { note: ScoreNote; divided: boolean }) {
       </View>
       <View style={{ flex: 1, gap: 1, paddingVertical: SPACE.block, paddingRight: SPACE.gutter, borderTopWidth: divided ? 0.5 : 0, borderTopColor: HAIRLINE }}>
         <Text style={{ fontSize: TYPE.label, fontWeight: "600", color: INK }}>{note.title}</Text>
-        <Text style={{ fontSize: TYPE.caption, lineHeight: 18, color: MUTED }}>{note.body}</Text>
+        <Text style={{ fontSize: TYPE.caption, lineHeight: LEADING.caption, color: MUTED }}>{note.body}</Text>
       </View>
     </View>
   );

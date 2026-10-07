@@ -225,11 +225,11 @@ module.exports = {
         display: ["PTSerif_700Bold"],
         // v7 has one display weight, 500; the name stays for existing classes.
         "display-medium": ["PTSerif_700Bold"],
-        // A journal note's handwriting (#229), and nothing else. Mirrored as
-        // `NOTE_FONT` in lib/tokens.ts; lib/note-font.ts decides per note
+        // A journal note's handwriting (#229): Kalam, the tip's face (`HAND_FONT`
+        // in lib/tokens.ts, which this mirrors); lib/note-font.ts decides per note
         // whether it applies (Hangul, emoji, large text all fall back to the
         // UI font).
-        note: ["Caveat_500Medium"],
+        note: ["Kalam_400Regular"],
         // There is deliberately NO `sans` override here, and `Text` no longer
         // injects a family class. The mockups set body text in the OS UI font
         // (`-apple-system, "SF Pro Text", system-ui`), and every platform

@@ -564,6 +564,35 @@ export const TYPE = {
 } as const;
 
 /**
+ * The line height that goes with each `TYPE` size, so a role reads the same on
+ * every screen (7 October 2026 typeset: body had been 20, 21 and 22, caption 17
+ * to 19). Used wherever a style gives both on one line; a screen that needs a
+ * different leading says so with its own number and a reason.
+ */
+export const LEADING = {
+  caption: 18,
+  label: 20,
+  body: 21,
+  card: 22,
+  title: 24,
+  heading: 28,
+  large: 34,
+} as const;
+
+/**
+ * Letter-spacing by role: the serif display sizes are pulled in, the small
+ * capitals (a section label) are let out.
+ */
+export const TRACKING = {
+  display: -0.6,
+  large: -0.6,
+  heading: -0.5,
+  title: -0.2,
+  card: -0.17,
+  caption: 0.8,
+} as const;
+
+/**
  * The one display face (v9, design_handoff_formee_v9): PT Serif Bold, upright,
  * for a screen's title, an ingredient's name and the score. Everything else
  * is the system font. (v9's first round drew Instrument Serif and DM Sans,
@@ -606,13 +635,6 @@ export const FONT_SCALE = {
   reading: 3.6,
   icon: 2,
 } as const;
-
-/**
- * The handwritten face for a journal note (#229), and nothing else — the
- * mirror of `tailwind.config.js`'s `fontFamily.note`. Whether a given note
- * actually gets it is `lib/note-font.ts`'s call, never a component's.
- */
-export const NOTE_FONT = "Caveat_500Medium";
 
 /**
  * Tip of the day (v7 update, 29 September 2026, read off the hand-off): a
