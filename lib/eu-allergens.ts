@@ -281,7 +281,10 @@ export const EU_ALLERGEN_ENTRIES: readonly EuAllergenEntry[] = [
  * CosIng's own Annex III/384 record (106936) names it. **Add a row only from a
  * CosIng record whose CAS number the entry prints**, never from a look-alike name.
  *
- * Not here, because CosIng has no record under an INCI name: "trans-Rose ketone
+ * Not here on purpose: "Damascenone" (CosIng 104508), because that record also
+ * covers CAS 23726-93-4, which entry 157 does not print, and a product carries
+ * no CAS number to tell the two apart (Codex review). And, because CosIng has
+ * no record under an INCI name: "trans-Rose ketone
  * 1" and "cis-Rose ketone 1" (157; CosIng files both CAS numbers under
  * Alpha-Damascone, which is on the list), "2,6-Dimethoxy-3,5-pyridinediamine"
  * (232, the base; only the HCl has a record) and "5-Amino-6-Chloro-o-Cresol
@@ -291,7 +294,6 @@ export type CosingSpelling = { entry: string; name: string; cosing: number; cas:
 
 export const COSING_SPELLINGS: readonly CosingSpelling[] = [
   { entry: "157", name: "Rose Ketone-4", cosing: 41492, cas: "23696-85-7" },
-  { entry: "157", name: "Damascenone", cosing: 104508, cas: "23696-85-7" },
   { entry: "157", name: "Rose Ketone-3", cosing: 41491, cas: "57378-68-4" },
   { entry: "157", name: "Delta-Damascone", cosing: 87298, cas: "57378-68-4" },
   { entry: "157", name: "trans-Rose Ketone-3", cosing: 41519, cas: "71048-82-3" },

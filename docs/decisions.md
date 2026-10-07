@@ -77,10 +77,10 @@ in the #419 PR.
 the names in `lib/eu-allergens.ts` matched no dictionary row, for three different reasons,
 and only one of them was a missing row:
 
-- **Not in the dictionary (10 printed names, 12 CosIng rows):** added from CosIng through `import:cosing`, from
+- **Not in the dictionary (10 printed names, 11 CosIng rows):** added from CosIng through `import:cosing`, from
   `scripts/data/eu-allergen-names.csv`, which keeps each row's CosIng record number and
   link. The import writes the name, the CAS number and CosIng's functions, and no rating.
-- **In the dictionary under CosIng's spelling (18 printed names, 20 CosIng names):** Annex III prints "p-Phenylenediamine
+- **In the dictionary under CosIng's spelling (18 printed names, 19 CosIng names):** Annex III prints "p-Phenylenediamine
   Sulphate", "Acetyl Cedrene", "Dihydroxy indoline", "Rose ketone 4 (Damascenone)"; CosIng,
   and so the dictionary, says "Sulfate", "Acetylcedrene", "Dihydroxyindoline", "Rose
   Ketone-4". A synonym would not fix this: a synonym turns a label's text into the
@@ -90,7 +90,8 @@ and only one of them was a missing row:
 - **In the dictionary, but the lookup could not see it (4):** the dictionary writes brackets
   as spaces, and the lookup did not.
 
-Left out (5), four because CosIng has no record under that INCI name: cis- and trans-Rose ketone 1
+CosIng's "Damascenone" is deliberately not one of them: its record also covers a CAS number
+entry 157 does not print. Left out (5), four because CosIng has no record under that INCI name: cis- and trans-Rose ketone 1
 (CosIng files both under Alpha-Damascone, already listed), 2,6-Dimethoxy-3,5-pyridinediamine
 (only the HCl has a record) and 5-Amino-6-Chloro-o-Cresol HCl (only the base has one). And
 3-Propylidenephthalide (175), which the dictionary holds as "propylidene phthalide", an Open

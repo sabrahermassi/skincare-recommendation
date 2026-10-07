@@ -29,7 +29,7 @@ describe("the EU allergen names file", () => {
   const file = rows();
 
   it("has the columns the CosIng import reads, and a source for every row", () => {
-    expect(file.length).toBeGreaterThanOrEqual(10);
+    expect(file).toHaveLength(11);
     for (const row of file) {
       expect(row["INCI name"]).toMatch(/^[A-Z0-9][A-Z0-9 ,'()/-]+$/);
       expect(row["COSING Ref No"]).toMatch(/^\d+$/);

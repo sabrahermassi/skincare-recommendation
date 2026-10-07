@@ -99,7 +99,8 @@ describe("a name the dictionary holds under CosIng's spelling", () => {
   it("matches the dictionary's row for it, and keeps the entry's kind", () => {
     expect(euAllergenEntry("acetylcedrene")).toMatchObject({ entry: "327", kind: "fragrance", regulation: "Regulation (EU) 2023/1545" });
     expect(euAllergenEntry("rose ketone-4")).toMatchObject({ entry: "157", kind: "fragrance" });
-    expect(euAllergenEntry("damascenone")).toMatchObject({ entry: "157" });
+    // CosIng's Damascenone record also covers a CAS number entry 157 does not print.
+    expect(euAllergenEntry("damascenone")).toBeUndefined();
     expect(euAllergenEntry("p-phenylenediamine sulfate")).toMatchObject({ entry: "8a", kind: "allergy-warning" });
     expect(euAllergenEntry("phenyl methyl pyrazolone")).toMatchObject({ entry: "228", kind: "allergy-warning" });
   });
