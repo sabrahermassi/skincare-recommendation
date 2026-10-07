@@ -115,7 +115,7 @@ export function SegmentedSwitch<T extends string>({
             pointerEvents="none"
             style={[{ position: "absolute", top: SWITCH_PADDING, bottom: SWITCH_PADDING, borderRadius: (height - 2 * SWITCH_PADDING) / 2 }, glassThumbStyle]}
           >
-            <Glass interactive style={[StyleSheet.absoluteFill, { borderRadius: (height - 2 * SWITCH_PADDING) / 2 }]} />
+            <Glass style={[StyleSheet.absoluteFill, { borderRadius: (height - 2 * SWITCH_PADDING) / 2 }]} />
           </Animated.View>
         ) : null}
         {segment > 0 && !glassThumb ? (

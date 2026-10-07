@@ -5,7 +5,7 @@ import { useSafeAreaInsets } from "react-native-safe-area-context";
 
 import { reduceMotionNow } from "@/lib/reduce-motion";
 import { INK, SCRIM, SHEET_SHADOW, WHITE, withAlpha, RADIUS, SPACE, GLASS_FROST } from "@/lib/tokens";
-import { Glass, hasLiquidGlass } from "@/components/Glass";
+import { Glass, hasLiquidGlass, OnGlass } from "@/components/Glass";
 
 const IN_MS = 280;
 const OUT_MS = 220;
@@ -138,7 +138,11 @@ export function BottomSheet({
                 style={{ position: "absolute", top: 8, alignSelf: "center", width: 36, height: 5, borderRadius: 3, backgroundColor: withAlpha(INK, 0.18) }}
               />
             )}
-            {corner ? <View style={{ position: "absolute", top: 16, right: 16 }}>{corner}</View> : null}
+            {corner ? (
+              <View style={{ position: "absolute", top: 16, right: 16 }}>
+                <OnGlass.Provider value={floating && hasLiquidGlass}>{corner}</OnGlass.Provider>
+              </View>
+            ) : null}
           </View>
         </Animated.View>
       </KeyboardAvoidingView>
