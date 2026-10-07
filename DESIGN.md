@@ -248,7 +248,7 @@ once (`hasLiquidGlass`); nothing else should call the native glass directly
   the segmented switch's thumb on the page looks (interactive), and the things
   that float over a screen: floating pop-ups (`BottomSheet` floating), the filter
   popover and both toasts. Anything that carries text takes `GLASS_FROST` (white
-  at 60%) so the words read over whatever is behind; the undo toast is tinted
+  at 40%) so the words read over whatever is behind; the undo toast is tinted
   ink.
 - **Not glass:** the long reading sheets (`SheetScreen`: How scoring works, the
   ingredient sheet) and the camera's and the routine's coloured switch thumbs.

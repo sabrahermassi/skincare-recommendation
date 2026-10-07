@@ -165,7 +165,7 @@ export const TAB_BAR_GLASS = "rgba(255,255,255,0.86)";
  * the glass still shows. Chrome with no text (a header, the tab bar, a round
  * button) takes no tint, or its own colour.
  */
-export const GLASS_FROST = withAlpha(WHITE, 0.6);
+export const GLASS_FROST = withAlpha(WHITE, 0.4);
 
 /**
  * Every destructive or report action (v9, read off the hand-off): the soft
