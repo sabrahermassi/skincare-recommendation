@@ -31,7 +31,7 @@ export function AddToStep({ product, step, blocked }: { product: ProductWithIngr
     return (
       <View style={{ flexDirection: "row", alignItems: "center", gap: SPACE.block, borderRadius: CARD_RADIUS, backgroundColor: CHOSEN.fill, paddingVertical: SPACE.block, paddingHorizontal: SPACE.gutter }}>
         <Ionicons name="checkmark-circle" size={20} color={LINK} accessibilityElementsHidden importantForAccessibility="no-hide-descendants" />
-        <Text style={{ flex: 1, fontSize: TYPE.label, fontWeight: "600", color: INK }}>In your routine · {where.charAt(0).toUpperCase() + where.slice(1)}</Text>
+        <Text style={{ flex: 1, fontSize: TYPE.label, fontWeight: "500", color: INK }}>In your routine · {where.charAt(0).toUpperCase() + where.slice(1)}</Text>
         <Pressable onPress={() => removeFromStep(place.id)} accessibilityRole="button" accessibilityLabel={`Remove from ${where}`} hitSlop={12} className="active:opacity-70">
           <Text style={{ fontSize: TYPE.label, fontWeight: "600", color: LINK }}>Remove</Text>
         </Pressable>

@@ -293,7 +293,7 @@ function Story({ active, answers }: { active: StoryActive; answers: NeedAnswers 
           <Text numberOfLines={1} style={{ flexShrink: 1, fontSize: TYPE.caption, color: MUTED_FAINT }}>
             {active.sub}
           </Text>
-          <Text style={{ marginLeft: "auto", fontSize: TYPE.caption, fontWeight: "600", color: MUTED_FAINT }}>
+          <Text style={{ marginLeft: "auto", fontSize: TYPE.caption, fontWeight: "500", color: MUTED_FAINT }}>
             {index + 1} / {total}
           </Text>
           <Pressable
