@@ -4,7 +4,7 @@ import Svg, { Circle } from "react-native-svg";
 
 import { Text, useRingScale } from "@/components/Text";
 import type { MatchResult } from "@/lib/matching";
-import { DISPLAY_FONT, INK, scoreColours, VERDICT_LABEL, WHITE, withAlpha } from "@/lib/tokens";
+import { DISPLAY_FONT, INK, scoreColours, VERDICT_LABEL, WHITE, withAlpha, RADIUS, SPACE } from "@/lib/tokens";
 
 /**
  * The score number's size in the ring. The hand-off says PT Serif Bold 34 (30
@@ -117,7 +117,7 @@ export function VerdictLink({ match, onOpen }: { match: Pick<MatchResult, "score
       accessibilityRole="button"
       accessibilityLabel={`${VERDICT_LABEL[match.verdict]}. How scoring works`}
       hitSlop={4}
-      style={{ minHeight: 40, borderRadius: 14, paddingLeft: 20, paddingRight: 12, flexDirection: "row", alignItems: "center", gap: 8, backgroundColor: colours.deep }}
+      style={{ minHeight: 40, borderRadius: RADIUS.control, paddingLeft: 20, paddingRight: SPACE.block, flexDirection: "row", alignItems: "center", gap: SPACE.text, backgroundColor: colours.deep }}
       className="active:opacity-80"
     >
       <Text style={{ flexShrink: 1, fontSize: VERDICT_TEXT_SIZE, lineHeight: 22, fontWeight: "600", letterSpacing: -0.17, color: WHITE }}>{VERDICT_LABEL[match.verdict]}</Text>

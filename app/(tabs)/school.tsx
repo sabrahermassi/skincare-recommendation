@@ -12,7 +12,7 @@ import type { SchoolQuestion } from "@/data/school";
 import { reduceMotionNow } from "@/lib/reduce-motion";
 import { fallbackSuggestions, SCHOOL_CHAT_COPY, SCHOOL_QUESTIONS, searchSchool } from "@/lib/school-chat";
 import { SCAN_BUTTON_LIFT, tabBarClearance, tabRootTop } from "@/lib/tab-bar";
-import { BUTTON, CANVAS, CHOSEN, INK, LINE, MUTED, SPACE, SURFACE, TYPE } from "@/lib/tokens";
+import { BUTTON, CANVAS, CHOSEN, INK, LINE, MUTED, SPACE, SURFACE, TYPE, RADIUS } from "@/lib/tokens";
 import { FitScrollView } from "@/components/FitScrollView";
 
 // The School's face: a plain circle with the app's own heart mark, the one
@@ -323,7 +323,7 @@ function QuestionCard({ item, width, onPress }: { item: SchoolQuestion; width?: 
         justifyContent: "center",
         paddingHorizontal: SPACE.gutter,
         paddingVertical: SPACE.block,
-        borderRadius: 16,
+        borderRadius: RADIUS.card,
         borderWidth: 1,
         borderColor: LINE,
         backgroundColor: SURFACE,

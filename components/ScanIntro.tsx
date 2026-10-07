@@ -5,6 +5,7 @@ import { View } from "react-native";
 import { PrimaryButton } from "@/components/PrimaryButton";
 import { Text } from "@/components/Text";
 import { DISPLAY_FONT, INK, MUTED, SPACE, TYPE } from "@/lib/tokens";
+import { noOrphan } from "@/lib/text";
 
 /**
  * The scanner's two "before the camera" screens — asking for camera access, and
@@ -45,9 +46,9 @@ export function ScanIntro({
           accessibilityRole="header"
           style={{ marginTop: SPACE.block, textAlign: "center", fontFamily: DISPLAY_FONT, fontSize: TYPE.heading, lineHeight: 28, letterSpacing: -0.5, color: INK }}
         >
-          {title}
+          {noOrphan(title)}
         </Text>
-        <Text style={{ marginTop: SPACE.text, maxWidth: 300, textAlign: "center", fontSize: TYPE.body, lineHeight: 21, color: MUTED }}>{body}</Text>
+        <Text style={{ marginTop: SPACE.text, maxWidth: 300, textAlign: "center", fontSize: TYPE.body, lineHeight: 21, color: MUTED }}>{noOrphan(body)}</Text>
         {children ? <View style={{ marginTop: SPACE.block, alignItems: "center" }}>{children}</View> : null}
       </View>
       <View style={{ paddingHorizontal: SPACE.gutter }}>

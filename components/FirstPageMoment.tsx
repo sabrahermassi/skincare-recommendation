@@ -4,7 +4,7 @@ import { AccessibilityInfo, Platform, Pressable, View } from "react-native";
 
 import { Text } from "@/components/Text";
 import { FIRST_PAGE_COPY, dismissFirstPage, useFirstPage } from "@/lib/first-page";
-import { CARD_SHADOW, INK, MUTED, SPACE, SURFACE, TOUCH_TARGET, TYPE } from "@/lib/tokens";
+import { CARD_SHADOW, INK, MUTED, SPACE, SURFACE, TOUCH_TARGET, TYPE, RADIUS } from "@/lib/tokens";
 
 /**
  * "The first page of your journal" (#230), under the product screen's header,
@@ -39,7 +39,7 @@ function Card() {
       style={{
         marginHorizontal: SPACE.gutter,
         marginBottom: SPACE.text,
-        borderRadius: 16,
+        borderRadius: RADIUS.card,
         backgroundColor: SURFACE,
         padding: SPACE.block,
         gap: SPACE.text,

@@ -2,8 +2,9 @@ import { Ionicons } from "@expo/vector-icons";
 import { Redirect, Tabs } from "expo-router";
 import { useEffect } from "react";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
-import { Pressable, View, type GestureResponderEvent } from "react-native";
+import { Pressable, StyleSheet, View, type GestureResponderEvent } from "react-native";
 
+import { Glass, hasLiquidGlass } from "@/components/Glass";
 import { activeTabSlot, PILL_HEIGHT, PILL_WIDTH, TabBarBackground } from "@/components/TabBarBackground";
 import { Text } from "@/components/Text";
 import { openScanner } from "@/lib/open-scanner";
@@ -101,11 +102,12 @@ function ScanTabButton() {
           borderRadius: SCAN_BUTTON / 2,
           alignItems: "center",
           justifyContent: "center",
-          backgroundColor: BUTTON.primary.fill,
-          ...RAISED_SHADOW,
+          // Solid sage and a shade in the fallback; Liquid Glass tinted sage, which lights and shades itself.
+          ...(hasLiquidGlass ? null : { backgroundColor: BUTTON.primary.fill, ...RAISED_SHADOW }),
         }}
         className="active:opacity-90"
       >
+        {hasLiquidGlass ? <Glass interactive tint={BUTTON.primary.fill} style={[StyleSheet.absoluteFill, { borderRadius: SCAN_BUTTON / 2 }]} /> : null}
         <Ionicons name="camera" size={SCAN_ICON} color={WHITE} />
       </Pressable>
     </View>

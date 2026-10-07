@@ -1,8 +1,8 @@
-import { BlurView } from "expo-blur";
 import { useState } from "react";
 import { StyleSheet, View, type LayoutChangeEvent } from "react-native";
 import Animated, { makeMutable, useAnimatedReaction, useAnimatedStyle, useSharedValue, withSpring } from "react-native-reanimated";
 
+import { Glass, hasLiquidGlass } from "@/components/Glass";
 import { FLOW_LEAD, FLOW_TRAIL } from "@/lib/flow";
 import { TAB_BAR_HEIGHT, TAB_BAR_RADIUS, TAB_BAR_SIDE_MARGIN } from "@/lib/tab-bar";
 import { HAIRLINE, TAB_BAR_GLASS, TAB_PILL } from "@/lib/tokens";
@@ -65,13 +65,16 @@ export function TabBarBackground() {
 
   return (
     <View pointerEvents="none" onLayout={onLayout} style={{ position: "absolute", left: 0, right: 0, top: 0, height: h }}>
-      {/* The bar itself, with a hairline round it so its edge shows even over a white card. */}
+      {/* The bar itself: Liquid Glass on iOS 26 and later, which lights its own rim; elsewhere the frosted blur, with a hairline round it so its edge shows even over a white card. */}
       {width > 0 ? (
-        <View style={{ position: "absolute", top: 0, left: x0, width: x1 - x0, height: h, borderRadius: r, overflow: "hidden", borderWidth: StyleSheet.hairlineWidth, borderColor: HAIRLINE }}>
-          {/* "light", never "default", which goes dark with the phone's appearance. */}
-          <BlurView intensity={TAB_BAR_BLUR} tint="light" style={StyleSheet.absoluteFill} />
-          <View style={[StyleSheet.absoluteFill, { backgroundColor: TAB_BAR_GLASS }]} />
-        </View>
+        <Glass
+          blur={TAB_BAR_BLUR}
+          fill={TAB_BAR_GLASS}
+          style={[
+            { position: "absolute", top: 0, left: x0, width: x1 - x0, height: h, borderRadius: r },
+            hasLiquidGlass ? null : { borderWidth: StyleSheet.hairlineWidth, borderColor: HAIRLINE },
+          ]}
+        />
       ) : null}
       <Animated.View style={[{ position: "absolute", top: (h - PILL_HEIGHT) / 2, height: PILL_HEIGHT, borderRadius: PILL_HEIGHT / 2, backgroundColor: TAB_PILL }, pillStyle]} />
     </View>

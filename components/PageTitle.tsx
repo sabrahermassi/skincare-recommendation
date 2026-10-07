@@ -1,6 +1,7 @@
 import { View } from "react-native";
 
 import { Text } from "@/components/Text";
+import { noOrphan } from "@/lib/text";
 import { DISPLAY_FONT, INK, MUTED, SPACE, TYPE } from "@/lib/tokens";
 
 /**
@@ -12,9 +13,9 @@ export function PageTitle({ title, line }: { title: string; line?: string }) {
   return (
     <View style={{ gap: 4 }}>
       <Text accessibilityRole="header" style={{ fontFamily: DISPLAY_FONT, fontSize: TYPE.heading, lineHeight: 28, letterSpacing: -0.5, color: INK }}>
-        {title}
+        {noOrphan(title)}
       </Text>
-      {line ? <Text style={{ marginTop: SPACE.text - 4, fontSize: TYPE.body, lineHeight: 21, color: MUTED }}>{line}</Text> : null}
+      {line ? <Text style={{ marginTop: SPACE.text - 4, fontSize: TYPE.body, lineHeight: 21, color: MUTED }}>{noOrphan(line)}</Text> : null}
     </View>
   );
 }

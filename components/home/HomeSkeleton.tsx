@@ -2,12 +2,12 @@ import { useEffect, useState } from "react";
 import { Animated, Easing, View, type StyleProp, type ViewStyle } from "react-native";
 
 import { reduceMotionNow } from "@/lib/reduce-motion";
-import { DIVIDER, LINE, STONE } from "@/lib/tokens";
+import { DIVIDER, LINE, STONE, RADIUS, SPACE } from "@/lib/tokens";
 
 // The same room the real card and tip take, so nothing jumps when they arrive.
 const SKELETON_CARD_HEIGHT = 212;
 const SKELETON_TIP_HEIGHT = 160;
-const CARD_RADIUS = 24;
+const CARD_RADIUS = RADIUS.panel;
 const PULSE_MS = 900;
 
 /**
@@ -49,7 +49,7 @@ function CardShape() {
         <Bar width="40%" height={14} />
         <Bar width="34%" height={18} style={{ marginTop: 6 }} />
       </View>
-      <View style={{ flexDirection: "row", gap: 8 }}>
+      <View style={{ flexDirection: "row", gap: SPACE.text }}>
         {[0, 1, 2].map((i) => (
           <View key={i} style={{ flex: 1, height: 36, borderRadius: 18, backgroundColor: STONE }} />
         ))}
@@ -61,8 +61,8 @@ function CardShape() {
 /** The tip: the envelope's place, then its title, line and "Tap to open". */
 function TipShape() {
   return (
-    <View style={{ height: SKELETON_TIP_HEIGHT, flexDirection: "row", alignItems: "center", gap: 16 }}>
-      <View style={{ width: 120, height: 120, borderRadius: 24, backgroundColor: DIVIDER }} />
+    <View style={{ height: SKELETON_TIP_HEIGHT, flexDirection: "row", alignItems: "center", gap: SPACE.gutter }}>
+      <View style={{ width: 120, height: 120, borderRadius: RADIUS.panel, backgroundColor: DIVIDER }} />
       <View style={{ flex: 1, gap: 10 }}>
         <Bar width="62%" height={22} />
         <Bar width="86%" height={14} />

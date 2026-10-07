@@ -9,6 +9,7 @@ import { FitScrollView } from "@/components/FitScrollView";
 import { HomeSkeleton } from "@/components/home/HomeSkeleton";
 import { StartRoutineCard, TodayRoutineCard } from "@/components/home/RoutineCard";
 import { TipEnvelope, TipNote } from "@/components/home/SkincareTip";
+import { SectionLabel } from "@/components/SectionLabel";
 import { Text } from "@/components/Text";
 import { EVENING_FROM_HOUR, timeOfDay, tipFor, todayIn } from "@/lib/home-today";
 import { openScanner } from "@/lib/open-scanner";
@@ -18,7 +19,7 @@ import { prepareRoutine } from "@/lib/routine-build";
 import { basicRoutine, recallRoutine, type Routine } from "@/lib/routine-builder";
 import { today as weekday } from "@/lib/skin-needs";
 import { tabBarClearance, tabRootTop } from "@/lib/tab-bar";
-import { CANVAS, HAND_FONT_BOLD, HOME_TILE, INK, MUTED, SPACE, TYPE } from "@/lib/tokens";
+import { CANVAS, HAND_FONT_BOLD, HOME_TILE, INK, MUTED, SPACE, TYPE, RADIUS } from "@/lib/tokens";
 import { useAppStore } from "@/store/useAppStore";
 
 // The two tiles' watercolours (transparent ground).
@@ -28,7 +29,7 @@ const ACTIVES_ART = require("@/assets/illustrations/home-skin-needs.webp");
 // How long after Home shows the screens its cards open are drawn in the background.
 const PREFETCH_AFTER_MS = 600;
 // Read off the hand-off (handoff_home_and_tip).
-const TILE_RADIUS = 20;
+const TILE_RADIUS = RADIUS.card;
 
 /**
  * Home (handoff_home_and_tip): "Hi there!" in the hand face; one top card —
@@ -94,12 +95,10 @@ export default function Home() {
           {pending ? <HomeSkeleton part="card" /> : today ? <TodayRoutineCard today={today} onPress={openRoutine} /> : <StartRoutineCard onPress={openRoutine} />}
         </View>
 
-        <Text accessibilityRole="header" style={{ marginTop: SPACE.section, paddingHorizontal: 4, fontSize: TYPE.title, fontWeight: "600", color: INK }}>
-          Explore
-        </Text>
-        <View style={{ flexDirection: "row", gap: SPACE.block, marginTop: SPACE.block }}>
-          <Tile label="Scan Any Product" description="Barcode or label" art={SCAN_ART} fill={HOME_TILE.scan} onPress={() => openScanner()} />
-          <Tile label="Find Your Actives" description="Ingredients that suit you" art={ACTIVES_ART} fill={HOME_TILE.actives} onPress={() => router.push("/journey")} />
+        <SectionLabel title="Explore" />
+        <View style={{ flexDirection: "row", gap: SPACE.block }}>
+          <Tile label="Scan Any Product" description="Barcode or label" art={SCAN_ART} fill={HOME_TILE.tile} onPress={() => openScanner()} />
+          <Tile label="Find Your Actives" description="Ingredients that suit you" art={ACTIVES_ART} fill={HOME_TILE.tile} onPress={() => router.push("/journey")} />
         </View>
 
         {pending ? (

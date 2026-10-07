@@ -3,10 +3,10 @@ import Svg, { Path } from "react-native-svg";
 
 import { Text } from "@/components/Text";
 import { haptic } from "@/lib/haptics";
-import { BUTTON, CHECK_RING, CHOSEN, INK, MUTED, OPTION_LINE, SPACE, SURFACE, TYPE, WHITE } from "@/lib/tokens";
+import { BUTTON, CHECK_RING, CHOSEN, INK, MUTED, OPTION_LINE, SPACE, SURFACE, TYPE, WHITE, RADIUS } from "@/lib/tokens";
 
 // v9 row measurements, read off the hand-off.
-const ROW_RADIUS = 20;
+const ROW_RADIUS = RADIUS.card;
 const ROW_MIN_HEIGHT = 56;
 const ROW_MIN_HEIGHT_WITH_LINE = 72;
 const RING = 1.5;

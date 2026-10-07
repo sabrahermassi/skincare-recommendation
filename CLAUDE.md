@@ -278,10 +278,10 @@ with confidence tiers, owns acne fit).
   reactions; the EU requires a warning on the label." (`EU_ALLERGEN_COPY`);
   "Common irritant for sensitive skin" is never used for a restricted-only
   ingredient. The ingredient sheet says "Allowed with limits" (with the label
-  duty or the Annex III entry number), never "Restricted". Three irritant
-  rules came with it: hydrogen peroxide, benzalkonium chloride and
-  stearalkonium/steartrimonium chloride (`irritants`), and pine, fir and
-  cypress oils (the essential-oil rule).
+  duty or the Annex III entry number), never "Restricted". Irritant rules
+  came with it: hydrogen peroxide and benzalkonium chloride (`irritants`),
+  and pine, fir and cypress oils (the essential-oil rule). Stearalkonium and
+  steartrimonium chloride were left out: no source supports them.
 - Import `COMEDOGENIC_FLAG_THRESHOLD` (3) from `lib/safety.ts` — never
   re-inline a comedogenic check. There is no comedogenic *hazard*: the 0-5
   column is empty for catalogue rows, so pore-clogging is warned about and

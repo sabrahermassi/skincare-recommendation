@@ -24,7 +24,7 @@ const SKIN_TYPES: { value: BaseSkinType; label: string }[] = [
 ];
 const SENSITIVITY_OPTIONS: Sensitivity[] = ["none", "some", "high"];
 
-const CHIP_ROW = { flexDirection: "row", flexWrap: "wrap", gap: 8 } as const;
+const CHIP_ROW = { flexDirection: "row", flexWrap: "wrap", gap: SPACE.text } as const;
 // A chip's height (v7); `hitSlop` takes its target past 44.
 const CHIP_HEIGHT = 38;
 
@@ -155,7 +155,7 @@ function ProfileChip({
       hitSlop={6}
       style={{
         height: CHIP_HEIGHT,
-        paddingHorizontal: 16,
+        paddingHorizontal: SPACE.gutter,
         alignItems: "center",
         justifyContent: "center",
         borderRadius: CHIP_HEIGHT / 2,

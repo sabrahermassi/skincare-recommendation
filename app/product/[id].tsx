@@ -242,11 +242,11 @@ function ProductScreen({ id, from, need, step, scanned }: { id: string; from?: s
     return (
       <View style={{ flex: 1, backgroundColor: CANVAS }}>
         <ScreenHeader />
-        <View style={{ flex: 1, alignItems: "center", justifyContent: "center", gap: 16, paddingHorizontal: 32 }}>
+        <View style={{ flex: 1, alignItems: "center", justifyContent: "center", gap: SPACE.gutter, paddingHorizontal: 32 }}>
           <Text style={{ fontFamily: DISPLAY_FONT, fontSize: TYPE.heading, color: INK }}>
             Couldn&apos;t load this product
           </Text>
-          <Text style={{ textAlign: "center", fontSize: 13, lineHeight: 19, color: MUTED }}>
+          <Text style={{ textAlign: "center", fontSize: TYPE.caption, lineHeight: 19, color: MUTED }}>
             {failureMessage(failure)}
           </Text>
           <PrimaryButton label="Try again" onPress={() => setRetryKey((k) => k + 1)} />
@@ -259,7 +259,7 @@ function ProductScreen({ id, from, need, step, scanned }: { id: string; from?: s
     return (
       <View style={{ flex: 1, backgroundColor: CANVAS }}>
         <ScreenHeader />
-        <View style={{ flex: 1, alignItems: "center", justifyContent: "center", gap: 16, paddingHorizontal: 32 }}>
+        <View style={{ flex: 1, alignItems: "center", justifyContent: "center", gap: SPACE.gutter, paddingHorizontal: 32 }}>
           <Text style={{ fontFamily: DISPLAY_FONT, fontSize: TYPE.heading, color: INK }}>
             Product not found
           </Text>
@@ -413,7 +413,7 @@ function ProductScreen({ id, from, need, step, scanned }: { id: string; from?: s
  */
 function ProductHeader({ product }: { product: ProductWithIngredients }) {
   return (
-    <View style={{ flexDirection: "row", alignItems: "flex-start", gap: 16, paddingHorizontal: SPACE.gutter }}>
+    <View style={{ flexDirection: "row", alignItems: "flex-start", gap: SPACE.gutter, paddingHorizontal: SPACE.gutter }}>
       {/* v9: the bottle is 65 by 79 in a 72 by 83 box. */}
       <View style={{ width: 72, height: 83, alignItems: "center", justifyContent: "center" }}>
         <ProductThumbnail product={product} size={79} />
@@ -422,7 +422,7 @@ function ProductHeader({ product }: { product: ProductWithIngredients }) {
         <Text maxFontSizeMultiplier={FONT_SCALE.ui} style={{ fontSize: TYPE.label, lineHeight: 20, color: MUTED_FAINT }}>
           {product.brand}
         </Text>
-        <Text maxFontSizeMultiplier={FONT_SCALE.display} style={{ fontSize: 18, fontWeight: "600", lineHeight: 23, letterSpacing: -0.18, color: INK }}>
+        <Text maxFontSizeMultiplier={FONT_SCALE.display} style={{ fontSize: TYPE.card, fontWeight: "600", lineHeight: 22, letterSpacing: -0.17, color: INK }}>
           {product.name}
         </Text>
         {product.type !== "unknown" ? (
