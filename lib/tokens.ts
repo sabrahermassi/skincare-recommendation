@@ -244,15 +244,18 @@ export const SELECTED = "#EEEFE7"; // v9 pale sage
 
 /**
  * The product result's no-profile "Is it right for your skin?" card (v7, read
- * off the hand-off), and Home's Scan Any Product tile (`HOME_TILE.scan`).
+ * off the hand-off), and Home's two Explore tiles (`HOME_TILE.tile`).
  */
 export const HOME_CARD_FILL = "#EEF1E7"; // v9 pale sage
 
 /**
- * Home (handoff_home_and_tip, read off the hand-off): Explore's two square
- * tiles, and the flat butter "Start your routine" card.
+ * Home (handoff_home_and_tip): Explore's two square tiles share one tint, the
+ * pale sage, and the flat butter "Start your routine" card is the one warm
+ * accent. The hand-off gave the second tile a soft lavender (`#EFEBF1`); three
+ * tints on three similar cards read as a template (design critique, 7 October
+ * 2026), so one family carries the row.
  */
-export const HOME_TILE = { scan: HOME_CARD_FILL, actives: "#EFEBF1", start: "#F6F0E2" } as const; // pale sage, soft lavender, butter
+export const HOME_TILE = { tile: HOME_CARD_FILL, start: "#F6F0E2" } as const;
 
 /**
  * Home's routine card and the skincare tip's note (handoff_home_and_tip, read

@@ -109,7 +109,7 @@ right set; never pick by hand.
 
 | Token | Value | Use |
 |---|---|---|
-| `HOME_TILE` | scan `#EEF1E7`, actives `#EFEBF1`, start `#F6F0E2` | Home's Scan Any Product and Find Your Actives tiles, and the Start your routine card |
+| `HOME_TILE` | tile `#EEF1E7`, start `#F6F0E2` | both Explore tiles share the pale sage (the hand-off's lavender was dropped); the Start your routine card is the one warm accent |
 | `HOME_CARD_FILL` | `#EEF1E7` | the no-profile card on a result |
 | `HOME_TODAY` | evening wash base `#EBEEF7`, pill `#4A5272`; morning wash base `#FAF3E6`, pill `#D9A24A` | Home's routine card and the skincare tip's note |
 | `ROUTINE_SWITCH` | morning thumb `#F7E3B0` (sun yellow), evening thumb `#3C4460` (night blue), step disc `#EEEFE7`, step line `#B5BAA0` | the Morning / Evening switch and the routine's rail |
@@ -314,8 +314,9 @@ the scanner, How scoring works and the ingredient sheet slide up.
   element, "Page n of 3", and each new headline is announced.
 - **Home**: "Hi there!" in Kalam bold 34; the top card is Start your routine
   until there is one, then today's routine (`RoutineCard`, 212pt, `RADIUS.panel`);
-  an Explore row of two tiles (Scan Any Product, Find Your Actives); the
-  skincare tip as an envelope that opens into a note. While the routine builds,
+  an Explore group label (`SectionLabel`) over two tiles in one tint (Scan Any
+  Product, Find Your Actives); the skincare tip as an envelope, its title a
+  step below the routine card's, that opens into a note. While the routine builds,
   `HomeSkeleton` shows grey shapes in the same room.
 - **Product result** (`app/product/[id]`, `components/result/ResultTabs`): the
   header (bottle, brand 15 `MUTED_FAINT`, name 17 semibold, type 13 `MUTED`) and

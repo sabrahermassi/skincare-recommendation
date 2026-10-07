@@ -46,7 +46,7 @@ export function TipEnvelope({ tip, read, onOpen }: { tip: HomeTip; read: boolean
         style={{ width: ENVELOPE_SIZE, height: ENVELOPE_SIZE, marginTop: -8, marginBottom: -8, marginLeft: -12, marginRight: -8, transform: [{ rotate: "-6deg" }] }}
       />
       <View style={{ flex: 1, gap: 6 }}>
-        <Text style={{ fontFamily: DISPLAY_FONT, fontSize: TYPE.heading, lineHeight: 28, color: INK }}>{head}</Text>
+        <Text style={{ fontFamily: DISPLAY_FONT, fontSize: TYPE.title, lineHeight: 24, color: INK }}>{head}</Text>
         <Text style={{ fontSize: TYPE.body, lineHeight: 20, color: MUTED }}>{line}</Text>
         <Text style={{ fontSize: TYPE.body, fontWeight: "600", color: BUTTON.primary.fill }}>{action}</Text>
       </View>
