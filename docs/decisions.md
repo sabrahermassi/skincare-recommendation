@@ -843,3 +843,12 @@ carousel card, a portrait lock. With it true the app would ship to iPad as a
 stretched phone UI. An iPad runs it as a phone-sized window. Turn it on again
 only with a real iPad layout, and re-check the multitasking and orientation
 rules at the same time.
+
+## Plans
+
+**The catalogue plan lives in `docs/feeding-the-catalogue.md` (7 October 2026).**
+It started as a claude.ai artifact ("Feeding the Catalogue") and went through 64
+versions there, none of them in git. It is now a file here so every later change
+has a commit and a diff. Edit the file, not the artifact; the artifact is only a
+view of it. The earlier history is the dated notes at the top and bottom of the
+file itself.

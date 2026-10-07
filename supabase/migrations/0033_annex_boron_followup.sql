@@ -1,5 +1,10 @@
 -- Three boron rows 0032 left alone (issue 419, PR 434, 7 October 2026). Data only: no schema change.
 --
+-- On staging this ran as version 0034 (7 October 2026): #446's photo-date migration reached staging
+-- first under 0033, so staging-migrate.yml skipped this file until it was briefly renamed. Both are
+-- applied there; the repo keeps this as 0033 and #446's as 0034. The runner skips by number, so
+-- staging does not run either again.
+--
 -- Checked against the consolidated Regulation (EC) No 1223/2009 (version 18.05.2026, Publications
 -- Office copy), Regulations (EU) 2019/831, 2019/1966 and 2026/78, and CosIng; the research is on
 -- PR 434 and the owner approved it the same day:
