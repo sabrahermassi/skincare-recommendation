@@ -32,12 +32,13 @@ import { openScanner } from "@/lib/open-scanner";
 import { matchProduct } from "@/lib/matching";
 import { STEP_LABEL, STEP_ORDER, stepOf, type StepGroup } from "@/lib/routine-step";
 import { tabBarClearance, tabRootTop } from "@/lib/tab-bar";
-import { CANVAS, CANVAS_GLASS, CARD_RADIUS, DISPLAY_FONT, INK, LINK, MUTED, SPACE, SURFACE, TOUCH_TARGET, TYPE, VERDICT_NEUTRAL } from "@/lib/tokens";
+import { CANVAS, CANVAS_GLASS, CARD_RADIUS, DISPLAY_FONT, INK, LINK, MUTED, SPACE, SURFACE, TOUCH_TARGET, TYPE, VERDICT_NEUTRAL, RADIUS } from "@/lib/tokens";
 import { useAppStore, type HistoryEntry } from "@/store/useAppStore";
 import { haptic } from "@/lib/haptics";
 import { reduceMotionNow } from "@/lib/reduce-motion";
 import { FitScrollView } from "@/components/FitScrollView";
 import { GlassHeader } from "@/components/GlassHeader";
+import { noOrphan } from "@/lib/text";
 
 type Tab = "saved" | "history" | "ingredients";
 
@@ -265,7 +266,7 @@ export default function Saved() {
   const loadFailed = (what: string) => (
     <View style={{ alignItems: "center", gap: SPACE.block, paddingHorizontal: 40, paddingTop: headerHeight + 96 }}>
       <Text style={{ textAlign: "center", fontSize: TYPE.body, lineHeight: 21, color: MUTED }}>
-        Couldn&apos;t load your {what}. Check your connection and try again.
+        {noOrphan(`Couldn't load your ${what}. Check your connection and try again.`)}
       </Text>
       <TextLink label="Try again" onPress={() => setRetryKey((k) => k + 1)} />
     </View>
@@ -592,7 +593,7 @@ function PlainRow({
 // A row's least height, and the tile where a product's bottle would be, with its corners (v9).
 const ROW_MIN_HEIGHT = 76;
 const TILE = 52;
-const TILE_RADIUS = 12;
+const TILE_RADIUS = RADIUS.control;
 
 /**
  * A label photo in History: its number and the ingredients that say most
@@ -712,9 +713,9 @@ function EmptyState({ tab, top }: { tab: Tab; /** Room for the screen's fixed he
         </View>
         <View style={{ alignItems: "center", gap: SPACE.text }}>
           <Text accessibilityRole="header" style={{ textAlign: "center", fontFamily: DISPLAY_FONT, fontSize: TYPE.heading, lineHeight: 28, letterSpacing: -0.5, color: INK }}>
-            {title}
+            {noOrphan(title)}
           </Text>
-          <Text style={{ maxWidth: 300, textAlign: "center", fontSize: TYPE.body, lineHeight: 21, color: MUTED }}>{body}</Text>
+          <Text style={{ maxWidth: 300, textAlign: "center", fontSize: TYPE.body, lineHeight: 21, color: MUTED }}>{noOrphan(body)}</Text>
           {/* Only Saved offers the first scan (owner). */}
           {tab === "saved" ? (
             <PrimaryButton label="Scan your first product" onPress={openScanner} style={{ width: BUTTON_WIDTH.secondary, marginTop: SPACE.gutter }} />
@@ -813,7 +814,7 @@ function IngredientsTab({
     return (
       <View style={{ alignItems: "center", gap: SPACE.block, paddingHorizontal: 40, paddingTop: top + 96 }}>
         <Text style={{ textAlign: "center", fontSize: TYPE.body, lineHeight: 21, color: MUTED }}>
-          Couldn&apos;t load your starred ingredients. Check your connection and try again.
+          {noOrphan("Couldn't load your starred ingredients. Check your connection and try again.")}
         </Text>
         <TextLink label="Try again" onPress={() => setRetryKey((k) => k + 1)} />
       </View>

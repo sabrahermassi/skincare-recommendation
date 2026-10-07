@@ -10,7 +10,7 @@ import { WateryWash } from "@/components/home/WateryWash";
 import { Text } from "@/components/Text";
 import type { HomeTip } from "@/lib/home-today";
 import { reduceMotionNow } from "@/lib/reduce-motion";
-import { BUTTON, DISPLAY_FONT, HAND_FONT, HOME_TODAY, ICON_SHADOW, INK, MUTED, SCRIM, SHEET_SHADOW, SPACE, TYPE, WHITE } from "@/lib/tokens";
+import { BUTTON, DISPLAY_FONT, HAND_FONT, HOME_TODAY, ICON_SHADOW, INK, MUTED, SCRIM, SHEET_SHADOW, SPACE, TYPE, WHITE, RADIUS } from "@/lib/tokens";
 
 const ENVELOPE = require("@/assets/illustrations/tip-envelope.webp");
 
@@ -46,7 +46,7 @@ export function TipEnvelope({ tip, read, onOpen }: { tip: HomeTip; read: boolean
         style={{ width: ENVELOPE_SIZE, height: ENVELOPE_SIZE, marginTop: -8, marginBottom: -8, marginLeft: -12, marginRight: -8, transform: [{ rotate: "-6deg" }] }}
       />
       <View style={{ flex: 1, gap: 6 }}>
-        <Text style={{ fontFamily: DISPLAY_FONT, fontSize: TYPE.heading, lineHeight: 28, color: INK }}>{head}</Text>
+        <Text style={{ fontFamily: DISPLAY_FONT, fontSize: TYPE.title, lineHeight: 24, color: INK }}>{head}</Text>
         <Text style={{ fontSize: TYPE.body, lineHeight: 20, color: MUTED }}>{line}</Text>
         <Text style={{ fontSize: TYPE.body, fontWeight: "600", color: BUTTON.primary.fill }}>{action}</Text>
       </View>
@@ -124,7 +124,7 @@ function OpenNote({ tip, onClose }: { tip: HomeTip; onClose: () => void }) {
         <Animated.View
           accessibilityRole="summary"
           style={{
-            borderRadius: 28,
+            borderRadius: RADIUS.panel,
             overflow: "hidden",
             backgroundColor: WHITE,
             ...SHEET_SHADOW,
@@ -137,7 +137,7 @@ function OpenNote({ tip, onClose }: { tip: HomeTip; onClose: () => void }) {
         >
           {theme ? <WateryWash {...theme.wash} /> : null}
           <View style={{ paddingTop: 22, paddingHorizontal: 22, paddingBottom: 20, gap: SPACE.block }}>
-            <View style={{ flexDirection: "row", alignItems: "center", justifyContent: "space-between", gap: 8 }}>
+            <View style={{ flexDirection: "row", alignItems: "center", justifyContent: "space-between", gap: SPACE.text }}>
               <Animated.View style={[{ flex: 1, flexDirection: "row", alignItems: "center", gap: 6 }, fade(words[0])]}>
                 {tip.kind === "general" ? null : <TimeIcon time={tip.kind} />}
                 <Text style={{ flexShrink: 1, fontSize: TYPE.caption, fontWeight: "600", letterSpacing: 0.8, textTransform: "uppercase", color: theme?.ink ?? MUTED }}>{tip.label}</Text>

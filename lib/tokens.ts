@@ -225,10 +225,6 @@ export const LINE = "#E3DFDA"; // v9
 /** The empty avatar's disc behind the see-through picture (v7, read off the hand-off). */
 export const AVATAR_FILL = "#ECE8E3"; // v9
 
-/** @deprecated Prefer {@link LINE}. Kept because it names the same value in
- *  the control-state code that already reads well as "border, inactive". */
-export const BORDER_INACTIVE = LINE;
-
 // ── Controls ────────────────────────────────────────────────────────────────
 
 /**
@@ -248,15 +244,18 @@ export const SELECTED = "#EEEFE7"; // v9 pale sage
 
 /**
  * The product result's no-profile "Is it right for your skin?" card (v7, read
- * off the hand-off), and Home's Scan Any Product tile (`HOME_TILE.scan`).
+ * off the hand-off), and Home's two Explore tiles (`HOME_TILE.tile`).
  */
 export const HOME_CARD_FILL = "#EEF1E7"; // v9 pale sage
 
 /**
- * Home (handoff_home_and_tip, read off the hand-off): Explore's two square
- * tiles, and the flat butter "Start your routine" card.
+ * Home (handoff_home_and_tip): Explore's two square tiles share one tint, the
+ * pale sage, and the flat butter "Start your routine" card is the one warm
+ * accent. The hand-off gave the second tile a soft lavender (`#EFEBF1`); three
+ * tints on three similar cards read as a template (design critique, 7 October
+ * 2026), so one family carries the row.
  */
-export const HOME_TILE = { scan: HOME_CARD_FILL, actives: "#EFEBF1", start: "#F6F0E2" } as const; // pale sage, soft lavender, butter
+export const HOME_TILE = { tile: HOME_CARD_FILL, start: "#F6F0E2" } as const;
 
 /**
  * Home's routine card and the skincare tip's note (handoff_home_and_tip, read
@@ -324,12 +323,19 @@ export const SCANNER_SWITCH = {
 export const CHOSEN = { fill: "#EEF1E7", border: BUTTON.primary.fill, label: INK, accent: LINK } as const; // v9
 
 /**
- * One shape for every selectable control in the app — chips, option cards,
- * filter pills, segmented tabs. Size varies with the job (a 2-per-row quiz
- * chip is not a filter pill), the corner never does: a screen mixing 999-px
- * pills with 14-px chips reads as two design systems arguing.
+ * The corner scale: four steps for every rounded rectangle in the app (7 October
+ * 2026, from the design critique: about 20 different radii had grown up, which
+ * is what makes screens look assembled). A circle is half its own size and a pill
+ * half its own height, so those are computed where they are drawn, not taken from
+ * here. A shape nested in another takes the outer radius less the gap between
+ * them (the filter popover's rows).
+ *
+ * - `control` 14: small controls, verdict pills, steppers, chips with corners.
+ * - `card` 20: cards, rows, boxes: a product row, a reason, a list group.
+ * - `panel` 28: large cards: the routine card, story cards, the ingredient box.
+ * - `sheet` 36: pop-ups and sheets, including the product result's white sheet.
  */
-export const RADIUS_SELECTOR = 14;
+export const RADIUS = { control: 14, card: 20, panel: 28, sheet: 36 } as const;
 
 // ── Match verdict ───────────────────────────────────────────────────────────
 
@@ -547,11 +553,8 @@ export const DISPLAY_FONT = "PTSerif_700Bold";
  */
 export const MENU_FONT = "Figtree_600SemiBold";
 
-/** The Profile menu's softer cards (same reference): rounder corners than `CARD_RADIUS`. Inferred from the screenshot. */
-export const MENU_SOFT_RADIUS = 22;
-
-/** A card's corners (v7). Every card, white or tinted, is its fill alone: no border, no shadow. */
-export const CARD_RADIUS = 16; // v9 (v7 was 20)
+/** A card's corners: `RADIUS.card`. Every card, white or tinted, is its fill alone: no border, no shadow. Kept by name because many files import it. */
+export const CARD_RADIUS = RADIUS.card;
 
 /**
  * How far iOS Larger Text / Android font size may grow text (#314). The

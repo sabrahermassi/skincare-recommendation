@@ -11,8 +11,10 @@ disagree, the code wins and this file is wrong: fix the file.
 - Colours, type, spacing, radii, shadows: `lib/tokens.ts`.
 - Raw hex for props that take a literal colour (`ActivityIndicator.color`,
   `headerTintColor`, SVG `fill`): `lib/colors.ts`.
-- Colours and radii for `className`: `tailwind.config.js`. These three are
-  mirrors; change one, change the others (see "Known gaps").
+- Colours and type sizes for `className`: `tailwind.config.js`. These three are
+  mirrors; change one, change the others (see "Known gaps"). Almost nothing uses
+  a theme class: screens style through inline tokens, and the app's only
+  `className`s are `active:opacity-*`, a few layout utilities and `font-display-medium`.
 - **Never hardcode a value that has a token.** If a token is missing, add it
   first and say where its value was read from or how it was computed.
 - Hand-off folders (`design_handoff_*` and similar) are intent, not code. They
@@ -107,7 +109,7 @@ right set; never pick by hand.
 
 | Token | Value | Use |
 |---|---|---|
-| `HOME_TILE` | scan `#EEF1E7`, actives `#EFEBF1`, start `#F6F0E2` | Home's Scan Any Product and Find Your Actives tiles, and the Start your routine card |
+| `HOME_TILE` | tile `#EEF1E7`, start `#F6F0E2` | both Explore tiles share the pale sage (the hand-off's lavender was dropped); the Start your routine card is the one warm accent |
 | `HOME_CARD_FILL` | `#EEF1E7` | the no-profile card on a result |
 | `HOME_TODAY` | evening wash base `#EBEEF7`, pill `#4A5272`; morning wash base `#FAF3E6`, pill `#D9A24A` | Home's routine card and the skincare tip's note |
 | `ROUTINE_SWITCH` | morning thumb `#F7E3B0` (sun yellow), evening thumb `#3C4460` (night blue), step disc `#EEEFE7`, step line `#B5BAA0` | the Morning / Evening switch and the routine's rail |
@@ -138,8 +140,8 @@ coloured word:
 | Page | 24 / 28 | pushed screens, sheets, pop-ups, empty states | `PageTitle` |
 | Card | 17 semibold system | headings inside cards | none |
 
-Button labels are 16 semibold. Text actions are 15 semibold in `LINK`, never
-underlined. A group label (`SectionLabel`) is 13 semibold, capitals, 0.78
+Button labels are 17 semibold (`TYPE.card`), the same step as a card heading. Text
+actions are 15 semibold in `LINK`, never underlined. A group label (`SectionLabel`) is 13 semibold, capitals, 0.78
 letter-spacing, in `MUTED`.
 
 **Larger text** (`FONT_SCALE`, applied in `components/Text.tsx`): display 1.3,
@@ -147,29 +149,47 @@ UI 1.5, reading text 3.6, icons beside reading text 2. The onboarding intro caps
 its headline and copy at 1.3 on purpose (an accepted trade-off, noted in
 `OnboardingShell`).
 
+Write sizes as `TYPE.*`, never as bare numbers. The scale has no 12, 14, 16, 18 or
+19: those sat within a point of a step and were folded into it on 7 October 2026.
+Exceptions are sized to a fixed shape and stay literal: the number inside the 30pt
+`ScorePill` and the 96pt ring, the "i" on the verdict pill, the 11pt day chip's
+letter on the routine, and the "!" mark in the scanner's announcement.
+
+**Orphans.** A heading or short line never ends on a single word: pass it through
+`noOrphan` (`lib/text.ts`), which joins the last two words with a non-breaking
+space. Every centred title and short line uses it: page, quiz and question-card
+titles, empty states (Saved's own included), pop-ups and sheets, error screens
+and the result's title and summary. A new centred heading should too. The exception is a title that shares a row
+with another element (a question card's beside its tag): it keeps normal wrapping
+once text is above its normal size, since a pair kept together can be too wide.
+
 ## Spacing
 
-`SPACE`: text 8, block 12, gutter 16, section 24; 32 appears in a few layouts.
-16pt page margins and card padding, 12pt between cards in a group, 24pt between
-sections. Minimum tap target `TOUCH_TARGET`: 44 on iOS (48 on Android).
+`SPACE` (`lib/tokens.ts`): text 8, block 12, gutter 16, section 24; 32 appears in
+a few layouts. 16pt page margins and card padding, 12pt between cards in a group,
+24pt between sections. Write these as `SPACE.*` in `gap`, `padding` and `margin`,
+never as bare numbers. Minimum tap target `TOUCH_TARGET`: 44 on iOS (48 on
+Android).
 
 ## Corners
 
-| Element | Radius | Defined in |
+Four steps for every rounded rectangle (`RADIUS` in `lib/tokens.ts`). Never
+write a radius number for a card, box, control or sheet.
+
+| Step | Radius | Use |
 |---|---|---|
-| Card, list row (`ProductListRow`), menu group | 16 (`CARD_RADIUS`) | `lib/tokens.ts` |
-| Soft menu group | 22 (`MENU_SOFT_RADIUS`) | `lib/tokens.ts` |
-| Answer row (`QuizOptionCard`) | 20 | `QuizOptionCard.tsx` |
-| Reason box on a result | 20 | `ResultTabs.tsx` |
-| The note editor | 14 (`RADIUS_SELECTOR`, meant for every selectable control, used only here) | `ProductNote.tsx` |
-| Home routine card, its skeleton | 24 | `components/home/` |
-| Result's white sheet | 32, rising 16 over the header | `ResultTabs.tsx` |
-| Ingredient box | 28, 1.5pt outline in `BUTTON.primary.fill` | `IngredientsCard.tsx` |
-| Find your actives story cards | 28; the card deck 32 | `components/skin-needs/`, `app/journey.tsx` |
-| Pop-up (floating sheet) | 36 (`FLOAT_RADIUS`), 10pt off the sides and bottom | `BottomSheet.tsx` |
-| Bottom sheet, top corners | 38 | `BottomSheet.tsx` |
-| Filter popover | 14, its options 10 | `FilterDropdown.tsx` |
-| Every button, chip, search bar, segmented control | full pill | each component |
+| `RADIUS.control` | 14 | small controls: verdict pills, steppers, the filter popover, the note editor |
+| `RADIUS.card` | 20 | cards, rows and boxes: product rows, menu groups, answer rows, reason boxes, the risk box (`CARD_RADIUS` is this step) |
+| `RADIUS.panel` | 28 | large cards: the Home routine card and its skeleton, story cards, the card deck, the ingredient box (1.5pt outline in `BUTTON.primary.fill`), toasts |
+| `RADIUS.sheet` | 36 | pop-ups and sheets: floating sheets (10pt off the sides and bottom), a bottom sheet's top corners, the result's white sheet (rising 16 over the header) |
+
+- A **circle** is half its size and a **pill** half its height; compute them where
+  they are drawn (`size / 2`). Every button, chip, search bar and segmented
+  control is a full pill.
+- A shape nested in another takes the outer radius less the gap between them
+  (the filter popover's options: `RADIUS.control` less 4pt of padding).
+- Not on the scale, on purpose: chat bubbles (a small tail corner), the corner
+  brackets' curve in the scanner, progress bars and dots a few points tall.
 
 ## Shadows
 
@@ -194,7 +214,7 @@ pill, whatever its width (`BUTTON_WIDTH`):
 | 180 (`inCard`) | inside a card: Get my match |
 | 140 (`pair`) | each of a confirm pair (Keep it / Delete) |
 
-Label 16 semibold, white on `BUTTON.primary.fill`. No shadow. Pressing shrinks
+Label 17 semibold, white on `BUTTON.primary.fill`. No shadow. Pressing shrinks
 it slightly. There is no Cancel or "Not now" on a screen that already has a
 back arrow, a close circle or a tab bar, or on a sheet that swipes away. The
 onboarding intro's button is its own flat 56pt pill (`OnboardingShell`).
@@ -224,17 +244,17 @@ onboarding intro's button is its own flat 56pt pill (`OnboardingShell`).
   Evening).
 - **Chips** (`ProfilePickers`): 38pt pills, 15pt, 8pt gap. Chosen: `CHOSEN`
   fill and a 1.5pt outline; otherwise a 1.5pt `LINE` outline.
-- **Answer rows** (`QuizOptionCard`): full width, white, 20pt corners, minimum
+- **Answer rows** (`QuizOptionCard`): full width, white, `RADIUS.card` corners, minimum
   56pt (72pt with a description), the name 17 semibold, a 24pt round tick at
   the end. No two-per-row tiles.
 - **Search bar** (`SearchBar`): a 44pt white pill, no border, 17pt text, a clear
   cross.
 - **Filter** (`FilterDropdown`): "Filter: **All** ⌄" in a group header; opens a
-  white popover (radius 14) with 44pt rows and the chosen row on `MENU_CHOSEN`.
+  white popover (`RADIUS.control`) with 44pt rows and the chosen row on `MENU_CHOSEN`.
 
 ### Lists and rows
 
-- **Product row** (`ProductListRow`): a white card, 76pt minimum, `CARD_RADIUS`;
+- **Product row** (`ProductListRow`): a white card, 76pt minimum, `RADIUS.card`;
   a 52pt bottle straight on the card, the name 15 semibold over a 13pt line, the
   small score ring, the heart. 12pt between cards. Search, Saved, History and
   the finder's results all use it.
@@ -243,7 +263,7 @@ onboarding intro's button is its own flat 56pt pill (`OnboardingShell`).
   when the EU notice applies.
 - **Big score** (`ScoreRing` in `components/result/`): a 96pt ring on a 108pt
   white disc, over the result sheet's edge. Under it the verdict pill
-  (`VerdictLink`): 40pt minimum, radius 14, 17 semibold white on the band's
+  (`VerdictLink`): 40pt minimum, `RADIUS.control`, 17 semibold white on the band's
   `deep`, with an "i"; it opens How scoring works.
 - **Verdict marker** (`VerdictMarker`, `VerdictDot`): an 8pt dot in a 4pt halo,
   then the word in `deep`, 15pt. Never a Good / Watch / Avoid pill.
@@ -257,10 +277,10 @@ onboarding intro's button is its own flat 56pt pill (`OnboardingShell`).
 ### Sheets and pop-ups
 
 - **Pop-up** (`BottomSheet` floating, `ScanPopup`, `SheetScreen`): 10pt off the
-  sides and bottom, radius 36, on the page colour, over a dimmed, lightly blurred
+  sides and bottom, `RADIUS.sheet`, on the page colour, over a dimmed, lightly blurred
   screen. Rises in 280ms, leaves in 220ms. Optional badge, a Page title, one 15pt
   `MUTED` line, buttons per the button rule. Cards inside a sheet are `STONE`.
-- **Bottom sheet**: top corners 38, with a grabber.
+- **Bottom sheet**: top corners `RADIUS.sheet`, with a grabber.
 - **Confirm** (`ConfirmSheet`): a title, a line, Keep it (primary) and Delete
   (`DESTRUCTIVE_OUTLINE`), 140pt each.
 - **How scoring works** and the **ingredient sheet** are floating sheets
@@ -296,18 +316,21 @@ the scanner, How scoring works and the ingredient sheet slide up.
   pictures crossfade; Skip, dots and the button stay put. The dots read as one
   element, "Page n of 3", and each new headline is announced.
 - **Home**: "Hi there!" in Kalam bold 34; the top card is Start your routine
-  until there is one, then today's routine (`RoutineCard`, 212pt, radius 24);
-  an Explore row of two tiles (Scan Any Product, Find Your Actives); the
-  skincare tip as an envelope that opens into a note. While the routine builds,
+  until there is one, then today's routine (`RoutineCard`, 212pt, `RADIUS.panel`);
+  an Explore group label (`SectionLabel`) over two tiles in one tint (Scan Any
+  Product, Find Your Actives); the skincare tip as an envelope, its title a
+  step below the routine card's, that opens into a note. While the routine builds,
   `HomeSkeleton` shows grey shapes in the same room.
 - **Product result** (`app/product/[id]`, `components/result/ResultTabs`): the
-  header (bottle, brand 15 `MUTED_FAINT`, name 18 semibold, type 13 `MUTED`) and
+  header (bottle, brand 15 `MUTED_FAINT`, name 17 semibold, type 13 `MUTED`) and
   the Skin match | Ingredients switch on `STONE`, fixed on glass; the result is a
-  white sheet (radius 32) rising over it.
+  white sheet (`RADIUS.sheet`) rising over it.
   - *Skin match:* the score ring on the sheet's edge, the verdict pill, a title
     and one line (with "N things to watch below" when a good match carries
-    warnings), then reason boxes (radius 20, on the verdict's `wash`, a dot, the
-    bold name and a sentence). At most six boxes; on a good match up to two
+    warnings), then reason boxes (`RADIUS.card`, on the verdict's `wash`, a dot, the
+    bold name and a sentence), grouped by colour: 8pt between boxes in a group, a
+    section between groups, a small label ("Working for you", "Worth watching")
+    once there are both, and the first box a size larger. At most six boxes; on a good match up to two
     orange ones always keep their place; boxes that say the same sentence merge.
   - *Ingredients:* the two-risk box, then the ingredient box.
   - A tab opens at its top.
@@ -346,13 +369,9 @@ the scanner, How scoring works and the ingredient sheet slide up.
 - **Good's word is 3.1:1, Poor's is 4.39:1 on white, and the white label on the
   sage button is 4.46:1**, all under 4.5:1 for small text. They are the
   hand-off's colours; Good is the brand olive. Left for the owner.
-- **`CARD_RADIUS` is 16 in code but `tailwind.config.js` says `card: 15px`.** The
-  tailwind radii (8, 11, 12, 13, 15, 16, 18) are an older scale for
-  `className`; most screens use the code values above.
 - **Colour lives in three files** (`tokens.ts`, `colors.ts`, `tailwind.config.js`)
   and is kept in step by hand.
-- **About 20 distinct corner radii** are used across components (see Corners),
-  and about 40 font sizes are written inline rather than from `TYPE`.
+- **About 40 font sizes are written inline** rather than from `TYPE`.
 - **The app icon is a terracotta heart** while the interface is sage and olive.
 - **Two header patterns** (see Headers) and the result's glass header, whose text
   shows through the tab pills while scrolling, are known and deliberate or

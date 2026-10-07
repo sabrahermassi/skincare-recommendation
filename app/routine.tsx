@@ -27,7 +27,7 @@ import { rowsFor, type Row } from "@/lib/routine-rows";
 import { activeLine, basicRoutine, placeId, recallRoutine, recommendable, type Routine as BuiltRoutine, type RoutinePick, type RoutineSlot, type TimeOfDay } from "@/lib/routine-builder";
 import { DAY_LETTERS, DAY_NAMES, STEP_LIMITS, today, type RoutineEntry } from "@/lib/skin-needs";
 import { matchProduct } from "@/lib/matching";
-import { CANVAS, CANVAS_GLASS, CARD_RADIUS, CHOSEN, DISPLAY_FONT, INK, LINK, MUTED, MUTED_FAINT, ROUTINE_SWITCH, scoreColours, SKIN_NEEDS, SPACE, SURFACE, TOUCH_TARGET, TYPE, VERDICT_LABEL, WARN, WHITE } from "@/lib/tokens";
+import { CANVAS, CANVAS_GLASS, CARD_RADIUS, CHOSEN, DISPLAY_FONT, INK, LINK, MUTED, MUTED_FAINT, ROUTINE_SWITCH, scoreColours, SKIN_NEEDS, SPACE, SURFACE, TOUCH_TARGET, TYPE, VERDICT_LABEL, WARN, WHITE, RADIUS } from "@/lib/tokens";
 import { useOwnProducts } from "@/lib/use-own-products";
 import { useAppStore } from "@/store/useAppStore";
 import { FitScrollView } from "@/components/FitScrollView";
@@ -428,7 +428,7 @@ function DayStrip({ day, onDay, entries }: { day: number; onDay: (day: number) =
             accessibilityRole="tab"
             accessibilityLabel={`${DAY_NAMES[index]} ${date}${active ? ", an active" : ""}`}
             accessibilityState={{ selected: on }}
-            style={{ flex: 1, height: 44, borderRadius: 14, backgroundColor: on ? INK : "transparent", alignItems: "center", justifyContent: "center", gap: 1 }}
+            style={{ flex: 1, height: 44, borderRadius: RADIUS.control, backgroundColor: on ? INK : "transparent", alignItems: "center", justifyContent: "center", gap: 1 }}
           >
             <Text maxFontSizeMultiplier={1.2} style={{ fontSize: 11, fontWeight: "600", lineHeight: 13, color: on ? WHITE : MUTED_FAINT }}>
               {letter}
@@ -461,7 +461,7 @@ function StepLimitRow() {
             accessibilityLabel={`${value} steps per routine`}
             accessibilityState={{ checked: value === limit }}
             hitSlop={4}
-            style={{ width: 40, height: 36, borderRadius: 12, borderWidth: value === limit ? 1.5 : 1, borderColor: value === limit ? CHOSEN.border : SKIN_NEEDS.line, backgroundColor: value === limit ? CHOSEN.fill : SURFACE, alignItems: "center", justifyContent: "center" }}
+            style={{ width: 40, height: 36, borderRadius: RADIUS.control, borderWidth: value === limit ? 1.5 : 1, borderColor: value === limit ? CHOSEN.border : SKIN_NEEDS.line, backgroundColor: value === limit ? CHOSEN.fill : SURFACE, alignItems: "center", justifyContent: "center" }}
           >
             <Text style={{ fontSize: TYPE.label, fontWeight: "600", color: value === limit ? SKIN_NEEDS.chosenInk : INK }}>{value}</Text>
           </Pressable>

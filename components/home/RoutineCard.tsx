@@ -7,13 +7,13 @@ import { TimeIcon } from "@/components/home/TimeIcon";
 import { WateryWash } from "@/components/home/WateryWash";
 import { Text } from "@/components/Text";
 import { cardKicker, cardPills, cardTitle, type Today } from "@/lib/home-today";
-import { BUTTON, DISPLAY_FONT, HOME_TILE, HOME_TODAY, INK, MUTED, MUTED_FAINT, SPACE, TYPE, WHITE } from "@/lib/tokens";
+import { BUTTON, DISPLAY_FONT, HOME_TILE, HOME_TODAY, INK, MUTED, MUTED_FAINT, SPACE, TYPE, WHITE, RADIUS } from "@/lib/tokens";
 
 const ROUTINE_ART = require("@/assets/illustrations/home-routine-v2.webp");
 
 // Read off the hand-off (handoff_home_and_tip). The height is the least: with large text the card grows.
 const CARD_HEIGHT = 212;
-const CARD_RADIUS = 24;
+const CARD_RADIUS = RADIUS.panel;
 const PILL_HEIGHT = 36;
 // The words on a card stop growing a little sooner than elsewhere, so it stays a card.
 const CARD_TEXT_SCALE = 1.2;
@@ -27,7 +27,7 @@ export function StartRoutineCard({ onPress }: { onPress: () => void }) {
       onPress={onPress}
       pressedScale={0.97}
       accessibilityLabel="Start your routine. Build my routine"
-      style={{ minHeight: CARD_HEIGHT, borderRadius: CARD_RADIUS, backgroundColor: HOME_TILE.start, paddingVertical: 11, paddingLeft: 20, paddingRight: 8, flexDirection: "row", alignItems: "center", gap: 8, overflow: "hidden" }}
+      style={{ minHeight: CARD_HEIGHT, borderRadius: CARD_RADIUS, backgroundColor: HOME_TILE.start, paddingVertical: 11, paddingLeft: 20, paddingRight: SPACE.text, flexDirection: "row", alignItems: "center", gap: SPACE.text, overflow: "hidden" }}
     >
       <View style={{ flex: 1, gap: 6 }}>
         <Text maxFontSizeMultiplier={CARD_TEXT_SCALE} style={{ fontFamily: DISPLAY_FONT, fontSize: TYPE.heading, lineHeight: 28, color: INK }}>

@@ -15,7 +15,7 @@ import {
 import { Text } from "@/components/Text";
 import { slideDirection, swipeDirection } from "@/lib/onboarding-slide";
 import { H_PADDING, INTRO, INTRO_INACTIVE_DOT_OPACITY, ProgressDots, ShellBackButton, SkipButton } from "@/components/shell/shared";
-import { BUTTON, CANVAS, DISPLAY_FONT } from "@/lib/tokens";
+import { BUTTON, CANVAS, DISPLAY_FONT, SPACE } from "@/lib/tokens";
 
 // The intro's type (owner, 26 September 2026): a display-face headline whose first
 // line is in the accent colour and the rest in ink; system-font subtext; a
@@ -353,7 +353,7 @@ export function OnboardingShell({ screens, activeIndex, onNext, onSkip, onBack }
             // which the copy band's fixed height doesn't have room for. The
             // design spec's own body-copy max-width (330-360pt) already
             // assumes narrower side margins than the headline gets.
-            paddingHorizontal: 16,
+            paddingHorizontal: SPACE.gutter,
             alignItems: "center",
             justifyContent: "center",
           }}

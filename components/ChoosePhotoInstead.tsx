@@ -6,7 +6,7 @@ import { Text } from "@/components/Text";
 import { pickLabelPhoto } from "@/lib/pick-label-photo";
 import { failureFromState, readLabelPhoto } from "@/lib/read-label-photo";
 import { scanStateCopy } from "@/lib/scan-copy";
-import { INK, LINK, MUTED, TOUCH_TARGET, TYPE } from "@/lib/tokens";
+import { INK, LINK, MUTED, TOUCH_TARGET, TYPE, SPACE } from "@/lib/tokens";
 import { haptic } from "@/lib/haptics";
 
 type State =
@@ -91,7 +91,7 @@ export function ChoosePhotoInstead({
     <View style={{ alignItems: "center", gap: 4 }}>
       <ScreenReaderAnnouncer message={speech} />
       {state.kind === "failed" ? (
-        <View accessible accessibilityLabel={speech} style={{ alignItems: "center", gap: 2, paddingHorizontal: 12 }}>
+        <View accessible accessibilityLabel={speech} style={{ alignItems: "center", gap: 2, paddingHorizontal: SPACE.block }}>
           <Text style={{ textAlign: "center", fontSize: TYPE.label, fontWeight: "600", color: INK }}>{state.message}</Text>
           {state.hint ? <Text style={{ textAlign: "center", fontSize: TYPE.caption, color: MUTED }}>{state.hint}</Text> : null}
         </View>
@@ -101,7 +101,7 @@ export function ChoosePhotoInstead({
         disabled={busy || cannotRetry}
         accessibilityRole="button"
         accessibilityLabel="Choose a photo of the ingredient list from your library"
-        style={{ minHeight: TOUCH_TARGET, justifyContent: "center", paddingHorizontal: 12 }}
+        style={{ minHeight: TOUCH_TARGET, justifyContent: "center", paddingHorizontal: SPACE.block }}
         className="active:opacity-70"
       >
         <Text
@@ -123,7 +123,7 @@ export function ChoosePhotoInstead({
           }}
           accessibilityRole="button"
           accessibilityLabel={READING.link}
-          style={{ minHeight: TOUCH_TARGET, justifyContent: "center", paddingHorizontal: 12 }}
+          style={{ minHeight: TOUCH_TARGET, justifyContent: "center", paddingHorizontal: SPACE.block }}
           className="active:opacity-70"
         >
           <Text style={{ fontSize: TYPE.label, fontWeight: "600", color: LINK }}>{READING.link}</Text>
