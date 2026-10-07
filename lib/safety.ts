@@ -212,6 +212,33 @@ export const SAFETY_NOTICE_ENTRIES: readonly SafetyNoticeEntry[] = [
     dates: "It has not been allowed on the EU market since 23 August 2019 and not to be sold there since 23 August 2021.",
   },
   { entry: 1375, ingredient: "isobutylparaben", regulation: "Regulation (EU) No 358/2014", verified: "2026-10-05", verifiedBy: "owner" },
+  // Checked by the owner on the consolidated text (version 18.05.2026) and CosIng, 7 October 2026 (#419).
+  {
+    entry: 1666,
+    ingredient: "butylphenyl methylpropional (Lilial)",
+    regulation: "Regulation (EU) 2021/1902",
+    verified: "2026-10-07",
+    verifiedBy: "owner",
+    dates: "It has been prohibited in EU cosmetics since 1 March 2022.",
+  },
+  { entry: 1395, ingredient: "boric acid", regulation: "Regulation (EU) 2019/831", verified: "2026-10-07", verifiedBy: "owner" },
+  { entry: 1394, ingredient: "diboron trioxide", regulation: "Regulation (EU) 2019/831", verified: "2026-10-07", verifiedBy: "owner" },
+  {
+    entry: 1396,
+    ingredient: "borates, tetraborates, octaborates and boric acid salts and esters (sodium borate, potassium borate, borax)",
+    regulation: "Regulation (EU) 2019/831, replaced by Regulation (EU) 2019/1966",
+    verified: "2026-10-07",
+    verifiedBy: "owner",
+  },
+  // Checked on the consolidated text, the amending regulations and CosIng, approved by the owner on #434, 7 October 2026.
+  { entry: 1389, ingredient: "dichloromethane (methylene chloride)", regulation: "Regulation (EU) 2019/831", verified: "2026-10-07", verifiedBy: "owner" },
+  {
+    entry: 1397,
+    ingredient: "perborates and peroxoborates (sodium perborate)",
+    regulation: "Regulation (EU) 2019/831, replaced by Regulation (EU) 2026/78",
+    verified: "2026-10-07",
+    verifiedBy: "owner",
+  },
   // Pending: the owner confirms 1339 on the current consolidated EUR-Lex text. Until then it does not fire.
   { entry: 1339, ingredient: "hydroquinone", regulation: null, verified: null, verifiedBy: null },
 ];
