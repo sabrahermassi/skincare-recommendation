@@ -120,7 +120,7 @@ function OpenNote({ tip, onClose }: { tip: HomeTip; onClose: () => void }) {
         </Animated.View>
       )}
 
-      <View pointerEvents="box-none" style={[StyleSheet.absoluteFill, { justifyContent: "center", paddingHorizontal: 20 }]}>
+      <View pointerEvents="box-none" style={[StyleSheet.absoluteFill, { justifyContent: "center", paddingHorizontal: SPACE.inset }]}>
         <Animated.View
           accessibilityRole="summary"
           style={{
@@ -136,7 +136,7 @@ function OpenNote({ tip, onClose }: { tip: HomeTip; onClose: () => void }) {
           }}
         >
           {theme ? <WateryWash {...theme.wash} /> : null}
-          <View style={{ paddingTop: 22, paddingHorizontal: 22, paddingBottom: 20, gap: SPACE.block }}>
+          <View style={{ paddingTop: 22, paddingHorizontal: 22, paddingBottom: SPACE.inset, gap: SPACE.block }}>
             <View style={{ flexDirection: "row", alignItems: "center", justifyContent: "space-between", gap: SPACE.text }}>
               <Animated.View style={[{ flex: 1, flexDirection: "row", alignItems: "center", gap: 6 }, fade(words[0])]}>
                 {tip.kind === "general" ? null : <TimeIcon time={tip.kind} />}

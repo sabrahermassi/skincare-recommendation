@@ -27,7 +27,7 @@ export function StartRoutineCard({ onPress }: { onPress: () => void }) {
       onPress={onPress}
       pressedScale={0.97}
       accessibilityLabel="Start your routine. Build my routine"
-      style={{ minHeight: CARD_HEIGHT, borderRadius: CARD_RADIUS, backgroundColor: HOME_TILE.start, paddingVertical: 11, paddingLeft: 20, paddingRight: SPACE.text, flexDirection: "row", alignItems: "center", gap: SPACE.text, overflow: "hidden" }}
+      style={{ minHeight: CARD_HEIGHT, borderRadius: CARD_RADIUS, backgroundColor: HOME_TILE.start, paddingVertical: 11, paddingLeft: SPACE.inset, paddingRight: SPACE.text, flexDirection: "row", alignItems: "center", gap: SPACE.text, overflow: "hidden" }}
     >
       <View style={{ flex: 1, gap: 6 }}>
         <Text maxFontSizeMultiplier={CARD_TEXT_SCALE} style={{ fontFamily: DISPLAY_FONT, fontSize: TYPE.heading, lineHeight: LEADING.heading, color: INK }}>
@@ -59,7 +59,7 @@ export function TodayRoutineCard({ today, onPress }: { today: Today; onPress: ()
       onPress={onPress}
       pressedScale={0.97}
       accessibilityLabel={`Your skincare routine. ${kicker}. ${title}`}
-      style={{ minHeight: CARD_HEIGHT, borderRadius: CARD_RADIUS, padding: 20, gap: SPACE.gutter, justifyContent: "space-between", overflow: "hidden" }}
+      style={{ minHeight: CARD_HEIGHT, borderRadius: CARD_RADIUS, padding: SPACE.inset, gap: SPACE.gutter, justifyContent: "space-between", overflow: "hidden" }}
     >
       <WateryWash {...theme.wash} />
       <Image source={ROUTINE_ART} contentFit="contain" accessibilityLabel="" style={{ position: "absolute", top: 4, right: 4, width: 164, height: 146 }} />

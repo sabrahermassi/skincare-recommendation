@@ -170,9 +170,12 @@ once text is above its normal size, since a pair kept together can be too wide.
 
 ## Spacing
 
-`SPACE` (`lib/tokens.ts`): text 8, block 12, gutter 16, section 24; 32 appears in
-a few layouts. 16pt page margins and card padding, 12pt between cards in a group,
-24pt between sections. Write these as `SPACE.*` in `gap`, `padding` and `margin`,
+`SPACE` (`lib/tokens.ts`): text 8, block 12, gutter 16, inset 20, section 24; 32
+appears in a few layouts. 16pt page margins, 20pt (`inset`) padding inside a card
+or panel (24 of them were already written as 20), 12pt between cards in a group,
+24pt between sections. Still off the scale, on purpose: 6 and 2 (the gap between
+two lines of one block, a hairline), and 10 and 14 (optical corrections on chips
+and pills); about 100 such literals remain. Write these as `SPACE.*` in `gap`, `padding` and `margin`,
 never as bare numbers. Minimum tap target `TOUCH_TARGET`: 44 on iOS (48 on
 Android).
 
@@ -384,7 +387,7 @@ the scanner, How scoring works and the ingredient sheet slide up.
   changed); the goal shows six of thirteen with "+ 7 more".
 - **Routine**: skin profile card, the tinted Morning | Evening switch, the day
   strip, numbered discs on a dotted rail beside white step cards.
-- **Saved, School, Profile**: Large titles; Saved uses its three tabs; School is
+- **Saved, School, Profile**: Large titles; Saved uses its three tabs, with the count, the step filter and Clear all on one row under them; Profile's avatar is 96pt; School is
   a chat with prompt chips and a search bar; Profile is settings lists.
 - **Account, Support, Privacy, Skin profile, sign-in**: lists and plain text on
   `CANVAS`; the sign-in sheet is a floating sheet.

@@ -228,7 +228,7 @@ function QuestionCard({ title, tag, note, children }: { title: string; tag: stri
   // The title shares a row with the tag, so at a larger text size a pair kept together ("or breastfeeding?") is too wide for what is left and would overflow or break inside a word. Normal wrapping then.
   const { fontScale } = useWindowDimensions();
   return (
-    <View style={{ backgroundColor: SURFACE, borderRadius: RADIUS.panel, padding: 20, gap: SPACE.gutter }}>
+    <View style={{ backgroundColor: SURFACE, borderRadius: RADIUS.panel, padding: SPACE.inset, gap: SPACE.gutter }}>
       <View style={{ flexDirection: "row", alignItems: "baseline", justifyContent: "space-between", gap: SPACE.text }}>
         <Text accessibilityRole="header" style={{ flex: 1, fontSize: TYPE.title, fontWeight: "600", lineHeight: LEADING.title, color: INK }}>
           {fontScale > 1 ? title : noOrphan(title)}

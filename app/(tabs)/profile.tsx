@@ -17,7 +17,7 @@ import { clearTestData, fillTestData } from "@/lib/dev-test-data";
 import { noOrphan } from "@/lib/text";
 
 // The avatar (v7): 112pt, in a 4pt white ring.
-const AVATAR = 112;
+const AVATAR = 96;
 const AVATAR_RING = 4;
 const AVATAR_ART = require("@/assets/illustrations/avatar-empty.webp");
 

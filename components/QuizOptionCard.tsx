@@ -50,7 +50,7 @@ export function QuizOptionCard({ label, description, selected = false, disabled 
         alignItems: "center",
         gap: SPACE.block,
         paddingVertical: SPACE.block,
-        paddingLeft: 20,
+        paddingLeft: SPACE.inset,
         paddingRight: SPACE.gutter,
         borderRadius: ROW_RADIUS,
         borderWidth: RING,

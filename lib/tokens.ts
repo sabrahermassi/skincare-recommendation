@@ -671,9 +671,10 @@ export function withAlpha(hex: string, alpha: number): string {
 /**
  * Vertical rhythm for a content screen: `text` between lines of text, `block`
  * between cards in a group, `section` between sections, `gutter` at the
- * screen's sides. v7 allows only 4, 8, 12, 16, 24 and 32.
+ * screen's sides, and `inset` inside a card or panel (7 October 2026: 25 cards
+ * were already padded 20, which is not on v7's 4, 8, 12, 16, 24 and 32 scale).
  */
-export const SPACE = { text: 8, block: 12, section: 24, gutter: 16 } as const;
+export const SPACE = { text: 8, block: 12, section: 24, gutter: 16, inset: 20 } as const;
 
 /**
  * The heavy shadow under the camera button, so it reads as sitting on top of the

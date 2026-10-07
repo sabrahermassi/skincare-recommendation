@@ -127,7 +127,7 @@ export function IngredientsCard({
   const moreLabel = `${rest.length} more${restIsFine ? ", no concerns" : rest.length === 1 ? " ingredient" : " ingredients"}`;
 
   return (
-    <View style={{ marginTop: SPACE.block, borderRadius: BOX_RADIUS, borderWidth: 1.5, borderColor: BUTTON.primary.fill, backgroundColor: WHITE, paddingTop: SPACE.block, paddingHorizontal: 20, paddingBottom: 20 }}>
+    <View style={{ marginTop: SPACE.block, borderRadius: BOX_RADIUS, borderWidth: 1.5, borderColor: BUTTON.primary.fill, backgroundColor: WHITE, paddingTop: SPACE.block, paddingHorizontal: SPACE.inset, paddingBottom: SPACE.inset }}>
       <View style={{ minHeight: 52, flexDirection: "row", alignItems: "center", justifyContent: "space-between" }}>
         <Text accessibilityRole="header" style={{ fontSize: TYPE.title, fontWeight: "600", letterSpacing: TRACKING.title, color: INK }}>
           Ingredients
