@@ -109,12 +109,15 @@ describe("the ingredient page", () => {
     expect(screen.queryByText("Worth a second look")).toBeNull();
   });
 
-  it("still puts a fragrance and a restricted ingredient to watch without a product", async () => {
+  it("still puts a fragrance and an EU allergen to watch without a product, but not an ingredient that is only restricted", async () => {
     await open("parfum");
     expect(screen.getByText("Worth a second look")).toBeTruthy();
     await act(async () => screen.unmount());
-    await open("some restricted preservative", { safety: "caution" });
+    await open("vanillin");
     expect(screen.getByText("Worth a second look")).toBeTruthy();
+    await act(async () => screen.unmount());
+    await open("sodium hydroxide", { safety: "caution" });
+    expect(screen.queryByText("Worth a second look")).toBeNull();
   });
 
   it("names the concern a rule works on for this person, without a product", async () => {

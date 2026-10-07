@@ -483,13 +483,14 @@ function TextLink({ label, onPress }: { label: string; onPress: () => void }) {
 /** A group's caps label ("3 PRODUCTS", "TODAY"), and "Clear all" beside the first one. */
 function GroupLabel({ title, onClearAll, filter }: { title: string; onClearAll?: () => void; filter?: ReactNode }) {
   return (
-    <View style={{ minHeight: TOUCH_TARGET, paddingTop: SPACE.text, paddingBottom: SPACE.tight, paddingLeft: SPACE.tight, flexDirection: "row", alignItems: "center", justifyContent: "space-between", gap: SPACE.block }}>
+    <View style={{ minHeight: TOUCH_TARGET, paddingTop: SPACE.text, paddingBottom: SPACE.tight, paddingLeft: SPACE.tight, flexDirection: "row", flexWrap: "wrap", alignItems: "center", justifyContent: "space-between", columnGap: SPACE.block }}>
       <Text accessibilityRole="header" style={{ fontSize: TYPE.caption, fontWeight: "600", letterSpacing: TRACKING.caption, textTransform: "uppercase", color: MUTED }}>
         {title}
       </Text>
-      {/* The filter and Clear all share the count's row (a filter row of its own pushed the first product down). */}
+      {/* The filter and Clear all share the count's row (a filter row of its own pushed the first product down).
+          Where they do not fit (a long filter name, larger text) they drop to a line of their own. */}
       {filter || onClearAll ? (
-        <View style={{ flexDirection: "row", alignItems: "center", gap: SPACE.block }}>
+        <View style={{ marginLeft: "auto", flexDirection: "row", flexWrap: "wrap", alignItems: "center", justifyContent: "flex-end", columnGap: SPACE.block }}>
           {filter}
           {onClearAll ? <TextLink label="Clear all" onPress={onClearAll} /> : null}
         </View>
