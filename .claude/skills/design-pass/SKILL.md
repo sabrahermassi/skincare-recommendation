@@ -53,10 +53,15 @@ word). If the Impeccable plugin isn't installed, stop and say so.
 - If an earlier design-pass PR is still open, this is the one reason not to
   start: tell the owner which PR and end there. One run at a time, merged
   before the next; stacking ten small PRs is what made merging slow.
-- Start this branch's own dev server on a free port with the staging
-  environment loaded and a cleared cache
-  (`npx expo start --port <port> --clear`, see the memory note "Simulator QA
-  setup"), and open it on a simulator no other session is using.
+- Start this branch's own dev server on a free port with a cleared cache, and
+  open it on a simulator no other session is using. **A worktree has no
+  `.env`** (never copy it), so load the main checkout's first, in the same
+  command:
+  `set -a && source <main checkout>/.env && set +a && npx expo start --port <port> --clear`.
+  Without it the app has no backend and shows only the 8 sample products, and
+  every score in this run would be taken on the wrong data. Before step 1,
+  confirm a real catalogue product opens; if only sample products show, stop
+  and fix the server.
 
 ## How to run each step
 
@@ -69,7 +74,9 @@ word). If the Impeccable plugin isn't installed, stop and say so.
 - **Fix steps (3 to 9): fix what the command finds, straight away.** Don't
   write a report and wait. After each step run
   `npm run typecheck && npm run lint && npm test`, then commit that step
-  alone with a clear message.
+  alone with a clear message. Stage the files you changed by name, never
+  `git add .` or `-A`: the screenshots under `.impeccable/` are working files
+  and must not reach the PR, whether or not the folder is ignored yet.
 - **Check every changed screen in the simulator once per step, all together**,
   not one screen at a time with a question after each.
 - **Any screen you change gets its render test added or updated** (CLAUDE.md).
