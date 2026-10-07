@@ -19,11 +19,17 @@
  * from a dictionary note: the notes miss entries (hexyl cinnamal is `safe` in
  * the dictionary) and cite entries that no longer exist (#419).
  *
- * Keyed by INCI name as printed, lower-cased on lookup. Where the regulation
+ * Keyed by INCI name as printed, read the way the dictionary names its rows
+ * (lower case, brackets as spaces). Where the regulation
  * prints two names in one cell ("HC Red No 10 + HC Red No 11"), or breaks one
  * across a line ("p- Phenylenediamine"), they are written as the names they are. A name in the
  * regulation that the dictionary does not hold simply never matches; none was
  * added to make a gap look smaller.
+ *
+ * The regulation does not always print CosIng's INCI name, and the dictionary is
+ * keyed on CosIng's ("p-Phenylenediamine Sulfate", where Annex III prints
+ * "Sulphate"). `COSING_SPELLINGS` below lists those, each read off CosIng's own
+ * record for the substance (#439).
  */
 
 export type EuAllergenKind = "fragrance" | "allergy-warning";
@@ -262,8 +268,65 @@ export const EU_ALLERGEN_ENTRIES: readonly EuAllergenEntry[] = [
   ...tag(ALLERGY_WARNING_ENTRIES, "allergy-warning", ORIGINAL),
 ];
 
-/** The same lookup key everywhere: the dictionary stores names lower-case. */
-const key = (name: string) => name.trim().toLowerCase().replace(/\s+/g, " ");
+/**
+ * CosIng's INCI name for a substance Annex III prints under another spelling
+ * (#439). The dictionary holds the substance under CosIng's name, so without
+ * these a product listing "Acetylcedrene" was never matched to entry 327,
+ * "Acetyl Cedrene".
+ *
+ * Each row was read off CosIng on 7 October 2026: `cosing` is the record's
+ * number (`EU_ALLERGEN_COSING_SOURCE.url` + `/details/<number>`), and `cas` is
+ * the CAS number on that record, which is the one the regulation prints for the
+ * entry. Hydroxypropyl-p-Phenylenediamine HCl has no CAS number on its record;
+ * CosIng's own Annex III/384 record (106936) names it. **Add a row only from a
+ * CosIng record whose CAS number the entry prints**, never from a look-alike name.
+ *
+ * Not here, because CosIng has no record under an INCI name: "trans-Rose ketone
+ * 1" and "cis-Rose ketone 1" (157; CosIng files both CAS numbers under
+ * Alpha-Damascone, which is on the list), "2,6-Dimethoxy-3,5-pyridinediamine"
+ * (232, the base; only the HCl has a record) and "5-Amino-6-Chloro-o-Cresol
+ * HCl" (283; only the base has one).
+ */
+export type CosingSpelling = { entry: string; name: string; cosing: number; cas: string | null };
+
+export const COSING_SPELLINGS: readonly CosingSpelling[] = [
+  { entry: "157", name: "Rose Ketone-4", cosing: 41492, cas: "23696-85-7" },
+  { entry: "157", name: "Damascenone", cosing: 104508, cas: "23696-85-7" },
+  { entry: "157", name: "Rose Ketone-3", cosing: 41491, cas: "57378-68-4" },
+  { entry: "157", name: "Delta-Damascone", cosing: 87298, cas: "57378-68-4" },
+  { entry: "157", name: "trans-Rose Ketone-3", cosing: 41519, cas: "71048-82-3" },
+  { entry: "157", name: "cis-Rose Ketone-2", cosing: 41385, cas: "23726-92-3" },
+  { entry: "157", name: "trans-Rose Ketone-2", cosing: 41518, cas: "23726-91-2" },
+  { entry: "327", name: "Acetylcedrene", cosing: 39011, cas: "32388-55-9" },
+  { entry: "8a", name: "p-Phenylenediamine Sulfate", cosing: 37251, cas: "16245-77-5" },
+  { entry: "8c", name: "N,N'-Bis(2-Hydroxyethyl)-2-Nitro-p-Phenylenediamine", cosing: 35473, cas: "84041-77-0" },
+  { entry: "204", name: "Dihydroxyindoline", cosing: 55796, cas: "29539-03-5" },
+  { entry: "204", name: "Dihydroxyindoline HBr", cosing: 55797, cas: "138937-28-7" },
+  { entry: "222", name: "2-Hydroxyethyl Picramic Acid", cosing: 31498, cas: "99610-72-7" },
+  { entry: "223", name: "p-Methylaminophenol Sulfate", cosing: 36626, cas: "150-75-4" },
+  { entry: "228", name: "Phenyl Methyl Pyrazolone", cosing: 36531, cas: "89-25-8" },
+  { entry: "229", name: "2-Methyl-5-Hydroxyethylaminophenol", cosing: 31502, cas: "55302-96-0" },
+  { entry: "273", name: "1-Hydroxyethyl 4,5-Diamino Pyrazole Sulfate", cosing: 54177, cas: "155601-30-2" },
+  { entry: "277", name: "2,6-Diamino-3-((Pyridin-3-yl)azo)pyridine", cosing: 31478, cas: "28365-08-4" },
+  { entry: "279", name: "2,3-Diaminodihydropyrazolo Pyrazolone Dimethosulfonate", cosing: 83274, cas: "857035-95-1" },
+  { entry: "384", name: "Hydroxypropyl-p-Phenylenediamine HCl", cosing: 94208, cas: null },
+];
+
+/** Where the spellings above were read, and when. */
+export const EU_ALLERGEN_COSING_SOURCE = {
+  label: "EU CosIng ingredient database",
+  url: "https://ec.europa.eu/growth/tools-databases/cosing",
+  verified: "2026-10-07",
+} as const;
+
+/**
+ * The same lookup key everywhere, and the dictionary's own naming rule
+ * (`normaliseDictionaryName` in scripts/import-inci-dictionary.mjs): lower
+ * case, brackets read as spaces. Without the brackets rule a printed name such
+ * as "Hydroxypropyl bis(N-hydroxyethyl-p-phenylenediamine) HCl" could never
+ * equal the row the dictionary holds for it.
+ */
+const key = (name: string) => name.replace(/[()]/g, " ").replace(/\s+/g, " ").trim().toLowerCase();
 
 const BY_NAME: ReadonlyMap<string, EuAllergenEntry> = (() => {
   const map = new Map<string, EuAllergenEntry>();
@@ -271,10 +334,14 @@ const BY_NAME: ReadonlyMap<string, EuAllergenEntry> = (() => {
     // First entry wins: p-phenylenediamine is printed under both 8a and 8b, which say the same thing.
     for (const name of entry.names) if (!map.has(key(name))) map.set(key(name), entry);
   }
+  for (const spelling of COSING_SPELLINGS) {
+    const entry = EU_ALLERGEN_ENTRIES.find((e) => e.entry === spelling.entry);
+    if (entry && !map.has(key(spelling.name))) map.set(key(spelling.name), entry);
+  }
   return map;
 })();
 
-/** The Annex III allergen or allergy-warning entry that names this ingredient, or undefined. Exact name only, never a pattern. */
+/** The Annex III allergen or allergy-warning entry that names this ingredient, under the regulation's spelling or CosIng's, or undefined. Exact name only, never a pattern. */
 export function euAllergenEntry(name: string): EuAllergenEntry | undefined {
   return BY_NAME.get(key(name));
 }
