@@ -1,4 +1,4 @@
--- Migration 0035 (#458): how each ingredient name was matched goes through
+-- Migration 0036 (#458): how each ingredient name was matched goes through
 -- replace_product_with_ingredients. A caller that omits it keeps working, a
 -- value outside the four is refused, and the dictionary is left alone.
 
