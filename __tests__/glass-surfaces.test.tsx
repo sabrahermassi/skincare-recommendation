@@ -2,6 +2,7 @@ import { fireEvent, render, screen } from "@testing-library/react-native";
 import { Text } from "react-native";
 
 import { BottomSheet } from "@/components/BottomSheet";
+import { IconCircle } from "@/components/IconCircle";
 import { SegmentedSwitch } from "@/components/SegmentedSwitch";
 
 /**
@@ -12,7 +13,7 @@ import { SegmentedSwitch } from "@/components/SegmentedSwitch";
 
 jest.mock("@/components/Glass", () => {
   const { View } = jest.requireActual("react-native");
-  return { hasLiquidGlass: true, Glass: (props: object) => <View testID="glass" {...props} /> };
+  return { ...jest.requireActual("@/components/Glass"), hasLiquidGlass: true, Glass: (props: object) => <View testID="glass" {...props} /> };
 });
 jest.mock("react-native-safe-area-context", () => ({
   useSafeAreaInsets: () => ({ top: 0, bottom: 0, left: 0, right: 0 }),
@@ -26,6 +27,23 @@ it("makes a floating pop-up glass, with no white card under it", async () => {
   );
   expect(screen.getByTestId("glass")).toBeTruthy();
   expect(screen.getByTestId("sheet-card")).not.toHaveStyle({ backgroundColor: "#FFFFFF" });
+});
+
+it("keeps a pop-up's close button flat, and a button elsewhere glass", async () => {
+  const close = (
+    <IconCircle onPress={jest.fn()} accessibilityLabel="Close">
+      <Text>X</Text>
+    </IconCircle>
+  );
+  await render(
+    <BottomSheet visible onClose={jest.fn()} floating corner={close}>
+      <Text>Pop-up</Text>
+    </BottomSheet>,
+  );
+  // One glass: the pop-up's own.
+  expect(screen.getAllByTestId("glass")).toHaveLength(1);
+  await render(close);
+  expect(screen.getAllByTestId("glass")).toHaveLength(1);
 });
 
 it("keeps a reading sheet flat", async () => {
