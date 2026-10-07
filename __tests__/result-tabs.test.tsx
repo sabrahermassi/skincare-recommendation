@@ -56,6 +56,40 @@ async function show(names: string[], profile: SkinProfile) {
 const openMatch = () => fireEvent.press(screen.getByRole("tab", { name: "Skin match" }));
 const openIngredients = () => fireEvent.press(screen.getByRole("tab", { name: "Ingredients" }));
 
+// #470: the owner's sentence sits under the score, and takes the score's place where there is none.
+describe("the medical note on Skin match", () => {
+  const NOTE = "Not medical advice. Patch test new products. For a skin condition, see a dermatologist.";
+
+  it("shows under the score and verdict once the answers score, once", async () => {
+    await show(["niacinamide"], { ...EMPTY_PROFILE, baseSkinType: "dry" });
+    await openMatch();
+    expect(screen.getAllByText(NOTE)).toHaveLength(1);
+    expect(screen.getByLabelText(/How scoring works$/)).toBeTruthy();
+  });
+
+  it("shows with no skin profile, where there is no score", async () => {
+    await show(["niacinamide"], EMPTY_PROFILE);
+    await openMatch();
+    expect(screen.getAllByText(NOTE)).toHaveLength(1);
+    expect(screen.queryByLabelText(/How scoring works$/)).toBeNull();
+  });
+
+  it("shows when too little was read to score", async () => {
+    const ingredients = ["water", "mystery extract", "another unknown"].map((name, i) => ({ ...ingredient(name), verified: i === 0 }));
+    const profile = { ...EMPTY_PROFILE, baseSkinType: "dry" as const };
+    await render(<ResultTabs header={null} ingredients={ingredients} type="serum" match={matchProduct({ type: "serum", ingredients }, profile)} profile={profile} onIngredientPress={jest.fn()} />);
+    await act(async () => {});
+    expect(screen.getByText(/^We only recognised \d+ of \d+ names$/)).toBeTruthy();
+    expect(screen.getAllByText(NOTE)).toHaveLength(1);
+  });
+
+  it("is not on the Ingredients tab", async () => {
+    await show(["niacinamide"], { ...EMPTY_PROFILE, baseSkinType: "dry" });
+    await openIngredients();
+    expect(screen.queryByText(NOTE)).toBeNull();
+  });
+});
+
 // Owner, 2 October 2026: no sources on the result; they are on each ingredient's own sheet.
 it("gives a reason its box, with no source under it", async () => {
   await show(["niacinamide"], { ...EMPTY_PROFILE, concerns: ["hyperpigmentation"] });

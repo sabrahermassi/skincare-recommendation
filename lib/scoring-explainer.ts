@@ -88,5 +88,11 @@ export const SCORING_INTRO = "Your score shows how well a product fits your skin
 export const SCORING_SOURCES =
   "Every ingredient is checked against EU CosIng and published safety reviews. You'll find the sources on each ingredient's page.";
 
+/**
+ * The line under the score on Skin match, and in its place when there is no score (#470, the owner's
+ * exact sentence). The "How scoring works" sheet keeps its own disclaimer below.
+ */
+export const MEDICAL_NOTE = "Not medical advice. Patch test new products. For a skin condition, see a dermatologist.";
+
 export const SCORING_DISCLAIMER =
   "No ads, no brand deals, no paid placements. Not medical advice: for a skin condition, see a dermatologist.";

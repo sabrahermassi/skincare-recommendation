@@ -215,6 +215,17 @@ describe("the product screen's result tabs", () => {
 
   // #379 review (Codex): a new product id on the same screen starts on the
   // opening tab (Skin match, #382), not on the last product's tab.
+  // #470: a barcode result says it too, with a score and without one.
+  it("says it is not medical advice on Skin match, with a score and without one", async () => {
+    const NOTE = "Not medical advice. Patch test new products. For a skin condition, see a dermatologist.";
+    for (const profile of [EMPTY_PROFILE, { ...EMPTY_PROFILE, baseSkinType: "dry" as const }]) {
+      useAppStore.setState({ profile });
+      await open();
+      expect(screen.getAllByText(NOTE)).toHaveLength(1);
+      await act(async () => screen.unmount());
+    }
+  });
+
   it("goes back to Skin match when a different product opens on the same screen", async () => {
     await open();
     await fireEvent.press(screen.getByRole("tab", { name: "Ingredients" }));
