@@ -1,11 +1,12 @@
 import { useEffect } from "react";
-import { Pressable, View } from "react-native";
+import { Pressable, StyleSheet, View } from "react-native";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 
 import { ScreenReaderAnnouncer } from "@/components/ScreenReaderAnnouncer";
 import { Tick } from "@/components/skin-needs/bits";
 import { Text } from "@/components/Text";
-import { BUTTON, INK, MUTED_FAINT, SKIN_NEEDS, SPACE, SURFACE, WHITE, TYPE, RADIUS } from "@/lib/tokens";
+import { BUTTON, INK, MUTED_FAINT, SKIN_NEEDS, SPACE, SURFACE, WHITE, TYPE, RADIUS, GLASS_FROST } from "@/lib/tokens";
+import { Glass, hasLiquidGlass } from "@/components/Glass";
 
 /** About five seconds (hand-off); a new one starts the count again. */
 const TOAST_MS = 5000;
@@ -41,16 +42,16 @@ export function TopToast({ notice, onDone, top = 4 }: { notice: TopNotice | null
             zIndex: 5,
             minHeight: 56,
             borderRadius: RADIUS.panel,
-            backgroundColor: SURFACE,
+            ...(hasLiquidGlass ? null : { backgroundColor: SURFACE, ...SKIN_NEEDS.toastShadow }),
             paddingLeft: SPACE.block,
             paddingRight: notice.undo ? 12 : 20,
             paddingVertical: SPACE.text,
             flexDirection: "row",
             alignItems: "center",
             gap: SPACE.block,
-            ...SKIN_NEEDS.toastShadow,
           }}
         >
+          {hasLiquidGlass ? <Glass tint={GLASS_FROST} style={[StyleSheet.absoluteFill, { borderRadius: RADIUS.panel }]} /> : null}
           <View style={{ width: 32, height: 32, borderRadius: 16, backgroundColor: BUTTON.primary.fill, alignItems: "center", justifyContent: "center" }}>
             <Tick size={16} color={WHITE} weight={3.2} />
           </View>

@@ -289,6 +289,22 @@ const DIBORON_TRIOXIDE = /^(diboron trioxide|boric oxide)$/;
  * match, and `BORIC_ACID_CITATIONS` is what keeps it out: it never cited 1a or 1b.
  */
 const BORATE_SALT = /(^|[^a-z])(borate|tetraborate|octaborate|fructoborate|ascorbylborate|borax)([^a-z]|$)/;
+/**
+ * Annex II/1397, perborates and peroxoborates: added by Regulation (EU) 2019/831, which deleted
+ * Annex III entries 1a and 1b; Regulation (EU) 2026/78 merged 1398 and 1399 into it from 1 May
+ * 2026. No exception. Annex III/12 (hydrogen peroxide) excludes 1397 by name, so a perborate
+ * citing "III/1a III/12" cites two entries that no longer cover it. Checked on #434, 7 October 2026.
+ */
+const PERBORATE_NOTE = "Prohibited in cosmetics (EU Annex II/1397)";
+const PERBORATE = /(^|[^a-z])perborate([^a-z]|$)/;
+const PERBORATE_CITATIONS = new Set(["1a", "1b", "12"]);
+/**
+ * Boric acid salts or esters the taxonomy gives no citation at all, so nothing in their note
+ * says what they are. Each is named in CosIng as II/1396 and covered by that entry's class
+ * wording ("boric acid salts and esters, including:"); checked on #434, 7 October 2026. Listed
+ * by name, not caught by `BORATE_SALT`, so an uncited row is never banned on a guess.
+ */
+const UNCITED_BORATE_SALTS = new Set(["magnesium ascorbylborate"]);
 /** The Annex III citations an old boric-acid-class row carries: 1a, 1b, and the amine and zinc entries some also cite. */
 const BORIC_ACID_CITATIONS = new Set(["1a", "1b", "24", "61"]);
 
@@ -326,9 +342,13 @@ function renumberCitation(text) {
 
 /** The rating a stale citation corrects to, or null when this row is not one of the reviewed cases. */
 function staleCitationFix(canonical, text) {
+  if (!text && UNCITED_BORATE_SALTS.has(canonical)) return { safety: "avoid", note: BORATE_SALT_NOTE };
   if (!text || annexTwoEntries(text).length > 0) return null;
   const entries = annexThreeEntries(text);
   const only = (...wanted) => entries.length > 0 && entries.every((e) => wanted.includes(e));
+  if (PERBORATE.test(canonical) && entries.length > 0 && entries.every((e) => PERBORATE_CITATIONS.has(e))) {
+    return { safety: "avoid", note: PERBORATE_NOTE };
+  }
   if (only("83")) return { safety: "avoid", note: LILIAL_NOTE };
   if (only("7")) return { safety: "avoid", note: DICHLOROMETHANE_NOTE };
   if (entries.length > 0 && entries.every((e) => BORIC_ACID_CITATIONS.has(e)) && entries.some((e) => e === "1a" || e === "1b")) {
@@ -350,7 +370,7 @@ function staleCitationFix(canonical, text) {
  * (EU Annex III/88)" is also what an ordinary row citing entry 88 gets, so the note alone does
  * not say a correction happened (`isStaleRenumber` reads the row being replaced instead).
  */
-const STALE_FIX_NOTES = new Set([LILIAL_NOTE, DICHLOROMETHANE_NOTE, BORIC_ACID_NOTE, DIBORON_TRIOXIDE_NOTE, BORATE_SALT_NOTE]);
+const STALE_FIX_NOTES = new Set([LILIAL_NOTE, DICHLOROMETHANE_NOTE, BORIC_ACID_NOTE, DIBORON_TRIOXIDE_NOTE, BORATE_SALT_NOTE, PERBORATE_NOTE]);
 
 /**
  * True when `row` only renumbers the citation `current` already carries: same rating, and the
@@ -667,6 +687,8 @@ function invokedDirectly() {
 
 export {
   BORATE_SALT,
+  PERBORATE,
+  UNCITED_BORATE_SALTS,
   BORIC_ACID_CITATIONS,
   fetchTaxonomy,
   NATURAL_ESSENCE_SOURCE,
