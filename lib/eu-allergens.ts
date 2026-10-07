@@ -46,7 +46,7 @@ export const EU_ALLERGEN_SOURCE = {
   url: "https://eur-lex.europa.eu/eli/reg/2009/1223/oj",
   text: "Consolidated Regulation (EC) No 1223/2009, version 18.05.2026 (Publications Office, CELEX 02009R1223-20260518)",
   verified: "2026-10-07",
-  verifiedBy: "read off that text by script; the rule and the 2023/1545 additions were approved by the owner on #407 (6 October 2026)",
+  verifiedBy: "taken from the regulation text by Claude, approved by owner 6 Oct 2026 (#407); not checked name by name by the owner",
 } as const;
 
 type RawEntry = { entry: string; names: readonly string[] };
