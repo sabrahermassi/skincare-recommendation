@@ -254,11 +254,14 @@ describe("the hand-verified safety-notice entries", () => {
     1389: /dichloromethane/i,
   };
 
-  it("has a substance to check for every entry on the list", () => {
-    expect(Object.keys(SUBSTANCE).map(Number).sort()).toEqual(SAFETY_NOTICE_ENTRIES.map((e) => e.entry).sort());
+  // Entries still waiting for the owner's check have no regulation or date to compare yet.
+  const VERIFIED = SAFETY_NOTICE_ENTRIES.filter((e) => e.verified !== null);
+
+  it("has a substance to check for every verified entry on the list", () => {
+    expect(Object.keys(SUBSTANCE).map(Number).sort()).toEqual(VERIFIED.map((e) => e.entry).sort());
   });
 
-  for (const verified of SAFETY_NOTICE_ENTRIES) {
+  for (const verified of VERIFIED) {
     it(`parses entry ${verified.entry} (${verified.ingredient}) to the same substance and amending act`, () => {
       const found = entry("II", String(verified.entry));
       expect(found.status).toBe("active");
