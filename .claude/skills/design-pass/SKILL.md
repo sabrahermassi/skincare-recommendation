@@ -1,15 +1,21 @@
 ---
 name: design-pass
-description: Run the whole Impeccable design loop on the app in one go — critique and audit, fix (typeset, layout, distill, quieter, delight, animate, polish), then critique and audit again — checking every screen in the iOS Simulator, and open one pull request. Never stops midway: it fixes what it can and lists everything that needs the owner at the end. Use when the user says "/design-pass", "run the design pass", or "run all the impeccable steps".
+description: Run the whole Impeccable design loop on the app in one go — critique and audit, fix (typeset, layout, distill, quieter, delight, animate, polish), then critique and audit again — checking every screen in the iOS Simulator, and open one pull request. Once it has started it never stops midway: it fixes what it can and lists everything that needs the owner at the end. It refuses to start only when it cannot do the work at all (no Impeccable plugin, no real backend, or an earlier design-pass PR still open). Use when the user says "/design-pass", "run the design pass", or "run all the impeccable steps".
 ---
 
 # Design pass
 
 The owner used to run each Impeccable command by hand, read its report,
 approve the fixes, and repeat. This skill runs the same commands in a fixed
-order and does the approving itself. **It never stops midway.** Where a real
-decision is needed it leaves that one thing undone, writes it down, and keeps
-going; everything left for the owner is handed over once, at the end.
+order and does the approving itself. **Once step 1 has begun it never stops
+midway.** Where a real decision is needed it leaves that one thing undone,
+writes it down, and keeps going; everything left for the owner is handed over
+once, at the end.
+
+It can refuse to *start*, and only for these three, all checked before step 1:
+the Impeccable plugin isn't installed; the dev server shows only the sample
+products (no real backend, so the screenshots would be of the wrong app); an
+earlier design-pass PR is still open. Say which, and end there.
 
 **Never merge. Never write to production. Never force-push, rebase or delete
 a branch.** Read `CLAUDE.md` and `DESIGN.md` once at the start: `DESIGN.md`
@@ -43,14 +49,14 @@ ends only after step 11.
 11. `/impeccable audit`
 
 Invoke each with the Skill tool (`impeccable:impeccable`, args = the command
-word). If the Impeccable plugin isn't installed, stop and say so.
+word). If the Impeccable plugin isn't installed, don't start (see the top).
 
 ## Before step 1
 
 - Work in a new git worktree on a new branch from current `origin/main`
   (`task/design-pass-<date>`). Other sessions may be running; never work in
   their checkout.
-- If an earlier design-pass PR is still open, this is the one reason not to
+- If an earlier design-pass PR is still open, this is a reason not to
   start: tell the owner which PR and end there. One run at a time, merged
   before the next; stacking ten small PRs is what made merging slow.
 - Start this branch's own dev server on a free port with a cleared cache, and
@@ -84,6 +90,17 @@ word). If the Impeccable plugin isn't installed, stop and say so.
   `lib/tokens.ts` (and `tailwind.config.js` where mirrored) with its contrast
   computed, never a bare number. If no token fits, that is a decision.
 - **Update `DESIGN.md` in the same commit** as the change it describes.
+- **Steps 7 and 8 (delight, animate) may add motion, not only repair it**
+  (owner, 7 October 2026: the app felt static, and she asked for it). The
+  limits: at most one authored moment a screen, tied to what that screen is
+  for (cards being dealt, a letter leaving its envelope), never the same
+  entrance on every section; a ritual plays in full the first time and
+  quickly after that; nothing moves with Reduce Motion on; durations and
+  distances are named constants beside the component. **Each new moment is
+  its own commit**, so the owner can drop one without losing the rest, and
+  each is listed in the PR under "New motion: keep or drop" with the screen
+  it is on. Fixing motion that is already there (a missing Reduce Motion
+  path, a janky transition) needs no listing.
 - **Steps 10 and 11 are the proof.** If they find something new that needs no
   decision, fix it and say so. Don't start the loop a second time.
 
@@ -103,8 +120,6 @@ what you'd pick and why, so one word answers it) only:
 - new or changed copy that makes a claim about skin, safety or an ingredient
   (it goes through the claims audit), and any change to the app's name or
   voice
-- a new animation or "delight" moment on a screen that has none: propose it
-  with a screenshot of where it would go, don't ship it unasked
 - a value in `DESIGN.md` marked as the owner's decision
 - anything touching scoring, the database, accounts or the scanner's logic
 
@@ -124,6 +139,8 @@ rest of that step.
    - **Checked in the simulator:** which screens, which device
    - **Not checked:** honestly (a real phone, largest text, a state you
      couldn't reach)
+   - **New motion: keep or drop:** each moment steps 7 and 8 added, its
+     screen and its commit
    - **Decisions for you:** each open question with your recommendation
 3. Stop the dev server and the simulator you started.
 4. Tell the owner the PR number and the full list of what is left for them,
