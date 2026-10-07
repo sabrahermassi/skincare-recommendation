@@ -20,6 +20,7 @@ import { track } from "@/lib/analytics";
 import { CAMERA_STAGE, CANVAS, INK, SELECTED, SPACE, TOUCH_TARGET, TYPE, withAlpha } from "@/lib/tokens";
 import { useAppStore } from "@/store/useAppStore";
 import { haptic } from "@/lib/haptics";
+import { reduceMotionNow } from "@/lib/reduce-motion";
 
 // The design system (DESIGN.md). The live camera view stays plain
 // black, same reasoning as the scanner's own dark stage — only the
@@ -516,7 +517,7 @@ function FadeIn({ style, children }: { style?: ViewStyle; children: ReactNode })
   useEffect(() => {
     Animated.timing(opacity, {
       toValue: 1,
-      duration: 260,
+      duration: reduceMotionNow() ? 0 : 260,
       easing: Easing.out(Easing.cubic),
       useNativeDriver: Platform.OS !== "web",
     }).start();
