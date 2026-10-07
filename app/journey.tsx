@@ -1,7 +1,25 @@
 import { Image } from "expo-image";
 import { router } from "expo-router";
-import { useRef, useState } from "react";
-import { Animated, Pressable, ScrollView, View, useWindowDimensions } from "react-native";
+import { useState } from "react";
+import { Animated, Pressable, View, useWindowDimensions, type ViewStyle } from "react-native";
+import Reanimated, {
+  Extrapolation,
+  FadeInRight,
+  ReduceMotion,
+  interpolate,
+  interpolateColor,
+  runOnJS,
+  useAnimatedReaction,
+  useAnimatedRef,
+  useAnimatedStyle,
+  useScrollViewOffset,
+  useSharedValue,
+  withSequence,
+  withSpring,
+  withTiming,
+  type AnimatedStyle,
+  type SharedValue,
+} from "react-native-reanimated";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 import Svg, { Circle, Defs, LinearGradient, Path, Rect, Stop } from "react-native-svg";
 
@@ -28,6 +46,26 @@ const CARD_WIDTH = 292;
 const CARD_HEIGHT = 470;
 const CARD_GAP = 12;
 const CARD_SIDE = 24;
+
+// The deck's motion (7 October 2026). The card in front is full size; the ones
+// beside it sit a little back and lower, and each picture drifts inside its
+// card as the deck moves, so the cards read as things with depth. Arriving,
+// they are dealt in from the right, one after another. With Reduce Motion on
+// none of this moves: the deck is the plain scroller it was.
+const DECK = {
+  /** A neighbour's size beside the card in front. */
+  backScale: 0.94,
+  /** How far a neighbour sits below the card in front. */
+  backDrop: 8,
+  /** How far a picture drifts inside its card across one card of travel. */
+  drift: 16,
+  /** The deal: each card's time, and the wait between cards. */
+  dealMs: 480,
+  dealGapMs: 70,
+  dealFrom: 44,
+} as const;
+/** The current-option dash, and a dot. */
+const DOT = { on: 18, off: 6 } as const;
 /** The goals shown before "more". */
 const FIRST_GOALS = 6;
 
@@ -293,7 +331,10 @@ function Options({ answers, onBack, onNotPregnant }: { answers: NeedAnswers; onB
   // Added from a story, or held by a product of their own in the routine: the same test as the story's last card (7f).
   const inRoutine = (active: StoryActive) => routineActives.some((entry) => entry.active === active.key) || [...own.found.values()].some((product) => holdsActive(product.ingredients, active));
   const [current, setCurrent] = useState(0);
-  const scroller = useRef<ScrollView>(null);
+  const scroller = useAnimatedRef<Reanimated.ScrollView>();
+  // How far the deck has moved, read on the UI thread so the cards follow the finger exactly.
+  const scrollX = useScrollViewOffset(scroller);
+  const [still] = useState(reduceMotionNow);
   const stride = Math.min(CARD_WIDTH, width - 2 * CARD_SIDE - 40) + CARD_GAP;
   const cardWidth = stride - CARD_GAP;
 
@@ -303,6 +344,14 @@ function Options({ answers, onBack, onNotPregnant }: { answers: NeedAnswers; onB
   const sensitivity = SENSITIVITY_OPTIONS.find((o) => o.value === answers.sensitivity)?.chip ?? "Sensitivity: skipped";
   const pregnancy = PREGNANCY_OPTIONS.find((o) => o.value === answers.pregnancy)?.chip ?? "Pregnancy: skipped";
   const left = count - current - 1;
+  // Which option is in front, for the "swipe for N more" line and the screen reader.
+  useAnimatedReaction(
+    () => Math.max(0, Math.min(count - 1, Math.round(scrollX.value / stride))),
+    (now, before) => {
+      if (now !== before) runOnJS(setCurrent)(now);
+    },
+    [count, stride],
+  );
   const open = (active: StoryActive) => router.push({ pathname: "/journey-story", params: { active: active.key, answers: encodeAnswers(answers) } });
 
   return (
@@ -346,7 +395,7 @@ function Options({ answers, onBack, onNotPregnant }: { answers: NeedAnswers; onB
           ) : null}
         </View>
 
-        <ScrollView
+        <Reanimated.ScrollView
           ref={scroller}
           horizontal
           showsHorizontalScrollIndicator={false}
@@ -357,12 +406,13 @@ function Options({ answers, onBack, onNotPregnant }: { answers: NeedAnswers; onB
           style={{ marginTop: SPACE.gutter }}
           contentContainerStyle={{ paddingLeft: CARD_SIDE, paddingRight: CARD_SIDE, paddingVertical: SPACE.block, gap: CARD_GAP }}
           scrollEventThrottle={16}
-          onScroll={(event) => setCurrent(Math.max(0, Math.min(count - 1, Math.round(event.nativeEvent.contentOffset.x / stride))))}
         >
           {actives.map((active, index) => (
-            <FamilyCard key={active.key} active={active} width={cardWidth} best={index === 0} safe={safeOnly(answers)} inRoutine={inRoutine(active)} onOpen={() => open(active)} />
+            <DeckCard key={active.key} index={index} stride={stride} scrollX={scrollX} still={still}>
+              {(drift) => <FamilyCard active={active} width={cardWidth} best={index === 0} safe={safeOnly(answers)} inRoutine={inRoutine(active)} drift={drift} onOpen={() => open(active)} />}
+            </DeckCard>
           ))}
-        </ScrollView>
+        </Reanimated.ScrollView>
 
         <View style={{ paddingTop: SPACE.gutter, paddingHorizontal: SPACE.section, minHeight: 44, flexDirection: "row", alignItems: "center", justifyContent: "space-between" }}>
           <View style={{ flexDirection: "row", gap: SPACE.text, alignItems: "center" }}>
@@ -375,7 +425,7 @@ function Options({ answers, onBack, onNotPregnant }: { answers: NeedAnswers; onB
                 accessibilityState={{ selected: index === current }}
                 hitSlop={{ top: 19, bottom: 19, left: 4, right: 4 }}
               >
-                <View style={{ width: index === current ? 18 : 6, height: 6, borderRadius: 3, backgroundColor: index === current ? INK : SKIN_NEEDS.dotOff }} />
+                <DeckDot index={index} stride={stride} scrollX={scrollX} />
               </Pressable>
             ))}
           </View>
@@ -399,17 +449,62 @@ function Options({ answers, onBack, onNotPregnant }: { answers: NeedAnswers; onB
 }
 
 /**
+ * A card's place in the deck: dealt in from the right when the options arrive,
+ * then full size in front and a little back and lower beside it. It hands its
+ * card the picture's drift. Still, with Reduce Motion on.
+ */
+function DeckCard({ index, stride, scrollX, still, children }: { index: number; stride: number; scrollX: SharedValue<number>; still: boolean; children: (drift: AnimatedStyle<ViewStyle>) => React.ReactNode }) {
+  const around = [(index - 1) * stride, index * stride, (index + 1) * stride];
+  const place = useAnimatedStyle(() => {
+    if (still) return {};
+    return {
+      transform: [
+        { translateY: interpolate(scrollX.value, around, [DECK.backDrop, 0, DECK.backDrop], Extrapolation.CLAMP) },
+        { scale: interpolate(scrollX.value, around, [DECK.backScale, 1, DECK.backScale], Extrapolation.CLAMP) },
+      ],
+    };
+  });
+  const drift = useAnimatedStyle(() => {
+    if (still) return {};
+    return { transform: [{ translateX: interpolate(scrollX.value, around, [-DECK.drift, 0, DECK.drift], Extrapolation.CLAMP) }] };
+  });
+  return (
+    <Reanimated.View
+      entering={FadeInRight.delay(index * DECK.dealGapMs)
+        .duration(DECK.dealMs)
+        .withInitialValues({ opacity: 0, transform: [{ translateX: DECK.dealFrom }] })
+        .reduceMotion(ReduceMotion.System)}
+    >
+      <Reanimated.View style={place}>{children(drift)}</Reanimated.View>
+    </Reanimated.View>
+  );
+}
+
+/** One option's mark under the deck: a dot that stretches into the dash as its card comes to the front. */
+function DeckDot({ index, stride, scrollX }: { index: number; stride: number; scrollX: SharedValue<number> }) {
+  const around = [(index - 1) * stride, index * stride, (index + 1) * stride];
+  const mark = useAnimatedStyle(() => ({
+    width: interpolate(scrollX.value, around, [DOT.off, DOT.on, DOT.off], Extrapolation.CLAMP),
+    backgroundColor: interpolateColor(scrollX.value, around, [SKIN_NEEDS.dotOff, INK, SKIN_NEEDS.dotOff]),
+  }));
+  return <Reanimated.View style={[{ height: 6, borderRadius: 3 }, mark]} />;
+}
+
+/**
  * One option (hand-off): the family's tint and picture, "Best first pick" on
  * the first (or "In your routine" once added), a star that saves the
  * ingredient to Saved › Ingredients, the name, the line, and how long its
  * story is. Tapping it opens the story.
  */
-function FamilyCard({ active, width, best, safe, inRoutine, onOpen }: { active: StoryActive; width: number; best: boolean; /** Only the safe ones are showing: each says so (hand-off 1p). */ safe: boolean; inRoutine: boolean; onOpen: () => void }) {
+function FamilyCard({ active, width, best, safe, inRoutine, drift, onOpen }: { active: StoryActive; width: number; best: boolean; /** Only the safe ones are showing: each says so (hand-off 1p). */ safe: boolean; inRoutine: boolean; /** The picture's drift as the deck moves (`DeckCard`). */ drift?: AnimatedStyle<ViewStyle>; onOpen: () => void }) {
   const line = safe ? `${active.story.line} Safe while pregnant or breastfeeding.` : active.story.line;
   const family = familyOf(active);
   const saved = useAppStore((s) => s.savedIngredients.includes(active.save));
   const toggleSaved = useAppStore((s) => s.toggleSavedIngredient);
   const cards = storyLength(active);
+  // The star answers a tap: it swells and settles (it only changes colour with Reduce Motion on).
+  const pop = useSharedValue(1);
+  const starPop = useAnimatedStyle(() => ({ transform: [{ scale: pop.get() }] }));
   return (
     <Pressable
       onPress={onOpen}
@@ -420,7 +515,9 @@ function FamilyCard({ active, width, best, safe, inRoutine, onOpen }: { active: 
       className="active:opacity-95"
     >
       <View style={{ height: 236 }}>
-        <Image source={family.picture} contentFit="contain" accessibilityLabel="" style={{ position: "absolute", top: 14, alignSelf: "center", width: 230, height: 222 }} />
+        <Reanimated.View pointerEvents="none" style={[{ position: "absolute", top: 14, alignSelf: "center", width: 230, height: 222 }, drift]}>
+          <Image source={family.picture} contentFit="contain" accessibilityLabel="" style={{ width: 230, height: 222 }} />
+        </Reanimated.View>
         {inRoutine ? (
           <View style={{ position: "absolute", top: 16, left: 16, height: 28, paddingHorizontal: SPACE.block, borderRadius: RADIUS.control, backgroundColor: BUTTON.primary.fill, flexDirection: "row", alignItems: "center", gap: SPACE.text }}>
             <Tick size={12} color={WHITE} />
@@ -435,6 +532,7 @@ function FamilyCard({ active, width, best, safe, inRoutine, onOpen }: { active: 
           onPress={() => {
             haptic.select();
             toggleSaved(active.save);
+            if (!reduceMotionNow()) pop.set(withSequence(withTiming(1.28, { duration: 110 }), withSpring(1, { mass: 0.5, stiffness: 320, damping: 14 })));
           }}
           accessibilityRole="button"
           accessibilityLabel={saved ? `Remove ${active.name} from saved ingredients` : `Save ${active.name} to your ingredients`}
@@ -443,7 +541,9 @@ function FamilyCard({ active, width, best, safe, inRoutine, onOpen }: { active: 
           style={{ position: "absolute", top: 16, right: 16, width: 40, height: 40, borderRadius: RADIUS.card, backgroundColor: SURFACE, alignItems: "center", justifyContent: "center", ...ICON_SHADOW }}
           className="active:opacity-80"
         >
-          <StarIcon filled={saved} color={saved ? STAR_ON : INK} />
+          <Reanimated.View style={starPop}>
+            <StarIcon filled={saved} color={saved ? STAR_ON : INK} />
+          </Reanimated.View>
         </Pressable>
       </View>
       <View style={{ flex: 1, paddingTop: SPACE.gutter, paddingHorizontal: SPACE.section, paddingBottom: SPACE.section, gap: SPACE.tight }}>

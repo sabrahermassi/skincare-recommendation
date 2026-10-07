@@ -357,8 +357,9 @@ the scanner, How scoring works and the ingredient sheet slide up.
 - **Home**: "Hi there!" in Kalam bold 34; the top card is Start your routine
   until there is one, then today's routine (`RoutineCard`, 212pt, `RADIUS.panel`);
   an Explore group label (`SectionLabel`) over two tiles in one tint (Scan Any
-  Product, Find Your Actives); the skincare tip as an envelope, its title a
-  step below the routine card's, that opens into a note. While the routine builds,
+  Product, Find Your Actives); the skincare tip as an envelope with its letter
+  in it, its title a step below the routine card's. The letter is the note: it
+  leaves the envelope and the tip is written on it (no card). While the routine builds,
   `HomeSkeleton` shows grey shapes in the same room.
 - **Product result** (`app/product/[id]`, `components/result/ResultTabs`): the
   header (bottle, brand 15 `MUTED_FAINT`, name 17 semibold, type 13 `MUTED`) and
@@ -399,6 +400,19 @@ the scanner, How scoring works and the ingredient sheet slide up.
 - Sheets rise on a cubic ease and the segmented thumb springs. Everything
   checks Reduce Motion (`lib/reduce-motion.ts`): with it on, things just appear
   (no slide, zero-length animations).
+- **The intro's pictures pass each other** (`components/shell/OnboardingShell.tsx`):
+  the one leaving drifts off, shrinks and fades as the next drifts in from the
+  other side, both on screen together; the words slide and land first. Skip,
+  the dots and the button never move.
+- **The tip's opening** (`components/home/SkincareTip.tsx`) is Home's one
+  authored moment. The envelope comes from its place on Home to the middle; the
+  letter starts out of the pocket halfway there, is clear of it as the envelope
+  arrives, and grows into the page while the envelope goes. One even ease for
+  both, and the envelope is never still. Slow the first time a tip is opened
+  (`PACE.ritual`, the tip then written across the page), quick on "Read again".
+  The picture is in layers for this (`tip-envelope-open`, `tip-letter`,
+  `tip-envelope-front`, and `tip-letter-open` for the page); `tip-envelope` is
+  the three put together, and a new drawing needs all of them redone.
 - Tap targets follow `TOUCH_TARGET` (44). One known exception: `ReferenceLink`
   is 36pt tall. Icon buttons carry a spoken label.
 - Contrast ratios are noted beside tokens in `lib/tokens.ts`. Nothing computed is

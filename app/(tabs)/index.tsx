@@ -8,7 +8,7 @@ import { BounceCard } from "@/components/BounceCard";
 import { FitScrollView } from "@/components/FitScrollView";
 import { HomeSkeleton } from "@/components/home/HomeSkeleton";
 import { StartRoutineCard, TodayRoutineCard } from "@/components/home/RoutineCard";
-import { TipEnvelope, TipNote } from "@/components/home/SkincareTip";
+import { TipEnvelope, TipNote, type TipOrigin } from "@/components/home/SkincareTip";
 import { SectionLabel } from "@/components/SectionLabel";
 import { Text } from "@/components/Text";
 import { EVENING_FROM_HOUR, timeOfDay, tipFor, todayIn } from "@/lib/home-today";
@@ -77,6 +77,9 @@ export default function Home() {
   const read = useAppStore((s) => s.tipRead) === tip.id;
   const setTipRead = useAppStore((s) => s.setTipRead);
   const [tipOpen, setTipOpen] = useState(false);
+  const [tipOrigin, setTipOrigin] = useState<TipOrigin | null>(null);
+  // Unread when tapped: it opens slowly, once.
+  const [tipFirst, setTipFirst] = useState(false);
 
   const openRoutine = () => router.push("/routine");
   return (
@@ -109,14 +112,17 @@ export default function Home() {
           <TipEnvelope
             tip={tip}
             read={read}
-            onOpen={() => {
+            open={tipOpen}
+            onOpen={(origin) => {
+              setTipFirst(!read);
               setTipRead(tip.id);
+              setTipOrigin(origin);
               setTipOpen(true);
             }}
           />
         )}
       </FitScrollView>
-      {pending ? null : <TipNote tip={tip} visible={tipOpen} onClose={() => setTipOpen(false)} />}
+      {pending ? null : <TipNote tip={tip} visible={tipOpen} origin={tipOrigin} first={tipFirst} onClose={() => setTipOpen(false)} />}
     </View>
   );
 }
