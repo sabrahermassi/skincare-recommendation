@@ -492,17 +492,20 @@ const GROUP_LABEL = { green: "Working for you", orange: "Worth watching" } as co
 /**
  * The reason boxes, grouped by colour (the squint test: what works, then what to
  * watch, instead of one run of equal boxes). Boxes in a group sit close (8pt) and
- * the groups are a section apart, each opened by a small label once there are
+ * the groups are a section apart (a label's own top padding when it has one,
+ * the group's own margin when not), each opened by a small label once there are
  * both greens and oranges. The first box of the first group leads: set a size
  * larger than the rest.
  */
 function ReasonGroups({ rows, order, colourOf }: { rows: Reason[]; order: ("red" | "green" | "orange")[]; colourOf: (row: Reason) => "red" | "green" | "orange" }) {
   const groups = order.map((colour) => ({ colour, rows: rows.filter((row) => colourOf(row) === colour) })).filter((group) => group.rows.length > 0);
   const labelled = groups.some((g) => g.colour === "green") && groups.some((g) => g.colour === "orange");
+  // A label brings its own section of space above it; a group without one has to bring that space itself.
+  const hasLabel = (colour: "red" | "green" | "orange") => labelled && colour !== "red";
   return (
-    <View style={{ marginTop: labelled ? 0 : SPACE.gutter, gap: labelled ? 0 : SPACE.text }}>
+    <View testID="reason-groups" style={{ marginTop: groups[0] && hasLabel(groups[0].colour) ? 0 : SPACE.gutter }}>
       {groups.map((group, groupIndex) => (
-        <View key={group.colour} style={{ gap: SPACE.text }}>
+        <View key={group.colour} style={{ gap: SPACE.text, marginTop: groupIndex > 0 && !hasLabel(group.colour) ? SPACE.section : 0 }}>
           {labelled && group.colour !== "red" ? <SectionLabel title={GROUP_LABEL[group.colour]} /> : null}
           {group.rows.map((row, rowIndex) => (
             <ReasonBox key={row.key} row={row} lead={groupIndex === 0 && rowIndex === 0} />
