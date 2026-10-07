@@ -12,7 +12,8 @@
   "isohexadecane",
   "sodium hyaluronate",
   "panthenol",
-  "tocopherol"
+  "tocopherol",
+  "acrylamide/sodium acryloyldimethyltaurate copolymer"
  ],
  "aliases": [
   [
@@ -367,6 +368,58 @@
     },
     {
      "inci_name": "parfum",
+     "position": 3,
+     "match": "exact"
+    }
+   ]
+  },
+  {
+   "name": "a name the parser joined stays rebuilt when the same name is also printed intact",
+   "text": "Aqua, Glycerin, Acrylamide/Sodium Acryloyldimethyltaurate, Copolymer, Niacinamide, Acrylamide/Sodium Acryloyldimethyltaurate Copolymer",
+   "expected": [
+    {
+     "inci_name": "aqua",
+     "position": 0,
+     "match": "exact"
+    },
+    {
+     "inci_name": "glycerin",
+     "position": 1,
+     "match": "exact"
+    },
+    {
+     "inci_name": "acrylamide/sodium acryloyldimethyltaurate copolymer",
+     "position": 2,
+     "match": "rebuilt"
+    },
+    {
+     "inci_name": "niacinamide",
+     "position": 3,
+     "match": "exact"
+    }
+   ]
+  },
+  {
+   "name": "a name the parser joined is rebuilt",
+   "text": "Aqua, Glycerin, Acrylamide/Sodium Acryloyldimethyltaurate, Copolymer, Niacinamide",
+   "expected": [
+    {
+     "inci_name": "aqua",
+     "position": 0,
+     "match": "exact"
+    },
+    {
+     "inci_name": "glycerin",
+     "position": 1,
+     "match": "exact"
+    },
+    {
+     "inci_name": "acrylamide/sodium acryloyldimethyltaurate copolymer",
+     "position": 2,
+     "match": "rebuilt"
+    },
+    {
+     "inci_name": "niacinamide",
      "position": 3,
      "match": "exact"
     }

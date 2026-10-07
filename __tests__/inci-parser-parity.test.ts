@@ -57,6 +57,7 @@ const SHARED_FUNCTIONS = [
   "dedupe",
   "lowerMatch",
   "matchOf",
+  "mendedFlags",
 ];
 
 /**
@@ -252,6 +253,7 @@ describe("the import scripts stay in step with lib/inci.ts", () => {
     "dedupe",
     "lowerMatch",
     "matchOf",
+    "mendedFlags",
   ])("inci-parse.mjs has the canonical %s()", (fn: string) => {
     expect(extractFunctionBody(parseMjs, fn)).toBe(stripTypes(extractFunctionBody(client, fn)));
   });

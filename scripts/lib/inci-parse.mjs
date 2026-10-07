@@ -618,8 +618,9 @@ export function parseInci(text, dictionary, rejected, aliases) {
     .map(normalise)
     .filter((p) => p.length > 1 && p.length < 120 && /[a-z]|\p{Script=Hangul}|\p{Script=Hiragana}|\p{Script=Katakana}|\p{Script=Han}/u.test(p));
   const joined = dictionary ? rejoinSplitNames(tokens, dictionary, aliases) : tokens;
+  const mended = mendedFlags(tokens, joined);
   const delimited = joined
-    .flatMap((name) => {
+    .flatMap((name, at) => {
       const named = (names, match) => names.map((inci_name) => ({ inci_name, match }));
       if (!dictionary) {
         // Without a dictionary a long real name cannot be recognised as known, so it is
@@ -630,7 +631,7 @@ export function parseInci(text, dictionary, rejected, aliases) {
       }
       const known = resolveKnownName(aliases?.get(name) ?? name, dictionary, aliases);
       // A name the comma-mender joined is a boundary the parser chose, not one the label printed.
-      if (dictionary.has(known)) return named([known], tokens.includes(name) ? matchOf(name, known, dictionary, aliases) : "rebuilt");
+      if (dictionary.has(known)) return named([known], mended[at] ? "rebuilt" : matchOf(name, known, dictionary, aliases));
       // Each part of an "&" or "/" list keeps its own value: the label printed the join.
       const parts = known.split(/ & |\//).map(normalise);
       const blend = splitBlend(known, dictionary, aliases);
@@ -696,4 +697,20 @@ function matchOf(printed, known, dictionary, aliases) {
   if (aliases?.get(printed) === known || commonNameFor(printed) === known) return "alias";
   const spellings = squashIndex(dictionary).get(squashKey(known));
   return squashKey(printed) === squashKey(known) && (spellings?.length ?? 0) > 1 ? "corrected" : "alias";
+}
+
+/**
+ * Which names `rejoinSplitNames` joined, by position in its answer: a joined name is a boundary the
+ * parser chose, not one the label printed. Read from the two lists rather than from the names, so a
+ * name that is also printed intact elsewhere keeps its own history.
+ */
+function mendedFlags(tokens, joined) {
+  const flags = [];
+  let at = 0;
+  for (const name of joined) {
+    const intact = tokens[at] === name;
+    flags.push(!intact);
+    at += intact ? 1 : 2;
+  }
+  return flags;
 }
