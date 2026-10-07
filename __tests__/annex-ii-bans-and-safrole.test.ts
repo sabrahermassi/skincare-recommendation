@@ -130,7 +130,7 @@ describe("through the whole import", () => {
 
 describe("the migration says what the import says", () => {
   it("gives a database that ran the shorter safrole note the full one", () => {
-    const catchUp = readFileSync(join(__dirname, "..", "supabase", "migrations", "0036_safrole_note_childrens_toothpaste.sql"), "utf8");
+    const catchUp = readFileSync(join(__dirname, "..", "supabase", "migrations", "0037_safrole_note_childrens_toothpaste.sql"), "utf8");
     expect(SAFROLE_NOTE).toContain("none in toothpaste made for children");
     expect(catchUp).toContain(`note = '${SAFROLE_NOTE}'`);
     expect(catchUp).toContain(`and note = '${SAFROLE_NOTE.replace("; none in toothpaste made for children", "")}'`);

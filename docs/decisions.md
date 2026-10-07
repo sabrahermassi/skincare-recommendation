@@ -652,7 +652,7 @@ migration 0035 and in the import, each also listed that way in CosIng:
   sassafras essences that cite it. Same treatment as the furocoumarin entry
   (358): `safe`, with a note that says what the entry limits, all three
   conditions: 100 ppm, 50 ppm in dental and oral hygiene products, and none
-  in toothpaste made for children. Migration 0036 adds the third to rows
+  in toothpaste made for children. Migration 0037 adds the third to rows
   0035 had already written on staging.
 
 **Left alone, on purpose.** Benzophenone (II/1703), pentasodium pentetate
