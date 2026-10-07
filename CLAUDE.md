@@ -239,14 +239,45 @@ with confidence tiers, owns acne fit).
   at 1 but discount benefit to 0.5 (0.25 for `unknown`), since each spans
   both a rinse-off and leave-on product. Reasoning in `docs/decisions.md`.
 - **For "very sensitive" only, a product's main fragrance ingredient
-  (the heaviest rule: parfum/fragrance, then essential oils, then allergens)
-  keeps at least 0.7 of its weight wherever it sits** — once per product, not
+  (the heaviest rule: parfum/fragrance, then essential oils, then allergens;
+  or, when no fragrance rule is in the formula, an EU fragrance allergen no rule
+  names) keeps at least 0.7 of its weight wherever it sits** — once per product, not
   per allergen (`FRAGRANCE_POSITION_FLOOR_HIGH`, #363). The position discount
   otherwise left "very" barely different from "somewhat". No other irritant,
   level or weight is affected.
 - `hazard` warnings cap the score at 45 and subtract 5 per additional
   hazard. `irritant` warnings go through the graduated irritation penalty
   instead — **do not merge these two tiers.**
+- **EU "restricted" (Annex III) never adds an irritation charge by itself
+  (#407).** It means *allowed with conditions* (a maximum amount, a product
+  type, a label warning) and applies to everyone; the regulation has no
+  skin-type rule. For reactive and unset sensitivity (same scaling as every
+  other irritant, including the "very sensitive" fragrance floor, #363), an
+  Annex III ingredient is charged only when it is **(a)** an EU fragrance
+  allergen — an entry whose wording requires it on the ingredient list above
+  0.001% leave-on or 0.01% rinse-off (entries 45 and 67-92, a dozen more, and
+  the 45 added by Regulation (EU) 2023/1545) — or **(b)** an entry whose
+  required warning mentions an allergic reaction or sensitisation (almost all
+  hair dye). Every other restricted ingredient is charged nothing for being
+  restricted; a named rule in `lib/rules.ts` still charges it by its own
+  weight. Both lists live in one code constant, `lib/eu-allergens.ts` (INCI
+  name, Annex III entry, regulation, source URL, verified date), each name read
+  from the consolidated text and never added from memory or from a dictionary
+  note. **Benzyl alcohol (entry 45) is in the constant but exempt**: the entry
+  covers it only when it is not a preservative, which a label cannot show. An
+  ingredient that is both an allergen and a `category: "fragrance"` rule is
+  charged **once, at the higher of the two** (`ALLERGEN_CHARGE` against the
+  rule's weight). One predicate, `euAllergenFor` in `lib/safety.ts`, drives the
+  charge, the warning, the list label and the risk count, so they cannot
+  drift. Wording: "{Name} is a known fragrance allergen. The EU requires it on
+  labels so sensitive people can avoid it." and "{Name} can cause allergic
+  reactions; the EU requires a warning on the label." (`EU_ALLERGEN_COPY`);
+  "Common irritant for sensitive skin" is never used for a restricted-only
+  ingredient. The ingredient sheet says "Allowed with limits" (with the label
+  duty or the Annex III entry number), never "Restricted". Irritant rules
+  came with it: hydrogen peroxide and benzalkonium chloride (`irritants`),
+  and pine, fir and cypress oils (the essential-oil rule). Stearalkonium and
+  steartrimonium chloride were left out: no source supports them.
 - Import `COMEDOGENIC_FLAG_THRESHOLD` (3) from `lib/safety.ts` — never
   re-inline a comedogenic check. There is no comedogenic *hazard*: the 0-5
   column is empty for catalogue rows, so pore-clogging is warned about and

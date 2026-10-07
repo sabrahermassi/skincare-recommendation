@@ -1,8 +1,9 @@
-import type { ProductWithIngredients } from "@/data/types";
+import type { Ingredient, ProductWithIngredients } from "@/data/types";
 import { isCommonIrritant } from "@/lib/ingredient-labels";
 import { isLowCoverage, type MatchResult } from "@/lib/matching";
 import { poreVerdict, type CloggerHit } from "@/lib/pore-clogging";
-import { irritationWarnings, isVerified } from "@/lib/safety";
+import { EU_ALLERGEN_COPY } from "@/lib/eu-allergens";
+import { euAllergenFor, irritationWarnings, isVerified } from "@/lib/safety";
 
 /**
  * The two risks people actually ask about — irritation and pore clogging —
@@ -21,7 +22,7 @@ export type Risk = { level: string; note: string; tone: "good" | "watch" | "avoi
  * Not a hazard score — a count of entries, said in words.
  */
 export function irritationRisk(product: Pick<ProductWithIngredients, "ingredients">, match: MatchResult): Risk {
-  const { personal, restricted, common } = irritationCounts(product, match);
+  const { personal, euFlagged, common } = irritationCounts(product, match);
   const hasPregnancyOnlyHit = personal === 0 && match.warnings.some((w) => w.origin === "pregnancy");
 
   if (product.ingredients.length === 0) {
@@ -36,13 +37,13 @@ export function irritationRisk(product: Pick<ProductWithIngredients, "ingredient
     };
   }
   // Too little of the list recognised to call it low (#379 review): anything
-  // flagged above still shows, but "Nothing restricted" would be a guess.
-  if (restricted === 0 && isLowCoverage(product.ingredients)) {
+  // flagged above still shows, but "Nothing flagged" would be a guess.
+  if (euFlagged === 0 && isLowCoverage(product.ingredients)) {
     return { level: "Unknown", note: "Too little recognised", tone: "neutral", hasEntries: false };
   }
-  if (restricted === 0 && common > 0) {
+  if (euFlagged === 0 && common > 0) {
     // Fragrance or a common irritant is "to watch" for everyone in the Safety
-    // tab's ingredient list (#345, #379). "Nothing restricted" is true of it,
+    // tab's ingredient list (#345, #379). "Nothing flagged" is true of it,
     // but read beside a watched ingredient it sounds like a contradiction.
     return {
       level: "Low",
@@ -51,24 +52,24 @@ export function irritationRisk(product: Pick<ProductWithIngredients, "ingredient
       hasEntries: true,
     };
   }
-  if (restricted === 0) {
-    // "Nothing restricted" is an absolute claim — it must not run alongside
+  if (euFlagged === 0) {
+    // "Nothing flagged" is an absolute claim — it must not run alongside
     // a pregnancy section saying there's something to check (#187).
     return hasPregnancyOnlyHit
       ? { level: "Low", note: "See the pregnancy note below", tone: "good", hasEntries: false }
-      : { level: "Low", note: "Nothing restricted", tone: "good", hasEntries: false };
+      : { level: "Low", note: EU_ALLERGEN_COPY.noneFlagged, tone: "good", hasEntries: false };
   }
-  if (restricted <= 2) {
+  if (euFlagged <= 2) {
     return {
       level: "Moderate",
-      note: `${restricted} restricted ${restricted === 1 ? "entry" : "entries"}`,
+      note: EU_ALLERGEN_COPY.entries(euFlagged),
       tone: "watch",
       hasEntries: true,
     };
   }
   return {
     level: "Elevated",
-    note: `${restricted} restricted ${restricted === 1 ? "entry" : "entries"}`,
+    note: EU_ALLERGEN_COPY.entries(euFlagged),
     tone: "avoid",
     hasEntries: true,
   };
@@ -79,23 +80,25 @@ export function irritationRisk(product: Pick<ProductWithIngredients, "ingredient
  * surface that counts flagged ingredients agrees with the product page (#290).
  *
  * `personal` is what this profile is warned about or was charged for;
- * `restricted` is what carries an EU restriction whoever you are; `common` is
- * the unrestricted fragrance and common irritants the Safety tab's list puts
- * "to watch" for everyone (#345, #379).
+ * `euFlagged` is what the EU flags whoever you are, a prohibited ingredient
+ * or an EU-labelled allergen (#407: an ingredient that is only "allowed with
+ * limits" is not counted); `common` is the other fragrance and common
+ * irritants the Safety tab's list puts "to watch" for everyone (#345, #379).
  */
 export function irritationCounts(
   product: Pick<ProductWithIngredients, "ingredients">,
   match: MatchResult
-): { personal: number; restricted: number; common: number } {
-  const restricted = product.ingredients.filter((i) => isVerified(i) && i.safety !== "safe").length;
-  const common = product.ingredients.filter((i) => isVerified(i) && i.safety === "safe" && isCommonIrritant(i)).length;
+): { personal: number; euFlagged: number; common: number } {
+  const flaggedByEu = (i: Ingredient) => isVerified(i) && (i.safety === "avoid" || euAllergenFor(i) !== null);
+  const euFlagged = product.ingredients.filter(flaggedByEu).length;
+  const common = product.ingredients.filter((i) => isVerified(i) && !flaggedByEu(i) && isCommonIrritant(i)).length;
   // Pregnancy hits get their own section on the result (#187) — they are not
   // an irritation risk, so they must not inflate this count.
   const nonPregnancyWarnings = irritationWarnings(match.warnings);
   // An ingredient can be both warned about and charged as an irritant: count it once.
   const warned = new Set(nonPregnancyWarnings.map((w) => w.ingredient.name));
   const charged = new Set(match.irritants.filter((name) => !warned.has(name)));
-  return { personal: nonPregnancyWarnings.length + charged.size, restricted, common };
+  return { personal: nonPregnancyWarnings.length + charged.size, euFlagged, common };
 }
 
 /**

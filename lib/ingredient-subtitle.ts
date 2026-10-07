@@ -2,7 +2,8 @@ import type { Ingredient } from "@/data/types";
 import type { IngredientLabel } from "@/lib/ingredient-labels";
 import { ruleFor, type Contraindication } from "@/lib/matching";
 import { isWarnedPoreClogging } from "@/lib/pore-clogging";
-import { isVerified } from "@/lib/safety";
+import { EU_ALLERGEN_COPY } from "@/lib/eu-allergens";
+import { euAllergenFor, isVerified } from "@/lib/safety";
 
 /** Falls back to the CosIng function list when no curated rule applies. */
 function functionLabel(ingredient: Ingredient): string {
@@ -25,6 +26,7 @@ function withoutOwnName(sentence: string, name: string): string {
 export function ingredientSubtitle(ingredient: Ingredient, label: IngredientLabel | null, warning?: Contraindication): string {
   const rule = ruleFor(ingredient);
   const clogs = isWarnedPoreClogging(ingredient);
+  const euAllergen = euAllergenFor(ingredient);
   // A warning outranks not knowing, the same precedence `ingredientLabel`
   // uses: pregnancy matching fires on an exact name even when OCR left the
   // row unverified, so the badge can already read "Avoid" here while this
@@ -47,5 +49,11 @@ export function ingredientSubtitle(ingredient: Ingredient, label: IngredientLabe
       ? "Comedogenic: may clog pores"
       : rule
         ? withoutOwnName(rule.reason.split(" - ")[0].trim(), ingredient.name)
-        : (ingredient.note ?? functionLabel(ingredient));
+        : euAllergen
+          ? EU_ALLERGEN_COPY.subtitle[euAllergen.kind]
+          : // The import's "Restricted use (EU Annex III/N)" is a status, which the
+            // sheet's EU status row says in words (#407), not what the row is for.
+            ingredient.note && !/^Restricted use/i.test(ingredient.note)
+            ? ingredient.note
+            : functionLabel(ingredient);
 }
