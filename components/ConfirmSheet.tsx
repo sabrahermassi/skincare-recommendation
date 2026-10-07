@@ -5,7 +5,7 @@ import { CloseCross, IconCircle } from "@/components/IconCircle";
 import { BUTTON_HEIGHT, BUTTON_WIDTH, PrimaryButton } from "@/components/PrimaryButton";
 import { Text } from "@/components/Text";
 import { haptic } from "@/lib/haptics";
-import { DESTRUCTIVE_OUTLINE, DISPLAY_FONT, INK, MUTED, TOUCH_TARGET, TYPE } from "@/lib/tokens";
+import { DESTRUCTIVE_OUTLINE, DISPLAY_FONT, INK, MUTED, TOUCH_TARGET, TYPE, SPACE } from "@/lib/tokens";
 
 /**
  * Every "are you sure" in the app, one way (owner's reference, 2 October
@@ -52,12 +52,12 @@ export function ConfirmSheet({
   if (stacked) {
     return (
       <BottomSheet visible={visible} onClose={onClose} floating corner={corner}>
-        <View style={{ alignItems: "center", gap: 8, paddingTop: 32 }}>
+        <View style={{ alignItems: "center", gap: SPACE.text, paddingTop: 32 }}>
           <Text accessibilityRole="header" style={{ textAlign: "center", fontFamily: DISPLAY_FONT, fontSize: TYPE.heading, lineHeight: 28, letterSpacing: -0.5, color: INK }}>
             {title}
           </Text>
           <Text style={{ maxWidth: 300, textAlign: "center", fontSize: TYPE.body, lineHeight: 21, color: MUTED }}>{line}</Text>
-          <PrimaryButton label={keepLabel ?? ""} onPress={onClose} style={{ marginTop: 16, width: BUTTON_WIDTH.secondary }} />
+          <PrimaryButton label={keepLabel ?? ""} onPress={onClose} style={{ marginTop: SPACE.gutter, width: BUTTON_WIDTH.secondary }} />
           <Pressable
             onPress={() => {
               haptic.warning();
@@ -67,7 +67,7 @@ export function ConfirmSheet({
             accessibilityRole="button"
             accessibilityLabel={confirmLabel}
             accessibilityState={{ disabled: busy }}
-            style={{ minHeight: TOUCH_TARGET, paddingHorizontal: 16, alignItems: "center", justifyContent: "center", opacity: busy ? 0.6 : 1 }}
+            style={{ minHeight: TOUCH_TARGET, paddingHorizontal: SPACE.gutter, alignItems: "center", justifyContent: "center", opacity: busy ? 0.6 : 1 }}
             className="active:opacity-70"
           >
             <Text style={{ fontSize: 16, fontWeight: "600", letterSpacing: -0.16, color: INK }}>{confirmLabel}</Text>
@@ -78,7 +78,7 @@ export function ConfirmSheet({
   }
   return (
     <BottomSheet visible={visible} onClose={onClose} floating corner={corner}>
-      <View style={{ alignItems: "center", gap: 8, paddingTop: 32 }}>
+      <View style={{ alignItems: "center", gap: SPACE.text, paddingTop: 32 }}>
         <Text accessibilityRole="header" style={{ textAlign: "center", fontFamily: DISPLAY_FONT, fontSize: TYPE.heading, lineHeight: 28, letterSpacing: -0.5, color: INK }}>
           {title}
         </Text>
@@ -93,7 +93,7 @@ export function ConfirmSheet({
           accessibilityLabel={confirmLabel}
           accessibilityState={{ disabled: busy }}
           // The short width (140): the label is one word.
-          style={{ marginTop: 16, width: BUTTON_WIDTH.pair, height: BUTTON_HEIGHT, borderRadius: BUTTON_HEIGHT / 2, backgroundColor: DESTRUCTIVE_OUTLINE.fill, alignItems: "center", justifyContent: "center", opacity: busy ? 0.6 : 1 }}
+          style={{ marginTop: SPACE.gutter, width: BUTTON_WIDTH.pair, height: BUTTON_HEIGHT, borderRadius: BUTTON_HEIGHT / 2, backgroundColor: DESTRUCTIVE_OUTLINE.fill, alignItems: "center", justifyContent: "center", opacity: busy ? 0.6 : 1 }}
           className="active:opacity-80"
         >
           <Text style={{ fontSize: 16, fontWeight: "600", letterSpacing: -0.16, color: DESTRUCTIVE_OUTLINE.label }}>{confirmLabel}</Text>

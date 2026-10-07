@@ -216,15 +216,15 @@ function IngredientDetail({
         // star and the close circle beside them (v9). The star is hidden for a
         // name we don't recognise: starring it would save a string we can say
         // nothing about (#296).
-        <View style={{ flexDirection: "row", alignItems: "flex-start", gap: 12, paddingTop: 24, paddingHorizontal: SPACE.gutter }}>
-          <View style={{ flex: 1, alignItems: "flex-start", gap: 8, paddingTop: 4 }}>
+        <View style={{ flexDirection: "row", alignItems: "flex-start", gap: SPACE.block, paddingTop: SPACE.section, paddingHorizontal: SPACE.gutter }}>
+          <View style={{ flex: 1, alignItems: "flex-start", gap: SPACE.text, paddingTop: 4 }}>
             <Text accessibilityRole="header" style={{ fontFamily: DISPLAY_FONT, fontSize: TYPE.heading, lineHeight: 28, letterSpacing: -0.5, color: INK }}>
               {displayIngredientName(primary)}
             </Text>
             {kind ? <Text style={{ fontSize: TYPE.label, color: MUTED }}>{kind}</Text> : null}
             {fit === "none" ? <Text style={{ fontSize: TYPE.label, color: MUTED }}>{undecided ? ORIGIN_DEPENDENT_HEADLINE : "No known concerns"}</Text> : <VerdictMarker label={fit} text={verdictWord?.word} />}
           </View>
-          <View style={{ flexDirection: "row", gap: 12 }}>
+          <View style={{ flexDirection: "row", gap: SPACE.block }}>
             {verified ? (
               <IconCircle
                 // Stars for anyone, signed in or not (#300).
@@ -248,13 +248,13 @@ function IngredientDetail({
         </View>
       }
     >
-      <ScrollView style={{ flexShrink: 1 }} contentContainerStyle={{ paddingTop: SPACE.gutter, paddingBottom: 24 }} alwaysBounceVertical={false}>
+      <ScrollView style={{ flexShrink: 1 }} contentContainerStyle={{ paddingTop: SPACE.gutter, paddingBottom: SPACE.section }} alwaysBounceVertical={false}>
         {/* The reading part of the sheet: its text follows the phone's text
             size all the way up (#334). */}
         <ReadingScale>
           <View style={{ paddingHorizontal: SPACE.gutter, gap: SPACE.block }}>
             {/* On the white sheet this one has no fill of its own (v9). */}
-            <View style={{ padding: 16, gap: 4 }}>
+            <View style={{ padding: SPACE.gutter, gap: 4 }}>
               <CardHeading>What it does</CardHeading>
               <Text style={{ fontSize: TYPE.body, lineHeight: 22, color: INK }}>{whatItDoes(ingredient, rule?.reason)}</Text>
             </View>
@@ -265,7 +265,7 @@ function IngredientDetail({
                 path, where "For your skin" is left out, it still gets its card
                 (Codex review on #414). */}
             {notice && !forProfile ? (
-              <View style={{ borderRadius: CARD_RADIUS, backgroundColor: tone.wash, padding: 16, gap: 4 }}>
+              <View style={{ borderRadius: CARD_RADIUS, backgroundColor: tone.wash, padding: SPACE.gutter, gap: 4 }}>
                 <Text style={{ fontSize: TYPE.body, fontWeight: "600", color: tone.deep }}>{SAFETY_NOTICE_COPY.sheetHeadline}</Text>
                 <Text style={{ fontSize: 15, lineHeight: 22, color: INK }}>
                   {SAFETY_NOTICE_COPY.sheetBody(notice.entry)}
@@ -275,7 +275,7 @@ function IngredientDetail({
             ) : null}
 
             {forProfile ? (
-              <View style={{ borderRadius: CARD_RADIUS, backgroundColor: tone.wash, padding: 16, gap: 4 }}>
+              <View style={{ borderRadius: CARD_RADIUS, backgroundColor: tone.wash, padding: SPACE.gutter, gap: 4 }}>
                 <CardHeading>For your skin</CardHeading>
                 <Text style={{ fontSize: TYPE.body, fontWeight: "600", color: tone.deep }}>{undecided ? ORIGIN_DEPENDENT_HEADLINE : notice ? SAFETY_NOTICE_COPY.sheetHeadline : fitHeadline(fit, helps, hurts, warning, rule, profile)}</Text>
                 {/* The EU notice says what the listing is, and for HICC its dates (#404). */}
@@ -317,7 +317,7 @@ function IngredientDetail({
                 its claims were checked against, then the EU's inventory and
                 PubChem for a name we recognise. No card when there is none. */}
             {sources.length > 0 ? (
-              <Card style={{ padding: 16, gap: 4 }}>
+              <Card style={{ padding: SPACE.gutter, gap: 4 }}>
                 <CardHeading>Sources</CardHeading>
                 {sources.map((source) => (
                   <ReferenceLink key={source.url} label={source.label} url={source.url} />
@@ -326,21 +326,21 @@ function IngredientDetail({
             ) : null}
 
             {/* Good to know: neutral facts, no ticks (handoff). */}
-            <Card style={{ paddingTop: 16, paddingBottom: 4 }}>
-              <View style={{ paddingHorizontal: 16, paddingBottom: 4 }}>
+            <Card style={{ paddingTop: SPACE.gutter, paddingBottom: 4 }}>
+              <View style={{ paddingHorizontal: SPACE.gutter, paddingBottom: 4 }}>
                 <CardHeading>Good to know</CardHeading>
               </View>
               {facts.length > 0 ? (
                 facts.map((fact, i) => (
-                  <View key={fact.key} style={{ paddingHorizontal: 16 }}>
-                    <View style={{ flexDirection: "row", gap: 12, paddingVertical: 13, borderTopWidth: i === 0 ? 0 : 1, borderTopColor: HAIRLINE }}>
+                  <View key={fact.key} style={{ paddingHorizontal: SPACE.gutter }}>
+                    <View style={{ flexDirection: "row", gap: SPACE.block, paddingVertical: 13, borderTopWidth: i === 0 ? 0 : 1, borderTopColor: HAIRLINE }}>
                       <Text style={{ width: 120, fontSize: TYPE.label, color: MUTED }}>{fact.key}</Text>
                       <Text style={{ flex: 1, fontSize: 15, lineHeight: 21, color: INK }}>{fact.value}</Text>
                     </View>
                   </View>
                 ))
               ) : (
-                <Text style={{ paddingHorizontal: 16, paddingVertical: 12, fontSize: TYPE.body, lineHeight: 21, color: INK }}>
+                <Text style={{ paddingHorizontal: SPACE.gutter, paddingVertical: SPACE.block, fontSize: TYPE.body, lineHeight: 21, color: INK }}>
                   We hold no regulatory record, declared function or pore rating for this name.
                 </Text>
               )}
@@ -395,8 +395,8 @@ function OnThisLabel({ names, index, colour }: { names: string[]; index: number;
   // a hundred they may shrink further still (`flexShrink`), never overflow it.
   const dot = total > 60 ? 3 : total > 40 ? 4 : 6;
   return (
-    <Card style={{ padding: 16, gap: 12 }}>
-      <View style={{ flexDirection: "row", justifyContent: "space-between", alignItems: "baseline", gap: 12 }}>
+    <Card style={{ padding: SPACE.gutter, gap: SPACE.block }}>
+      <View style={{ flexDirection: "row", justifyContent: "space-between", alignItems: "baseline", gap: SPACE.block }}>
         <CardHeading>On this label</CardHeading>
         <Text style={{ fontSize: 13, color: MUTED }}>
           #{index + 1} of {total}

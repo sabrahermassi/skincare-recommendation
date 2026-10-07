@@ -18,7 +18,7 @@ import { prepareRoutine } from "@/lib/routine-build";
 import { basicRoutine, recallRoutine, type Routine } from "@/lib/routine-builder";
 import { today as weekday } from "@/lib/skin-needs";
 import { tabBarClearance, tabRootTop } from "@/lib/tab-bar";
-import { CANVAS, HAND_FONT_BOLD, HOME_TILE, INK, MUTED, SPACE, TYPE } from "@/lib/tokens";
+import { CANVAS, HAND_FONT_BOLD, HOME_TILE, INK, MUTED, SPACE, TYPE, RADIUS } from "@/lib/tokens";
 import { useAppStore } from "@/store/useAppStore";
 
 // The two tiles' watercolours (transparent ground).
@@ -28,7 +28,7 @@ const ACTIVES_ART = require("@/assets/illustrations/home-skin-needs.webp");
 // How long after Home shows the screens its cards open are drawn in the background.
 const PREFETCH_AFTER_MS = 600;
 // Read off the hand-off (handoff_home_and_tip).
-const TILE_RADIUS = 20;
+const TILE_RADIUS = RADIUS.card;
 
 /**
  * Home (handoff_home_and_tip): "Hi there!" in the hand face; one top card —

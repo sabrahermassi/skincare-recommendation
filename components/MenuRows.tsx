@@ -4,7 +4,7 @@ import { Pressable, View } from "react-native";
 import Svg, { Path } from "react-native-svg";
 
 import { Text } from "@/components/Text";
-import { CARD_RADIUS, HAIRLINE, INK, LINK, MENU_FILL, MENU_FONT, MENU_SOFT_RADIUS, MUTED, ROW_CHEVRON, TYPE } from "@/lib/tokens";
+import { CARD_RADIUS, HAIRLINE, INK, LINK, MENU_FILL, MENU_FONT, MUTED, ROW_CHEVRON, TYPE, SPACE } from "@/lib/tokens";
 
 // Each row's height (v7).
 const ROW_HEIGHT = 56;
@@ -24,7 +24,7 @@ export function MenuGroup({ soft = false, children }: { soft?: boolean; children
   // not a row, so it doesn't count as the first.
   const rows = Children.toArray(children).filter(isValidElement);
   return (
-    <View style={{ borderRadius: soft ? MENU_SOFT_RADIUS : CARD_RADIUS, backgroundColor: MENU_FILL, overflow: "hidden" }}>
+    <View style={{ borderRadius: CARD_RADIUS, backgroundColor: MENU_FILL, overflow: "hidden" }}>
       {rows.map((row, i) => cloneElement(row as ReactElement<{ divided?: boolean; soft?: boolean }>, { divided: i > 0 && !soft, soft }))}
     </View>
   );
@@ -82,7 +82,7 @@ export function MenuRow({
           minHeight: ROW_HEIGHT,
           flexDirection: "row",
           alignItems: "center",
-          gap: 12,
+          gap: SPACE.block,
           paddingRight: ROW_INSET,
           borderTopWidth: divided ? 0.5 : 0,
           borderTopColor: HAIRLINE,
@@ -99,7 +99,7 @@ export function MenuRow({
       </View>
     </>
   );
-  const row = { flexDirection: "row", alignItems: "center", gap: 12, paddingLeft: ROW_INSET } as const;
+  const row = { flexDirection: "row", alignItems: "center", gap: SPACE.block, paddingLeft: ROW_INSET } as const;
   return onPress ? (
     <Pressable
       onPress={onPress}

@@ -2,10 +2,10 @@ import { BlurView } from "expo-blur";
 import { useEffect, useState, type ReactNode } from "react";
 import { Animated, Easing, Platform, Pressable, StyleSheet, useWindowDimensions, View } from "react-native";
 
-import { FLOAT_INSET, FLOAT_RADIUS } from "@/components/BottomSheet";
+import { FLOAT_INSET } from "@/components/BottomSheet";
 import { goBackOrHome } from "@/lib/go-back";
 import { reduceMotionNow } from "@/lib/reduce-motion";
-import { SCRIM, SHEET, SHEET_SHADOW } from "@/lib/tokens";
+import { SCRIM, SHEET, SHEET_SHADOW, RADIUS } from "@/lib/tokens";
 
 const IN_MS = 280;
 // How far under the top of the screen a tall sheet stops (v9: `100% - 72px`).
@@ -45,14 +45,14 @@ export function SheetScreen({ header, children, onClose = goBackOrHome }: { head
           // sat 24pt higher than the rest (owner).
           marginBottom: FLOAT_INSET,
           maxHeight: height - TOP_GAP - FLOAT_INSET,
-          borderRadius: FLOAT_RADIUS,
+          borderRadius: RADIUS.sheet,
           backgroundColor: SHEET,
           ...SHEET_SHADOW,
           transform: [{ translateY: progress.interpolate({ inputRange: [0, 1], outputRange: [height * 0.4, 0] }) }],
         }}
       >
         {/* Rounded clipping lives on this inner view, so the shadow above isn't clipped with it. */}
-        <View testID="sheet-screen" style={{ borderRadius: FLOAT_RADIUS, overflow: "hidden", flexShrink: 1 }}>
+        <View testID="sheet-screen" style={{ borderRadius: RADIUS.sheet, overflow: "hidden", flexShrink: 1 }}>
           {header}
           {children}
         </View>

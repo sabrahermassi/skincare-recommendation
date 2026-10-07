@@ -253,7 +253,7 @@ function Story({ active, answers }: { active: StoryActive; answers: NeedAnswers 
             onPress={onAdd}
             accessibilityRole="button"
             accessibilityLabel={`Add ${active.name} to my routine`}
-            style={{ height: BUTTON_HEIGHT, borderRadius: BUTTON_HEIGHT / 2, backgroundColor: BUTTON.primary.fill, flexDirection: "row", alignItems: "center", justifyContent: "center", gap: 8 }}
+            style={{ height: BUTTON_HEIGHT, borderRadius: BUTTON_HEIGHT / 2, backgroundColor: BUTTON.primary.fill, flexDirection: "row", alignItems: "center", justifyContent: "center", gap: SPACE.text }}
             className="active:opacity-90"
           >
             <Svg width={18} height={18} viewBox="0 0 24 24" fill="none">
@@ -280,14 +280,14 @@ function Story({ active, answers }: { active: StoryActive; answers: NeedAnswers 
 
   return (
     <Animated.View {...responder.panHandlers} style={{ flex: 1, backgroundColor: CANVAS, transform: [{ translateY: drag }], opacity }}>
-      <View style={{ paddingTop: insets.top + 4, paddingHorizontal: 16, gap: 12 }}>
+      <View style={{ paddingTop: insets.top + 4, paddingHorizontal: SPACE.gutter, gap: SPACE.block }}>
         {/* Where you are: one bar a card, filled up to this one. */}
         <View accessibilityLabel={`Card ${index + 1} of ${total}`} style={{ flexDirection: "row", gap: 4 }}>
           {cards.map((key, i) => (
             <View key={key} style={{ flex: 1, height: 3, borderRadius: 2, backgroundColor: i <= index ? INK : SKIN_NEEDS.line }} />
           ))}
         </View>
-        <View style={{ flexDirection: "row", alignItems: "center", gap: 8 }}>
+        <View style={{ flexDirection: "row", alignItems: "center", gap: SPACE.text }}>
           <Image source={familyOf(active).picture} contentFit="contain" accessibilityLabel="" style={{ width: 30, height: 30 }} />
           <Text style={{ fontSize: TYPE.body, fontWeight: "600", color: INK }}>{active.name}</Text>
           <Text numberOfLines={1} style={{ flexShrink: 1, fontSize: TYPE.caption, color: MUTED_FAINT }}>
@@ -323,7 +323,7 @@ function Story({ active, answers }: { active: StoryActive; answers: NeedAnswers 
 
       {last ? null : screenReader ? (
         // VoiceOver can't tap a third of the screen: visible Back and Next (hand-off).
-        <View style={{ height: 56, marginBottom: Math.max(12, insets.bottom), flexDirection: "row", justifyContent: "space-between", paddingHorizontal: 16 }}>
+        <View style={{ height: 56, marginBottom: Math.max(12, insets.bottom), flexDirection: "row", justifyContent: "space-between", paddingHorizontal: SPACE.gutter }}>
           <Pressable onPress={back} disabled={index === 0} accessibilityRole="button" accessibilityLabel="Back" accessibilityState={{ disabled: index === 0 }} style={{ minWidth: 88, justifyContent: "center" }}>
             <Text style={{ fontSize: TYPE.body, fontWeight: "600", color: index === 0 ? MUTED_FAINT : BUTTON.primary.fill }}>Back</Text>
           </Pressable>
@@ -410,7 +410,7 @@ function Story({ active, answers }: { active: StoryActive; answers: NeedAnswers 
 /** "✓ In your routine · Clear Days Gel Cleanser" (hand-off 7f). */
 function InRoutineLine({ label, detail }: { label: string; detail?: string }) {
   return (
-    <View accessible accessibilityLabel={detail ? `${label}: ${detail}` : label} style={{ minHeight: 48, flexDirection: "row", alignItems: "center", justifyContent: "center", gap: 8 }}>
+    <View accessible accessibilityLabel={detail ? `${label}: ${detail}` : label} style={{ minHeight: 48, flexDirection: "row", alignItems: "center", justifyContent: "center", gap: SPACE.text }}>
       <View style={{ width: 20, height: 20, borderRadius: 10, backgroundColor: BUTTON.primary.fill, alignItems: "center", justifyContent: "center" }}>
         <Tick size={11} color={WHITE} />
       </View>
@@ -428,7 +428,7 @@ function SeeRoutineButton({ onPress }: { onPress: () => void }) {
       onPress={onPress}
       accessibilityRole="button"
       accessibilityLabel="See my routine"
-      style={{ height: BUTTON_HEIGHT, borderRadius: BUTTON_HEIGHT / 2, backgroundColor: SKIN_NEEDS.sage, flexDirection: "row", alignItems: "center", justifyContent: "center", gap: 8 }}
+      style={{ height: BUTTON_HEIGHT, borderRadius: BUTTON_HEIGHT / 2, backgroundColor: SKIN_NEEDS.sage, flexDirection: "row", alignItems: "center", justifyContent: "center", gap: SPACE.text }}
       className="active:opacity-85"
     >
       <Text style={{ fontSize: 16, fontWeight: "600", color: SKIN_NEEDS.chosenInk }}>See my routine</Text>
