@@ -13,7 +13,8 @@
 --     Cyclomethicone, a mixture that may hold D4, is not touched.
 --   * Annex II/360 is safrole, "except for normal content in the natural essences used and
 --     provided the concentration does not exceed 100 ppm in the finished product, 50 ppm in
---     products for dental and oral hygiene". The dictionary read the citation ("II/360 R3") on
+--     products for dental and oral hygiene, and provided that Safrole is not present in toothpastes
+--     intended specifically for children". The dictionary read the citation ("II/360 R3") on
 --     camphor-tree and sassafras essences as a flat ban. They become `safe` with a note that
 --     says what the entry limits, the way 0030 treated the furocoumarin entry (358). Safrole
 --     itself is not matched by the name pattern and keeps its ban.
@@ -51,7 +52,7 @@ where safety = 'safe'
 update ingredients
 set
   safety = 'safe',
-  note = 'Natural essence. EU Annex II/360 limits safrole in the finished product (100 ppm; 50 ppm in dental and oral hygiene products), not the ingredient itself'
+  note = 'Natural essence. EU Annex II/360 limits safrole in the finished product (100 ppm; 50 ppm in dental and oral hygiene products; none in toothpaste made for children), not the ingredient itself'
 where safety = 'avoid'
   and inci_name ~ '(^|[^a-z])(cinnamomum camphora|sassafras)([^a-z]|$)'
   and note = 'Prohibited in cosmetics (EU Annex II/360 R3)';

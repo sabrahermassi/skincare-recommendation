@@ -16,7 +16,7 @@ const FOUR_MBC_NOTE =
   "Prohibited in cosmetics (EU Annex II/1730: not to be placed on the EU market since 1 May 2025 and not to be sold there since 1 May 2026; older stock may still be around)";
 const D4_NOTE = "Prohibited in cosmetics (EU Annex II/1388)";
 const SAFROLE_NOTE =
-  "Natural essence. EU Annex II/360 limits safrole in the finished product (100 ppm; 50 ppm in dental and oral hygiene products), not the ingredient itself";
+  "Natural essence. EU Annex II/360 limits safrole in the finished product (100 ppm; 50 ppm in dental and oral hygiene products; none in toothpaste made for children), not the ingredient itself";
 
 const rating = (canonical: string, restriction: string) => safetyFor(canonical, restriction ? { en: restriction } : undefined);
 const sql = readFileSync(join(__dirname, "..", "supabase", "migrations", "0035_annex_ii_bans_and_safrole.sql"), "utf8");
@@ -129,6 +129,13 @@ describe("through the whole import", () => {
 });
 
 describe("the migration says what the import says", () => {
+  it("gives a database that ran the shorter safrole note the full one", () => {
+    const catchUp = readFileSync(join(__dirname, "..", "supabase", "migrations", "0036_safrole_note_childrens_toothpaste.sql"), "utf8");
+    expect(SAFROLE_NOTE).toContain("none in toothpaste made for children");
+    expect(catchUp).toContain(`note = '${SAFROLE_NOTE}'`);
+    expect(catchUp).toContain(`and note = '${SAFROLE_NOTE.replace("; none in toothpaste made for children", "")}'`);
+  });
+
   it("writes the same three notes", () => {
     for (const note of [FOUR_MBC_NOTE, D4_NOTE, SAFROLE_NOTE]) expect(statements).toContain(`note = '${note}'`);
   });

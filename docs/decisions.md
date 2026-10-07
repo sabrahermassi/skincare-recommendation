@@ -650,7 +650,10 @@ migration 0035 and in the import, each also listed that way in CosIng:
   Cyclomethicone, a mixture that may hold D4, is left alone.
 - **Annex II/360 limits safrole**, it does not ban the camphor-tree and
   sassafras essences that cite it. Same treatment as the furocoumarin entry
-  (358): `safe`, with a note that says what the entry limits.
+  (358): `safe`, with a note that says what the entry limits, all three
+  conditions: 100 ppm, 50 ppm in dental and oral hygiene products, and none
+  in toothpaste made for children. Migration 0036 adds the third to rows
+  0035 had already written on staging.
 
 **Left alone, on purpose.** Benzophenone (II/1703), pentasodium pentetate
 (II/1721) and styrene (II/1575) are on the owner's to-verify list in

@@ -338,7 +338,7 @@ const UNCITED_BANS = new Map([["cyclotetrasiloxane", "Prohibited in cosmetics (E
  */
 const SAFROLE_ESSENCE_SOURCE = /(^|[^a-z])(cinnamomum camphora|sassafras)([^a-z]|$)/;
 const SAFROLE_ESSENCE_NOTE =
-  "Natural essence. EU Annex II/360 limits safrole in the finished product (100 ppm; 50 ppm in dental and oral hygiene products), not the ingredient itself";
+  "Natural essence. EU Annex II/360 limits safrole in the finished product (100 ppm; 50 ppm in dental and oral hygiene products; none in toothpaste made for children), not the ingredient itself";
 
 /** Regulation (EU) 2023/1545 deleted entries 125, 126, 158, 160-163, 165, 167 and 168, merged into 124 (turpentine), 157 (rose ketones) and 88 (limonene). 19 is now 227. */
 const RENUMBERED = new Map([
