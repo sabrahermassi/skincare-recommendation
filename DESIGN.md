@@ -402,7 +402,7 @@ the scanner, How scoring works and the ingredient sheet slide up.
   `#767A5C` (4.46) to `#757959` (4.53), a step the eye does not see. Good's and
   Poor's small words use `VERDICT[tone].word` (5.39 and 5.31 on white); their
   rings, pills and big numbers keep the hand-off's colours. The placeholder went
-  from `#7A746E` to `#77716B` (4.82 on white, 4.55 on the page). `MUTED_FAINT`
+  from `#7A746E` to `#736D67` (5.11 on white, 4.83 on the page, 4.57 on stone). `MUTED_FAINT`
   is `#5E5954`, 6.92:1; an earlier note here that it was 4.2:1 came from a stale
   comment in `lib/tokens.ts`, now fixed. Icons and decorative marks are held to
   3:1, not 4.5.
