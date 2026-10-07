@@ -498,7 +498,7 @@ function PickRow({ pick, own = false }: { pick: RoutinePick; own?: boolean }) {
           {product.name}
         </Text>
         <View style={{ flexDirection: "row", alignItems: "center", gap: 6 }}>
-          <Text style={{ fontSize: TYPE.caption, fontWeight: "600", color: scoreColours(match.verdict).word }}>{verdict}</Text>
+          <Text style={{ fontSize: TYPE.caption, fontWeight: "500", color: scoreColours(match.verdict).word }}>{verdict}</Text>
           {notice ? <SafetyShield size={16} /> : null}
         </View>
       </View>
