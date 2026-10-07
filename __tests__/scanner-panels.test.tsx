@@ -103,6 +103,8 @@ function scan(code: string) {
 
 beforeEach(() => {
   mockParams = {};
+  // Skin needs is behind a dev-only switch (#467): on here, off in the test that says so.
+  useAppStore.setState({ skinNeedsEnabled: true });
   mockLabelCameraShown = false;
   (fetchProductByBarcode as unknown as MockFn).mockClear();
   mockPermission.granted = true;
@@ -299,6 +301,22 @@ describe("scanner status panels", () => {
     await fireEvent.press(screen.getByRole("button", { name: "See the full result" }));
     const { router } = jest.requireMock("expo-router") as { router: { push: MockFn } };
     expect(router.push).toHaveBeenCalledWith(expect.objectContaining({ params: expect.objectContaining({ from: "journey", need: "pimples.." }) }));
+  });
+
+  it("scans as usual from a Skin needs link while Skin needs is hidden, and hands no pick on (#467)", async () => {
+    useAppStore.setState({ skinNeedsEnabled: false });
+    mockParams = { mode: "photo", from: "journey", need: "pimples.." };
+    (fetchProductByBarcode as unknown as MockFn).mockResolvedValue({ ok: true, value: foundProduct("8801234567890") });
+    await render(<Scan />);
+    await fireEvent.press(screen.getByRole("tab", { name: "Barcode" }));
+
+    await scan("8801234567890");
+    expect(within(screen.getByTestId("found-pill")).queryByText(/pimples/)).toBeNull();
+    const { router } = jest.requireMock("expo-router") as { router: { push: MockFn } };
+    router.push.mockClear();
+    await fireEvent.press(screen.getByRole("button", { name: "See the full result" }));
+    expect(router.push).toHaveBeenCalled();
+    expect(router.push).not.toHaveBeenCalledWith(expect.objectContaining({ params: expect.objectContaining({ from: "journey" }) }));
   });
 
   // A scan started from a routine step hands that step on to the result, which offers "Add to <step>" (owner, 3 October 2026).

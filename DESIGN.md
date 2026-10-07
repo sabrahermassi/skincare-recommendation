@@ -397,7 +397,9 @@ the scanner, How scoring works and the ingredient sheet slide up.
 
 ## Motion and accessibility
 
-- Sheets rise on a cubic ease and the segmented thumb springs. Everything
+- Sheets rise over their own height on iOS's sheet curve (`lib/sheet-ease.ts`),
+  the segmented thumb springs and what it switches fades in (`SwapFade`), and
+  Home and the intro fade into each other. Everything
   checks Reduce Motion (`lib/reduce-motion.ts`): with it on, things just appear
   (no slide, zero-length animations).
 - **The intro's pictures pass each other** (`components/shell/OnboardingShell.tsx`):

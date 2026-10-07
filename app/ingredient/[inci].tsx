@@ -26,7 +26,7 @@ import { useAppStore } from "@/store/useAppStore";
 import { CARD_RADIUS, CHOSEN, DISPLAY_FONT, HAIRLINE, INK, LINE, MUTED, SPACE, STONE, TOUCH_TARGET, TYPE, VERDICT, VERDICT_NEUTRAL, LEADING, TRACKING } from "@/lib/tokens";
 import { goBackOrHome } from "@/lib/go-back";
 import { haptic } from "@/lib/haptics";
-import { useSafetyNoticeEnabled } from "@/lib/features";
+import { useFromSkinNeeds, useSafetyNoticeEnabled } from "@/lib/features";
 import { ingredientNameParam, productIdParam } from "@/lib/route-params";
 import NotFound from "@/app/+not-found";
 
@@ -68,8 +68,9 @@ const TONE: Record<Fit, Tone> = {
 export default function IngredientRoute() {
   const params = useLocalSearchParams<{ inci: string; product?: string; from?: string }>();
   const inci = ingredientNameParam(params.inci);
+  const fromSkinNeeds = useFromSkinNeeds(params.from);
   if (!inci) return <NotFound />;
-  return <IngredientDetail inci={inci} productId={productIdParam(params.product) ?? undefined} forProfile={params.from !== "journey"} />;
+  return <IngredientDetail inci={inci} productId={productIdParam(params.product) ?? undefined} forProfile={!fromSkinNeeds} />;
 }
 
 function IngredientDetail({

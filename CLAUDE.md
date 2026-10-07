@@ -138,7 +138,8 @@ because a skin profile alone is not a routine. The regulatory-safety flag
 (`safetyNoticeEnabled`, `lib/features.ts`) is off by default; a dev-only
 Profile row turns it on (#403, #404). Skin needs' advice lives in
 `lib/skin-needs-data.ts`; its copy is placeholder until scientifically
-checked. Persisted via `persist` + AsyncStorage, gated on
+checked, so the whole section is hidden behind a second dev-only switch
+(`skinNeedsEnabled`, #467): no Home tile, and both routes redirect Home. Persisted via `persist` + AsyncStorage, gated on
 `useAppStore.persist.hasHydrated()` in `app/_layout.tsx` — except the profile,
 which `formeStorageFor` keeps in the Keychain on a phone (#189).
 **Two files may import AsyncStorage, and no third without review:**

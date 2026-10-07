@@ -11,6 +11,7 @@ import { Text } from "@/components/Text";
 import { resolveIngredientNames } from "@/data/api";
 import type { Ingredient } from "@/data/types";
 import { track } from "@/lib/analytics";
+import { useFromSkinNeeds } from "@/lib/features";
 import { decodeNeed, needProfile, type Need } from "@/lib/journey";
 import { labelName } from "@/lib/label-title";
 import { isLowCoverage, matchProduct } from "@/lib/matching";
@@ -35,11 +36,12 @@ export default function LabelResult() {
   const { entry, from, need } = useLocalSearchParams<{ entry?: string; from?: string; need?: string }>();
   const saved = useAppStore((s) => (entry ? s.history.find((h) => h.id === entry)?.label : undefined));
   const [held] = useState(heldLabelRead);
+  const fromSkinNeeds = useFromSkinNeeds(from);
   const read: HeldLabel | null = entry ? (saved ? { ingredients: saved } : null) : held;
 
   if (!read) return <NothingToShow />;
 
-  return <Verdict read={read} entry={entry || undefined} journey={from === "journey" ? (decodeNeed(need) ?? undefined) : undefined} />;
+  return <Verdict read={read} entry={entry || undefined} journey={fromSkinNeeds ? (decodeNeed(need) ?? undefined) : undefined} />;
 }
 
 function NothingToShow() {
