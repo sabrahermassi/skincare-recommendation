@@ -1,10 +1,11 @@
 import { BlurView } from "expo-blur";
 import { useEffect, useState, type ReactNode } from "react";
-import { Animated, Easing, Platform, Pressable, StyleSheet, useWindowDimensions, View } from "react-native";
+import { Animated, Platform, Pressable, StyleSheet, useWindowDimensions, View } from "react-native";
 
 import { FLOAT_INSET } from "@/components/BottomSheet";
 import { goBackOrHome } from "@/lib/go-back";
 import { reduceMotionNow } from "@/lib/reduce-motion";
+import { SHEET_EASE } from "@/lib/sheet-ease";
 import { SCRIM, SHEET, SHEET_SHADOW, RADIUS } from "@/lib/tokens";
 
 const IN_MS = 280;
@@ -28,7 +29,7 @@ export function SheetScreen({ header, children, onClose = goBackOrHome }: { head
   const { height } = useWindowDimensions();
   const [progress] = useState(() => new Animated.Value(reduceMotionNow() ? 1 : 0));
   useEffect(() => {
-    Animated.timing(progress, { toValue: 1, duration: reduceMotionNow() ? 0 : IN_MS, easing: Easing.out(Easing.cubic), useNativeDriver: Platform.OS !== "web" }).start();
+    Animated.timing(progress, { toValue: 1, duration: reduceMotionNow() ? 0 : IN_MS, easing: SHEET_EASE, useNativeDriver: Platform.OS !== "web" }).start();
   }, [progress]);
 
   return (

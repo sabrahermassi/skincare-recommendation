@@ -117,6 +117,14 @@ it("lays out the morning steps, and the evening's from the switch", async () => 
   expect(screen.queryByText("Serum")).toBeNull();
 });
 
+it("has the morning steps simply there, and brings the evening's in from clear", async () => {
+  useAppStore.setState({ profile: { ...EMPTY_PROFILE, baseSkinType: "oily" } });
+  await open();
+  expect(screen.getByTestId("swap-fade")).toHaveStyle({ opacity: 1 });
+  await act(async () => fireEvent.press(screen.getByRole("tab", { name: "Evening" })));
+  expect(screen.getByTestId("swap-fade")).toHaveStyle({ opacity: 0 });
+});
+
 it("numbers each step plainly, with no dotted connectors between them (v9)", async () => {
   useAppStore.setState({ profile: { ...EMPTY_PROFILE, baseSkinType: "oily" } });
   await open();

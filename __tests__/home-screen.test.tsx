@@ -37,12 +37,25 @@ const BHA_MONDAYS = [{ active: "bha" as const, time: "evening" as const, days: [
 
 beforeEach(() => {
   jest.useFakeTimers({ now: MONDAY_9AM, doNotFake: ["nextTick", "setImmediate"] });
+  // Skin needs is behind a dev-only switch (#467); on here, as the tests below were written with it.
+  useAppStore.setState({ skinNeedsEnabled: true });
 });
 afterEach(() => {
   forgetRoutine();
   jest.useRealTimers();
-  useAppStore.setState({ profile: EMPTY_PROFILE, routineActives: [], routinePicks: {}, routineStarted: false, routineBuilt: false, tipRead: null });
+  useAppStore.setState({ profile: EMPTY_PROFILE, routineActives: [], routinePicks: {}, routineStarted: false, routineBuilt: false, tipRead: null, skinNeedsEnabled: false });
   jest.mocked(router.push).mockClear();
+});
+
+it("has no Skin needs tile, and warms nothing of it, while the switch is off (#467)", async () => {
+  useAppStore.setState({ skinNeedsEnabled: false });
+  await render(<Home />);
+  expect(screen.getByRole("button", { name: "Scan Any Product" })).toBeTruthy();
+  expect(screen.queryByRole("button", { name: "Find Your Actives" })).toBeNull();
+  // Alone in its row it is a wide card, not a square the width of the screen.
+  expect(screen.getByRole("button", { name: "Scan Any Product" }).children[0]).toHaveStyle({ aspectRatio: 2 });
+  await act(async () => jest.runOnlyPendingTimers());
+  expect(router.prefetch).not.toHaveBeenCalledWith("/journey");
 });
 
 it("shows Start your routine, the two tiles and the tip, and nothing of the old Home", async () => {
@@ -148,13 +161,16 @@ it("opens the tip as a note with a close button only, then says it was read and 
   const tip = MORNING_TIPS.find((candidate) => screen.queryByText(candidate.tip)) ?? null;
   expect(tip).toBeNull();
   await fireEvent.press(screen.getByRole("button", { name: "Open skincare tip. This morning: about your SPF" }));
+  // It opens once the envelope's place on the page has been read, a moment after the tap.
+  await waitFor(() => expect(MORNING_TIPS.some((candidate) => screen.queryByText(candidate.tip))).toBe(true));
   const shown = MORNING_TIPS.find((candidate) => screen.queryByText(candidate.tip));
   expect(shown).toBeTruthy();
   expect(screen.getByText(shown!.why)).toBeTruthy();
   expect(screen.getByText("This morning · SPF")).toBeTruthy();
   // One Close for a screen reader: the dim area behind the note is not a second one.
   await fireEvent.press(screen.getByRole("button", { name: "Close" }));
-  expect(screen.queryByText(shown!.tip)).toBeNull();
+  // The note folds away, then it is gone.
+  await waitFor(() => expect(screen.queryByText(shown!.tip)).toBeNull());
   expect(screen.getByText("Tip read ✓")).toBeTruthy();
   expect(screen.getByText("Next tip: tonight")).toBeTruthy();
   expect(screen.getByRole("button", { name: "Tip read. Next tip: tonight. Read again" })).toBeTruthy();

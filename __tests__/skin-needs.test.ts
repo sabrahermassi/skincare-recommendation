@@ -87,9 +87,9 @@ describe("optionsFor", () => {
         for (const sensitivity of ["none", "high", null] as const) expect(optionsFor({ goal, pregnancy, sensitivity }).actives.length).toBeLessThanOrEqual(OPTIONS_MAX);
   });
 
-  it("never shows an unsafe one unless pregnancy is no", () => {
+  it("never shows one left out in pregnancy unless the answer is no", () => {
     for (const goal of GOAL_KEYS)
-      for (const pregnancy of ["yes", "unsaid", null] as const) expect(optionsFor({ goal, pregnancy, sensitivity: null }).actives.every((active) => active.pregnancySafe)).toBe(true);
+      for (const pregnancy of ["yes", "unsaid", null] as const) expect(optionsFor({ goal, pregnancy, sensitivity: null }).actives.every((active) => active.shownInPregnancy)).toBe(true);
   });
 
   it("follows the goal table's order when nothing is filtered", () => {
@@ -114,18 +114,18 @@ describe("optionsFor", () => {
     expect(planAdd({ active: story("spf"), state: EMPTY, hasRoutine: false, ownProduct: null, answers: answers() })).toEqual({ kind: "owned", product: null });
   });
 
-  it("swaps in a safe one from the same family, and fills a gap from a nearby one, while pregnant", () => {
+  it("swaps in one that is shown from the same family, and fills a gap from a nearby one, while pregnant", () => {
     const { actives, hidden } = optionsFor({ goal: "oil", pregnancy: "yes", sensitivity: null });
-    // BHA becomes PHA; retinoids have no safe one in their family, so azelaic acid fills the gap.
+    // BHA becomes PHA; retinoids have none that is shown in their family, so azelaic acid fills the gap.
     expect(actives.map((a) => a.key)).toEqual(["pha", "niacinamide", "azelaic"]);
-    expect(hiddenLine(hidden)).toBe("BHA and Retinoids are hidden while you're pregnant or breastfeeding.");
+    expect(hiddenLine(hidden)).toBe("BHA and Retinoids are hidden while you're pregnant or breastfeeding. Check with your doctor or midwife before starting anything new.");
   });
 
   it("names as hidden only what the carousel would have shown, and says it in good English", () => {
     // Dark marks: retinoids sit past the first three places, so they hide nothing.
     expect(optionsFor({ goal: "dark-marks", pregnancy: "yes", sensitivity: null }).hidden).toEqual([]);
-    expect(hiddenLine([activeOf("retinoids")])).toBe("Retinoids are hidden while you're pregnant or breastfeeding.");
-    expect(hiddenLine([activeOf("bha")])).toBe("BHA is hidden while you're pregnant or breastfeeding.");
+    expect(hiddenLine([activeOf("retinoids")])).toBe("Retinoids are hidden while you're pregnant or breastfeeding. Check with your doctor or midwife before starting anything new.");
+    expect(hiddenLine([activeOf("bha")])).toBe("BHA is hidden while you're pregnant or breastfeeding. Check with your doctor or midwife before starting anything new.");
   });
 
   // Owner, 3 October 2026: each person needs a different active.

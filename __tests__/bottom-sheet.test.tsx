@@ -1,4 +1,4 @@
-import { render, screen, within } from "@testing-library/react-native";
+import { act, fireEvent, render, screen, within } from "@testing-library/react-native";
 import { Pressable, StyleSheet, Text } from "react-native";
 
 import { BottomSheet } from "@/components/BottomSheet";
@@ -38,4 +38,21 @@ it("stops short of the status bar and scrolls, with its X outside the scroll", a
   expect(within(scroll).getByText("Long content")).toBeTruthy();
   expect(within(scroll).queryByLabelText("Close sheet")).toBeNull();
   expect(screen.getByLabelText("Close sheet")).toBeTruthy();
+});
+
+it("slides in over its own height, not the screen's", async () => {
+  const onClose = jest.fn();
+  const sheet = () => (
+    <BottomSheet visible onClose={onClose}>
+      <Text>Short</Text>
+    </BottomSheet>
+  );
+  await render(sheet());
+  const slide = () => screen.getByTestId("sheet-card").parent!;
+  const lift = () => (StyleSheet.flatten(slide().props.style).transform as { translateY: number }[])[0].translateY;
+  const start = lift();
+  await act(async () => fireEvent(slide(), "layout", { nativeEvent: { layout: { height: 300 } } }));
+  // Drawn again, since a moved value alone does not redraw in a test.
+  await screen.rerender(sheet());
+  expect(lift() / start).toBeCloseTo(300 / 874);
 });

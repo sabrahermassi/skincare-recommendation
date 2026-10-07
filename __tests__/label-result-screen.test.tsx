@@ -69,10 +69,12 @@ async function openOnly(names: string[]) {
 // Skin match opens first (owner).
 const showSafety = () => fireEvent.press(screen.getByRole("tab", { name: "Ingredients" }));
 
+// Skin needs is behind a dev-only switch (#467): on here, off in the test that says so.
+beforeEach(() => useAppStore.setState({ skinNeedsEnabled: true }));
 afterEach(() => {
   clearLabelRead();
   mockParams = {};
-  useAppStore.setState({ profile: EMPTY_PROFILE, history: [] });
+  useAppStore.setState({ profile: EMPTY_PROFILE, history: [], skinNeedsEnabled: false });
 });
 
 const LIST = ["water", "glycerin", "xanthan gum", "butylene glycol", "parfum", "linalool", "mystery extract"];
@@ -110,6 +112,13 @@ describe("the label result", () => {
 
   // Scanned from Skin needs (owner, 2 October 2026): the answer is whether the
   // list holds an active for what was picked, profile or no profile.
+  it("reads a Skin needs link as an ordinary label result while Skin needs is hidden (#467)", async () => {
+    useAppStore.setState({ skinNeedsEnabled: false });
+    mockParams = { from: "journey", need: "pimples.." };
+    await open(["water", "glycerin", "xanthan gum", "butylene glycol"]);
+    expect(screen.queryByRole("header", { name: "Not made for pimples" })).toBeNull();
+  });
+
   it("answers for what was picked when the scan came from Skin needs", async () => {
     mockParams = { from: "journey", need: "pimples.." };
     await open(["water", "glycerin", "xanthan gum", "butylene glycol"]);
