@@ -233,7 +233,7 @@ function QuestionCard({ title, tag, note, children }: { title: string; tag: stri
         <Text accessibilityRole="header" style={{ flex: 1, fontSize: TYPE.title, fontWeight: "600", lineHeight: LEADING.title, color: INK }}>
           {fontScale > 1 ? title : noOrphan(title)}
         </Text>
-        <Text style={{ fontSize: TYPE.caption, fontWeight: "600", color: MUTED_FAINT }}>{tag}</Text>
+        <Text style={{ fontSize: TYPE.caption, fontWeight: "500", color: MUTED_FAINT }}>{tag}</Text>
       </View>
       {children}
       {note ? <Text style={{ fontSize: TYPE.caption, lineHeight: LEADING.caption, color: MUTED_FAINT }}>{noOrphan(note)}</Text> : null}
@@ -454,7 +454,7 @@ function FamilyCard({ active, width, best, safe, inRoutine, onOpen }: { active: 
         <Text style={{ marginTop: SPACE.text, fontSize: TYPE.card, lineHeight: LEADING.card, color: INK }}>{line}</Text>
         <View style={{ marginTop: "auto", flexDirection: "row", alignItems: "center", justifyContent: "space-between" }}>
           <View style={{ gap: 6 }}>
-            <Text style={{ fontSize: TYPE.caption, fontWeight: "600", color: MUTED_FAINT }}>{storyLengthLine(active)}</Text>
+            <Text style={{ fontSize: TYPE.caption, fontWeight: "500", color: MUTED_FAINT }}>{storyLengthLine(active)}</Text>
             <View style={{ flexDirection: "row", gap: 3 }}>
               {Array.from({ length: cards }, (_, index) => (
                 <View key={index} style={{ width: 14, height: 3, borderRadius: 2, backgroundColor: SKIN_NEEDS.dash }} />
