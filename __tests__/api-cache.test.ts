@@ -430,6 +430,18 @@ describe("rows nobody can identify", () => {
   });
 });
 
+describe("a long shelf", () => {
+  it("asks for the ids it does not have in batches, not one request for all of them", async () => {
+    const ids = Array.from({ length: 250 }, (_, i) => `missing-${i}`);
+    mockCalls.length = 0;
+    await fetchProductsByIds(["missing-one"]);
+    const oneBatch = mockCalls.filter((c) => c === "rows").length;
+    mockCalls.length = 0;
+    await fetchProductsByIds(ids);
+    expect(mockCalls.filter((c) => c === "rows").length - oneBatch).toBe(2);
+  });
+});
+
 describe("an empty result", () => {
   /**
    * An empty products table is far more likely to be a request that failed
