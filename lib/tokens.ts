@@ -114,9 +114,9 @@ export const MUTED = "#524D48"; // v9: 8.35:1 on white, 7.47:1 on SURFACE (compu
  * Still visibly lighter than MUTED (6.07:1), so the three-level hierarchy
  * survives.
  *
- * v7 (29 September 2026) makes it the design's brand/meta grey, `#8A7870`,
- * read off the hand-off: 4.20:1 on SURFACE, 4.03:1 on CANVAS (computed) —
- * under 4.5:1, so it is for the 13pt brand line and meta, never body text.
+ * v7 had it at `#8A7870` (4.20:1 on SURFACE, 4.03:1 on CANVAS, under 4.5:1, so
+ * brand line only). v9 darkened it to the value below: 6.92:1 on SURFACE, 6.54:1
+ * on CANVAS (computed), so it is safe for small notes and tags too.
  */
 export const MUTED_FAINT = "#5E5954"; // v9 meta: 6.9:1 on white (computed)
 
@@ -137,8 +137,13 @@ export const LINK = "#62664B"; // v9 leaf sage, darker: 5.96:1 on white (compute
 /** Grey icons and placeholders: the search magnifier, an info "i" outline (v7). Decorative: 2.78:1 on SURFACE. */
 export const ICON_MUTED = "#ADA7A1"; // v9
 
-/** A text field's placeholder (v9, read off the hand-off): 4.13:1 on SURFACE (computed) — a hint, not content. */
-export const PLACEHOLDER = "#7A746E";
+/**
+ * A text field's placeholder. The hand-off's `#7A746E` is 4.61:1 on SURFACE but
+ * 4.36:1 on CANVAS (computed); `#736D67` is 5.11 on SURFACE, 4.83 on CANVAS and
+ * 4.57 on STONE (the report form's field), so it passes under a field on any
+ * of the three (7 October 2026 audit).
+ */
+export const PLACEHOLDER = "#736D67";
 
 /** The track behind a segmented control's sliding thumb (v7). */
 export const SEGMENT_TRACK = "#E8EBDF"; // v9: on the sage page

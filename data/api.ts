@@ -1017,6 +1017,9 @@ export async function fetchProduct(
   return delay({ ok: true, value: product ? resolveIngredients(product) : null });
 }
 
+/** How many ids one by-id request carries (they ride in the URL). */
+const IDS_PER_REQUEST = 100;
+
 /**
  * Used by the saved screen, which needs several at once.
  *
@@ -1049,14 +1052,23 @@ export async function fetchProductsByIds(
     if (missing.length === 0) return { ok: true, value: resolved };
 
     try {
-      const { data, error } = await withTimeout(
-        (signal) => supabase!.from("products").select(SELECT).in("id", missing).abortSignal(signal),
-        "fetchProductsByIds",
+      // A long shelf's missing ids go in batches: every id rides in the request's
+      // URL, and one `in (...)` of a few hundred outgrows what a server accepts.
+      const batches: string[][] = [];
+      for (let i = 0; i < missing.length; i += IDS_PER_REQUEST) batches.push(missing.slice(i, i + IDS_PER_REQUEST));
+      const answers = await Promise.all(
+        batches.map((batch) =>
+          withTimeout(
+            (signal) => supabase!.from("products").select(SELECT).in("id", batch).abortSignal(signal),
+            "fetchProductsByIds",
+          ),
+        ),
       );
-      if (error) return { ok: false, failure: classifyFailure(error) };
+      const failed = answers.find((answer) => answer.error);
+      if (failed?.error) return { ok: false, failure: classifyFailure(failed.error) };
       return {
         ok: true,
-        value: [...resolved, ...(data as unknown as CatalogueRow[]).map(rowToProduct)],
+        value: [...resolved, ...answers.flatMap((answer) => (answer.data as unknown as CatalogueRow[]).map(rowToProduct))],
       };
     } catch (err) {
       return { ok: false, failure: classifyFailure(err) };
