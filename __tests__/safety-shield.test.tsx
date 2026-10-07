@@ -46,7 +46,8 @@ const Saved = (require("@/app/(tabs)/saved") as { default: () => React.JSX.Eleme
 const safe = (name: string): Ingredient => ({ id: name, name, comedogenic: 0, safety: "safe", verified: true });
 const avoid = (name: string, note: string): Ingredient => ({ id: name, name, comedogenic: 0, safety: "avoid", verified: true, note });
 const HICC = avoid("hydroxyisohexyl 3-cyclohexene carboxaldehyde", "Prohibited in cosmetics (EU Annex II/1380: not allowed on the EU market since 23 August 2019 and not to be sold there since 23 August 2021; older stock may still be around)");
-const HYDROQUINONE = avoid("hydroquinone", "Prohibited in cosmetics (EU Annex II/1339 III/14)");
+// An Annex II row whose entry is not on the verified list (1340, Basic Blue 26): never a notice.
+const UNLISTED = avoid("basic blue 26", "Prohibited in cosmetics (EU Annex II/1340)");
 // A caution that merely mentions Annex II 358 (an exemption): never a notice.
 const CUMIN = { ...safe("cuminum cyminum fruit extract"), safety: "caution" as const, note: "Restricted use (EU Annex III/156)" };
 
@@ -107,7 +108,7 @@ describe("Saved", () => {
   const load = () =>
     fetchProductsByIds.mockImplementation(async (ids: string[]) => ({
       ok: true,
-      value: [product("hicc", [HICC]), product("hq", [HYDROQUINONE]), product("cumin", [CUMIN])].filter((p) => ids.includes(p.id)),
+      value: [product("hicc", [HICC]), product("hq", [UNLISTED]), product("cumin", [CUMIN])].filter((p) => ids.includes(p.id)),
     }));
 
   it("shows no shield anywhere with the flag off", async () => {
@@ -118,7 +119,7 @@ describe("Saved", () => {
     expect(screen.queryByRole("button", { name: SHIELD })).toBeNull();
   });
 
-  it("shows it on a HICC product only, never on hydroquinone (1339 unverified) or a 358-style exemption", async () => {
+  it("shows it on a HICC product only, never on an Annex II entry off the verified list or a 358-style exemption", async () => {
     turnOn();
     shelf();
     load();
@@ -169,7 +170,7 @@ describe("History", () => {
   it("looks the visible products up in one batch, not one request per row", async () => {
     turnOn();
     useAppStore.setState({ history: [viewed("hicc"), viewed("hq"), viewed("cumin")] });
-    fetchProductsByIds.mockResolvedValue({ ok: true, value: [product("hicc", [HICC]), product("hq", [HYDROQUINONE]), product("cumin", [CUMIN])] });
+    fetchProductsByIds.mockResolvedValue({ ok: true, value: [product("hicc", [HICC]), product("hq", [UNLISTED]), product("cumin", [CUMIN])] });
     await openHistory();
     expect(fetchProductsByIds).toHaveBeenCalledTimes(1);
     expect(fetchProductsByIds.mock.calls[0][0].sort()).toEqual(["cumin", "hicc", "hq"]);

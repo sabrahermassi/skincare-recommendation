@@ -11,7 +11,7 @@ const NOW = Date.parse("2026-10-07T12:00:00Z");
 const safe = (name: string): Ingredient => ({ id: name, name, comedogenic: 0, safety: "safe", verified: true });
 const avoid = (name: string, note: string): Ingredient => ({ id: name, name, comedogenic: 0, safety: "avoid", verified: true, note });
 const LILIAL = avoid("butylphenyl methylpropional", "Prohibited in cosmetics (EU Annex II/1666, since 1 March 2022)");
-const HYDROQUINONE = avoid("hydroquinone", "Prohibited in cosmetics (EU Annex II/1339 III/14)");
+const UNLISTED = avoid("basic blue 26", "Prohibited in cosmetics (EU Annex II/1340)");
 
 const product = (overrides: object = {}) => ({
   id: "obf-20532734",
@@ -63,10 +63,10 @@ describe("listAgeNotice", () => {
     });
 
     it("never calls an ingredient banned on the dictionary's word alone", () => {
-      // `avoid` with no Annex II entry, and an entry the owner has not verified.
+      // `avoid` with no Annex II entry, and an entry that is not on the verified list.
       const unsourced = product({ ingredients: [avoid("isopropyl myristate", "Often flagged for clogging pores")] });
       expect(listAgeNotice(unsourced, NOW, true)).toEqual({ kind: "dated", year: 2018 });
-      expect(listAgeNotice(product({ ingredients: [HYDROQUINONE] }), NOW, true)).toEqual({ kind: "dated", year: 2018 });
+      expect(listAgeNotice(product({ ingredients: [UNLISTED] }), NOW, true)).toEqual({ kind: "dated", year: 2018 });
     });
   });
 });

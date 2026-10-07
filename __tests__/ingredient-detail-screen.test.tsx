@@ -333,9 +333,19 @@ describe("the EU safety notice on the ingredient page", () => {
     expect(screen.queryAllByText(/23 August/)).toHaveLength(0);
   });
 
-  it("leaves hydroquinone as it was, even with the flag on: its entry is not verified", async () => {
+  it("shows the notice for hydroquinone, as the dictionary writes it (Annex II/1339 beside Annex III/14)", async () => {
+    // As the dictionary writes it: prohibited, citing Annex II/1339 beside Annex III/14.
+    const hydroquinone = ingredient("hydroquinone", { safety: "avoid", note: "Prohibited in cosmetics (EU Annex II/1339 III/14)" });
+    const withIt: ProductWithIngredients = { ...PRODUCT, ingredients: INGREDIENTS.map((i) => (i.name === "hydroquinone" ? hydroquinone : i)) };
     useAppStore.setState({ safetyNoticeEnabled: true }, false);
-    await open("hydroquinone", {}, withThem);
+    await open("hydroquinone", {}, withIt);
+    expect(screen.getByText(SAFETY_NOTICE_COPY.sheetHeadline)).toBeTruthy();
+    expect(screen.getByText(/Annex II, entry 1339\)/)).toBeTruthy();
+  });
+
+  it("leaves a prohibited row with no entry on the verified list as it was, even with the flag on", async () => {
+    useAppStore.setState({ safetyNoticeEnabled: true }, false);
+    await open("some prohibited substance", {}, withThem);
     expect(screen.getByText("Flagged as best avoided")).toBeTruthy();
     expect(screen.queryByText(SAFETY_NOTICE_COPY.sheetHeadline)).toBeNull();
     expect(screen.getByText("Avoid")).toBeTruthy();
