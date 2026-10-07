@@ -12,6 +12,7 @@ import { SectionLabel } from "@/components/SectionLabel";
 import { IngredientsCard, type IngredientFilter } from "@/components/result/IngredientsCard";
 import { ScoreDisc, VerdictLink } from "@/components/result/ScoreRing";
 import { SegmentedSwitch } from "@/components/SegmentedSwitch";
+import { SwapFade } from "@/components/SwapFade";
 import { ReadingScale, Text, useLargeText } from "@/components/Text";
 import { VerdictDot } from "@/components/VerdictMarker";
 import type { Ingredient, ProductType, SkinProfile } from "@/data/types";
@@ -179,20 +180,23 @@ export function ResultTabs({
                 gap: SPACE.block,
               }}
             >
-              {tab === "match" ? (
-                <MatchTab ingredients={ingredients} type={type} match={match} profile={profile} need={need} />
-              ) : (
-                <IngredientsTab
-                  ingredients={ingredients}
-                  type={type}
-                  match={match}
-                  profile={profile}
-                  filter={filter}
-                  onFilter={setFilter}
-                  onIngredientPress={onIngredientPress}
-                  report={report}
-                />
-              )}
+              {/* The tab's own gap, since it no longer sits straight in the sheet's. */}
+              <SwapFade on={tab} style={{ gap: SPACE.block }}>
+                {tab === "match" ? (
+                  <MatchTab ingredients={ingredients} type={type} match={match} profile={profile} need={need} />
+                ) : (
+                  <IngredientsTab
+                    ingredients={ingredients}
+                    type={type}
+                    match={match}
+                    profile={profile}
+                    filter={filter}
+                    onFilter={setFilter}
+                    onIngredientPress={onIngredientPress}
+                    report={report}
+                  />
+                )}
+              </SwapFade>
               {footer}
             </View>
           </View>
