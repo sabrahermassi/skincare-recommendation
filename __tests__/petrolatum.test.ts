@@ -9,8 +9,9 @@ import { safetyFor } from "../scripts/import-inci-dictionary.mjs";
 /**
  * #361: petrolatum is `safe`, with a note saying why. As `caution` (0028) the
  * app read it as an EU-restricted irritant. Each test builds the row exactly
- * as the import now writes it, and checks the old `caution` row against the
- * same formula so the difference is the label and nothing else.
+ * as the import now writes it. Since #407 an Annex III row that is not an
+ * allergen entry costs nothing either way, so the old `caution` row is
+ * checked against it only to show the fix no longer rests on the label.
  */
 
 const written = safetyFor("petrolatum", { en: "II/904" });
@@ -44,17 +45,15 @@ describe("petrolatum (#361)", () => {
 
   it("gets no warning for sensitive skin", () => {
     expect(contraindications(balm(row("safe")).ingredients, SENSITIVE)).toEqual([]);
-    // What 0028's label did.
-    expect(contraindications(balm(row("caution")).ingredients, SENSITIVE).map((w) => w.reason)).toEqual([
-      "Common irritant for sensitive skin",
-    ]);
+    // 0028's label, restricted: still no warning, because Annex III alone says nothing about skin (#407).
+    expect(contraindications(balm(row("caution")).ingredients, SENSITIVE)).toEqual([]);
   });
 
   it("costs a sensitive profile nothing on the score", () => {
     const safe = match(row("safe"), SENSITIVE);
     expect(safe.irritants).not.toContain("petrolatum");
     expect(safe.breakdown.irritationPenalty).toBe(0);
-    expect(match(row("caution"), SENSITIVE).breakdown.irritationPenalty).toBeGreaterThan(0);
+    expect(match(row("caution"), SENSITIVE).breakdown.irritationPenalty).toBe(0);
   });
 
   it("isn't a watch-out in the ingredient list or counted by the Irritation risk card", () => {
@@ -66,12 +65,12 @@ describe("petrolatum (#361)", () => {
     };
     expect(labels("safe")).not.toContain("watch");
     expect(labels("safe")).not.toContain("avoid");
-    expect(labels("caution")).toContain("watch");
+    expect(labels("caution")).not.toContain("watch");
 
     const product = balm(row("safe"));
     const counts = irritationCounts(product, match(row("safe"), SENSITIVE));
     expect(counts.personal).toBe(0);
-    expect(counts.restricted).toBe(0);
+    expect(counts.euFlagged).toBe(0);
   });
 
   it("isn't labelled Watch in the ingredient list", () => {
@@ -87,7 +86,7 @@ describe("its EU status on the ingredient page (#362)", () => {
     expect(regulatoryStatus(row("safe"))).toBe("Allowed when refined");
   });
 
-  it("leaves every other safe ingredient at 'No restriction'", () => {
-    expect(regulatoryStatus(OTHERS[1])).toBe("No restriction");
+  it("leaves every other safe ingredient at 'No restriction listed'", () => {
+    expect(regulatoryStatus(OTHERS[1])).toBe("No restriction listed");
   });
 });

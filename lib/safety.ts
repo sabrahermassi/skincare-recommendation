@@ -1,4 +1,6 @@
 import type { Ingredient, SkinProfile } from "@/data/types";
+import { EU_ALLERGEN_CONDITION, EU_ALLERGEN_COPY, EU_ALLERGEN_SOURCE, euAllergenEntry, type EuAllergenEntry } from "./eu-allergens";
+import { displayIngredientName } from "./ingredient-name";
 import { pregnancyCautionHits } from "./pregnancy-caution";
 import { isSensitive, treatAsReactive } from "./profile";
 import type { RuleSource } from "./rules";
@@ -58,15 +60,57 @@ export function isOriginDependent(ingredient: Ingredient): boolean {
  * regulator rather than an advocacy group's rating, and is one of the few
  * genuinely authoritative facts we hold. A refined-grade exemption says so,
  * rather than "No restriction" under a note about an EU ban (#362).
+ *
+ * Annex III is "allowed with limits", not "restricted" (#407): the limits are
+ * a maximum amount, a product type or a label duty, and none of them is a
+ * verdict on anyone's skin. An allergen the dictionary does not carry as
+ * Annex III (hexyl cinnamal, menthol) reads the same way, since the label duty
+ * is what puts it there.
  */
 export function regulatoryStatus(ingredient: Ingredient): string {
   if (!isVerified(ingredient)) return "Unmatched";
   if (ingredient.safety === "avoid") return "Prohibited";
-  if (ingredient.safety === "caution") return "Restricted";
+  if (ingredient.safety === "caution" || euAllergenEntry(ingredient.name)) return EU_ALLERGEN_COPY.limits;
   if (ingredient.note?.startsWith(REFINED_GRADE_NOTE_START)) return "Allowed when refined";
   if (ingredient.note?.startsWith(NATURAL_ESSENCE_NOTE_START)) return "Allowed, with a limit on furocoumarins";
   if (isOriginDependent(ingredient)) return ORIGIN_DEPENDENT_HEADLINE;
-  return "No restriction";
+  return EU_ALLERGEN_COPY.noneListed;
+}
+
+/** The Annex III entry numbers a dictionary note cites: "Restricted use (EU Annex III/1a III/61)" gives ["1a", "61"], never an Annex II number. */
+export function annexIIIEntries(note: string | undefined): string[] {
+  return [...(note ?? "").matchAll(/III\/(\d+[a-z]?)(?![\w/])/g)].map((match) => match[1]);
+}
+
+/**
+ * The condition behind "Allowed with limits", where we hold one: the label
+ * duty of an allergen entry (read off the regulation, `lib/eu-allergens.ts`),
+ * else only which Annex III entry the dictionary cites. The regulation's other
+ * limits (a maximum amount, a product type) are not stored, and a number is
+ * all that can be said without guessing them.
+ */
+export function regulatoryCondition(ingredient: Ingredient): string | null {
+  if (!isVerified(ingredient) || ingredient.safety === "avoid") return null;
+  const allergen = euAllergenEntry(ingredient.name);
+  // Benzyl alcohol's entry applies only when it is not a preservative, so the label duty is not stated flat.
+  if (allergen?.exempt) return `Annex III, entry ${allergen.entry}. ${EU_ALLERGEN_COPY.exemptCondition}`;
+  if (allergen) return `Annex III, entry ${allergen.entry}. ${EU_ALLERGEN_CONDITION[allergen.kind]}`;
+  if (ingredient.safety !== "caution") return null;
+  const cited = annexIIIEntries(ingredient.note);
+  return cited.length > 0 ? `Annex III, ${cited.length === 1 ? "entry" : "entries"} ${cited.join(", ")}` : null;
+}
+
+/**
+ * The Annex III entry that makes this ingredient matter to sensitive skin, or
+ * null (#407). One answer for the score's charge, the warning, the list label
+ * and the risk count, so the number on screen and the penalty cannot drift.
+ * Needs a recognised name; a name the dictionary marks `avoid` is a hazard and
+ * only that; an exempt entry (benzyl alcohol) is on the list but never charged.
+ */
+export function euAllergenFor(ingredient: Ingredient): EuAllergenEntry | null {
+  if (!isVerified(ingredient) || ingredient.safety === "avoid") return null;
+  const entry = euAllergenEntry(ingredient.name);
+  return entry && !entry.exempt ? entry : null;
 }
 
 /**
@@ -95,8 +139,8 @@ export type Contraindication = {
    * How hard this lands on the score.
    *
    * `hazard`  — the ingredient is a problem in its own right. Caps the score.
-   * `irritant` — it is restricted or commonly reactive, and the user said
-   *   their skin reacts. Worth showing, but graduated rather than absolute.
+   * `irritant` — it is an EU-labelled allergen, and the user said their skin
+   *   reacts. Worth showing, but graduated rather than absolute.
    *
    * The distinction exists because collapsing the two capped 40% of the
    * catalogue at "Poor" for anyone who ticked "somewhat sensitive" — 97 of
@@ -112,7 +156,7 @@ export type Contraindication = {
    * irritation risk — they need their own section on the result screen,
    * separate from the sensitivity count.
    */
-  origin: "avoid" | "restricted" | "pregnancy";
+  origin: "avoid" | "eu-allergen" | "pregnancy";
   /** Where the caution comes from, when we hold a checked source (#326). */
   source?: RuleSource;
 };
@@ -124,9 +168,10 @@ export type Contraindication = {
  * the EU Publications Office's copy of the same text (CELEX 32009R1223), since
  * EUR-Lex shows automated fetches a bot check.
  *
- * Annex III ("restricted") has no source here on purpose: the regulation says
- * those ingredients are allowed only within set limits, not that they are
- * common irritants, which is what that warning tells the user.
+ * Annex III ("allowed with limits") has no source here on purpose, except for
+ * the allergen entries, whose own warning cites `EU_ALLERGEN_SOURCE`: the
+ * regulation says the other ingredients are allowed only within set limits,
+ * not that they are irritants.
  */
 export const EU_PROHIBITED_SOURCE: RuleSource = {
   label: "EU Cosmetics Regulation, Annex II",
@@ -230,14 +275,6 @@ export function safetyNoticeHits(ingredients: readonly Ingredient[], enabled: bo
 }
 
 /**
- * A restricted ingredient's warning when sensitivity isn't set (#183). Says
- * what the app did, never what the person said — most unset profiles simply
- * stopped the quiz before that question.
- */
-export const UNSET_SENSITIVITY_REASON =
-  "May irritate reactive skin — judged at the middle setting because your sensitivity isn't set";
-
-/**
  * Ingredients that are a problem *for this particular user*, as opposed to
  * generally flagged.
  *
@@ -259,7 +296,10 @@ export function contraindications(
   // so a score docked for an irritant always shows which one. `treatAsReactive`
   // is false for a visitor with no profile, who keeps seeing hazards only.
   const reactive = treatAsReactive(profile);
-  const cautionReason = isSensitive(profile) ? "Common irritant for sensitive skin" : UNSET_SENSITIVITY_REASON;
+  // When sensitivity isn't set (#183) the warning says what the app did, never
+  // what the person said — most unset profiles simply stopped the quiz before
+  // that question.
+  const unsetNote = isSensitive(profile) ? "" : EU_ALLERGEN_COPY.unsetNote;
 
   for (const ingredient of ingredients) {
     // An unrecognised name supports no claim in either direction. Skipping it
@@ -272,13 +312,13 @@ export function contraindications(
       continue;
     }
 
-    if (reactive && ingredient.safety === "caution") {
-      found.push({
-        ingredient,
-        reason: cautionReason,
-        severity: "irritant",
-        origin: "restricted",
-      });
+    // Only the allergen entries of Annex III (#407): "allowed with limits"
+    // alone says nothing about a person's skin, so it is never listed here.
+    const allergen = reactive ? euAllergenFor(ingredient) : null;
+    if (allergen) {
+      const name = displayIngredientName(ingredient.name);
+      const reason = allergen.kind === "fragrance" ? EU_ALLERGEN_COPY.fragranceReason(name) : EU_ALLERGEN_COPY.warningReason(name);
+      found.push({ ingredient, reason: `${reason}${unsetNote}`, severity: "irritant", origin: "eu-allergen", source: EU_ALLERGEN_SOURCE });
     }
   }
 
@@ -329,7 +369,9 @@ export type RiskGroup = "avoid" | "caution" | "clean" | "unknown";
 
 /**
  * Buckets ingredients into three risk tiers for the detail screen's grouped
- * list, from the regulatory `safety` field and the comedogenic threshold.
+ * list, from the regulatory `safety` field, the EU allergen entries and the
+ * comedogenic threshold. An Annex III ingredient that is not an allergen entry
+ * is "allowed with limits", which is not a caution (#407).
  */
 export function groupByRisk(ingredients: Ingredient[]): Record<RiskGroup, Ingredient[]> {
   const groups: Record<RiskGroup, Ingredient[]> = {
@@ -348,10 +390,7 @@ export function groupByRisk(ingredients: Ingredient[]): Record<RiskGroup, Ingred
     }
     if (ingredient.safety === "avoid") {
       groups.avoid.push(ingredient);
-    } else if (
-      ingredient.safety === "caution" ||
-      ingredient.comedogenic >= COMEDOGENIC_FLAG_THRESHOLD
-    ) {
+    } else if (euAllergenFor(ingredient) !== null || ingredient.comedogenic >= COMEDOGENIC_FLAG_THRESHOLD) {
       groups.caution.push(ingredient);
     } else {
       groups.clean.push(ingredient);

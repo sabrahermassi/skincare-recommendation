@@ -1,22 +1,37 @@
 import { INGREDIENTS } from "@/data/ingredients";
 import type { SkinProfile } from "@/data/types";
 import type { Ingredient } from "@/data/types";
+import { EU_ALLERGEN_COPY, EU_ALLERGEN_SOURCE } from "@/lib/eu-allergens";
 import {
+  annexIIIEntries,
   contraindications,
   EU_PROHIBITED_SOURCE,
+  euAllergenFor,
   groupByRisk,
   historyWarningCount,
   irritationWarnings,
   isVerified,
-  UNSET_SENSITIVITY_REASON,
+  regulatoryCondition,
+  regulatoryStatus,
 } from "@/lib/safety";
 import { EMPTY_PROFILE } from "@/store/useAppStore";
 
 const safe = INGREDIENTS["glycerin"]; // comedogenic 0, safe
-const cautionIrritant = INGREDIENTS["fragrance"]; // comedogenic 0, caution
+const cautionIrritant = INGREDIENTS["fragrance"]; // comedogenic 0, caution — "Fragrance (Parfum)", not an Annex III allergen entry
 const severeComedogenic = INGREDIENTS["isopropyl-myristate"]; // 5, avoid
 const mildlyComedogenic = INGREDIENTS["cetearyl-alcohol"]; // 2, safe
 const moderate = INGREDIENTS["coconut-oil"]; // 4, caution
+
+/** An Annex III fragrance allergen (entry 88) as the dictionary carries it. */
+const limonene: Ingredient = { id: "limonene", name: "limonene", comedogenic: 0, safety: "caution", verified: true };
+/** Entry 87 (hexyl cinnamal): the dictionary has no Annex III note for it, so `safe`. */
+const hexylCinnamal: Ingredient = { id: "hexyl cinnamal", name: "hexyl cinnamal", comedogenic: 0, safety: "safe", verified: true };
+/** Annex III for another reason (a pH adjuster's maximum): allowed with limits, nothing to do with skin. */
+const sodiumHydroxide: Ingredient = { id: "sodium hydroxide", name: "sodium hydroxide", comedogenic: 0, safety: "caution", verified: true, note: "Restricted use (EU Annex III/15a)" };
+/** Entry 45, exempt: nearly always a preservative, which a label cannot tell. */
+const benzylAlcohol: Ingredient = { id: "benzyl alcohol", name: "benzyl alcohol", comedogenic: 0, safety: "caution", verified: true };
+/** A hair-dye entry whose required warning mentions an allergic reaction. */
+const resorcinol: Ingredient = { id: "resorcinol", name: "resorcinol", comedogenic: 0, safety: "caution", verified: true };
 
 function profile(overrides: Partial<SkinProfile> = {}): SkinProfile {
   return { ...EMPTY_PROFILE, ...overrides };
@@ -34,15 +49,14 @@ describe("contraindications", () => {
     expect(result[0].ingredient.id).toBe("isopropyl-myristate");
   });
 
-  // #347: the EU Annex II prohibition is the source of "best avoided"; Annex
-  // III says "allowed within limits", not "common irritant", so a restricted
-  // warning carries none.
-  it("sources an 'avoid' warning to the EU prohibition, and a restricted one to nothing", () => {
+  // #347: the EU Annex II prohibition is the source of "best avoided"; an
+  // allergen warning cites the Annex III entry that requires it on labels (#407).
+  it("sources an 'avoid' warning to the EU prohibition, and an allergen one to Annex III", () => {
     const [avoid] = contraindications([severeComedogenic], EMPTY_PROFILE);
     expect(avoid.source).toBe(EU_PROHIBITED_SOURCE);
-    const [restricted] = contraindications([cautionIrritant], profile({ sensitivity: "high" }));
-    expect(restricted.origin).toBe("restricted");
-    expect(restricted.source).toBeUndefined();
+    const [allergen] = contraindications([limonene], profile({ sensitivity: "high" }));
+    expect(allergen.origin).toBe("eu-allergen");
+    expect(allergen.source).toBe(EU_ALLERGEN_SOURCE);
   });
 
   // The 0-5 comedogenic column is empty for catalogue rows, so a hazard read
@@ -57,41 +71,60 @@ describe("contraindications", () => {
     expect(contraindications([moderate], dry)).toEqual([]);
   });
 
-  it("flags 'caution' irritants for sensitive skin, not for skin that said it isn't", () => {
+  it("flags EU allergens for sensitive skin, not for skin that said it isn't", () => {
     const sensitive = profile({ sensitivity: "some" });
     const notSensitive = profile({ baseSkinType: "oily", sensitivity: "none" });
-    expect(contraindications([cautionIrritant], sensitive)).toHaveLength(1);
-    expect(contraindications([cautionIrritant], notSensitive)).toEqual([]);
+    expect(contraindications([limonene], sensitive)).toHaveLength(1);
+    expect(contraindications([limonene], notSensitive)).toEqual([]);
+  });
+
+  // #407: "restricted" alone is allowed-with-conditions for everyone.
+  it("lists no warning for an ingredient that is only restricted, or for exempt benzyl alcohol", () => {
+    const sensitive = profile({ sensitivity: "high" });
+    expect(contraindications([sodiumHydroxide, benzylAlcohol, cautionIrritant], sensitive)).toEqual([]);
+    expect(euAllergenFor(sodiumHydroxide)).toBeNull();
+    expect(euAllergenFor(benzylAlcohol)).toBeNull();
+  });
+
+  it("flags an allergen the dictionary calls safe, and one whose entry is an allergy warning", () => {
+    const sensitive = profile({ sensitivity: "some" });
+    expect(contraindications([hexylCinnamal], sensitive).map((w) => w.reason)).toEqual([EU_ALLERGEN_COPY.fragranceReason("Hexyl Cinnamal")]);
+    expect(contraindications([resorcinol], sensitive).map((w) => w.reason)).toEqual([EU_ALLERGEN_COPY.warningReason("Resorcinol")]);
+  });
+
+  it("leaves a hazard as the hazard alone, and an unrecognised name unflagged", () => {
+    const prohibited: Ingredient = { ...limonene, safety: "avoid" };
+    expect(contraindications([prohibited], profile({ sensitivity: "high" })).map((w) => w.origin)).toEqual(["avoid"]);
+    expect(contraindications([{ ...limonene, verified: false }], profile({ sensitivity: "high" }))).toEqual([]);
   });
 
   // #183: an unset sensitivity is judged at the middle setting, so the
   // irritant the score charges is also the one listed.
-  it("flags 'caution' irritants for a scored profile with sensitivity unset, in words that claim nothing they said", () => {
+  it("flags EU allergens for a scored profile with sensitivity unset, in words that claim nothing they said", () => {
     const unset = profile({ baseSkinType: "oily", sensitivity: null });
-    const [warning] = contraindications([cautionIrritant], unset);
-    expect(warning).toMatchObject({ severity: "irritant", origin: "restricted", reason: UNSET_SENSITIVITY_REASON });
-    expect(warning.reason).not.toMatch(/you (told|said)|not sure|sensitive skin/i);
-    // Someone who did say they're sensitive keeps the existing wording.
-    expect(contraindications([cautionIrritant], profile({ sensitivity: "some" }))[0].reason).toBe(
-      "Common irritant for sensitive skin"
-    );
+    const [warning] = contraindications([limonene], unset);
+    const said = EU_ALLERGEN_COPY.fragranceReason("Limonene");
+    expect(warning).toMatchObject({ severity: "irritant", origin: "eu-allergen", reason: `${said}${EU_ALLERGEN_COPY.unsetNote}` });
+    expect(warning.reason).not.toMatch(/you (told|said)|not sure/i);
+    // Someone who did say they're sensitive gets the sentence alone.
+    expect(contraindications([limonene], profile({ sensitivity: "some" }))[0].reason).toBe(said);
   });
 
   // The regression the naive "null means sensitive" version would cause: a
   // visitor with no profile at all seeing "N flagged for your skin".
   it("shows a visitor with no profile nothing but profile-independent hazards", () => {
-    expect(contraindications([cautionIrritant, moderate, safe], EMPTY_PROFILE)).toEqual([]);
-    expect(contraindications([cautionIrritant, severeComedogenic], EMPTY_PROFILE).map((w) => w.origin)).toEqual([
+    expect(contraindications([limonene, moderate, safe], EMPTY_PROFILE)).toEqual([]);
+    expect(contraindications([limonene, severeComedogenic], EMPTY_PROFILE).map((w) => w.origin)).toEqual([
       "avoid",
     ]);
   });
 
   it("reports each problem ingredient once", () => {
-    // coconut-oil is caution and rated comedogenic 4; a sensitive acne-prone
-    // user sees it once, as the restricted ingredient it is.
+    // limonene is an EU allergen: a sensitive acne-prone user sees it once.
     const p = profile({ sensitivity: "some", concerns: ["acne-prone"] });
-    const result = contraindications([moderate], p);
-    expect(result).toHaveLength(1);
+    expect(contraindications([limonene], p)).toHaveLength(1);
+    // coconut-oil is caution and rated comedogenic 4, but only restricted: no warning.
+    expect(contraindications([moderate], p)).toHaveLength(0);
   });
 
   // Pregnancy caution is a name-pattern match (lib/pregnancy-caution.ts), not
@@ -136,19 +169,21 @@ describe("contraindications", () => {
     // ingredient once" expectation (was toHaveLength(1)): that invariant
     // held only while there was a single combined count, and this ticket's
     // fix is exactly what removes that count.
-    const salicylicAcid: Ingredient = {
-      id: "salicylic-acid",
-      name: "Salicylic Acid",
+    // Lavender oil is an EU-labelled allergen (entry 360) and an essential oil
+    // advised against in pregnancy.
+    const lavenderOil: Ingredient = {
+      id: "lavandula angustifolia oil",
+      name: "lavandula angustifolia oil",
       comedogenic: 0,
-      safety: "caution",
+      safety: "safe",
       verified: true,
     };
     const result = contraindications(
-      [salicylicAcid],
+      [lavenderOil],
       profile({ sensitivity: "some", pregnancyStatus: "pregnant" })
     );
     expect(result).toHaveLength(2);
-    expect(result.map((r) => r.origin).sort()).toEqual(["pregnancy", "restricted"]);
+    expect(result.map((r) => r.origin).sort()).toEqual(["eu-allergen", "pregnancy"]);
   });
 
   // #186: names added to close a gap between the scoring rule and the
@@ -257,5 +292,37 @@ describe("unverified ingredients", () => {
       verified: true,
     };
     expect(contraindications([verified], profile())).toHaveLength(1);
+  });
+});
+
+describe("allowed with limits (#407)", () => {
+  it("files an allergen under caution, and a restricted-only or exempt ingredient under clean", () => {
+    const groups = groupByRisk([limonene, hexylCinnamal, sodiumHydroxide, benzylAlcohol]);
+    expect(groups.caution).toEqual([limonene, hexylCinnamal]);
+    expect(groups.clean).toEqual([sodiumHydroxide, benzylAlcohol]);
+  });
+
+  it("says 'Allowed with limits' for Annex III, and 'No restriction listed' for no entry", () => {
+    expect(regulatoryStatus(sodiumHydroxide)).toBe("Allowed with limits");
+    expect(regulatoryStatus(benzylAlcohol)).toBe("Allowed with limits");
+    expect(regulatoryStatus(hexylCinnamal)).toBe("Allowed with limits");
+    expect(regulatoryStatus(safe)).toBe("No restriction listed");
+  });
+
+  it("gives the condition we hold: an allergen's label duty, else the cited entry number", () => {
+    expect(regulatoryCondition(limonene)).toMatch(/^Annex III, entry 88\. Must be named on the label above 0\.001%/);
+    expect(regulatoryCondition(resorcinol)).toMatch(/^Annex III, entry 22\. Needs a warning about allergic reactions/);
+    expect(regulatoryCondition(sodiumHydroxide)).toBe("Annex III, entry 15a");
+    // Benzyl alcohol is exempt: its label duty depends on why it is there, so it is not stated flat.
+    expect(regulatoryCondition(benzylAlcohol)).toBe("Annex III, entry 45. The label duty applies only when it is not there as a preservative.");
+    expect(regulatoryCondition(safe)).toBeNull();
+    expect(regulatoryCondition({ ...limonene, safety: "avoid" })).toBeNull();
+  });
+
+  it("reads the entry numbers a note cites, never an Annex II number or the old Part I numbering", () => {
+    expect(annexIIIEntries("Restricted use (EU Annex III/1a III/61)")).toEqual(["1a", "61"]);
+    expect(annexIIIEntries("Prohibited in cosmetics (EU Annex II/1339 III/14)")).toEqual(["14"]);
+    expect(annexIIIEntries("Restricted use (EU Annex III/I/257)")).toEqual([]);
+    expect(annexIIIEntries(undefined)).toEqual([]);
   });
 });
