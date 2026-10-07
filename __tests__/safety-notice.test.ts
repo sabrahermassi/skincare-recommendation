@@ -60,6 +60,17 @@ describe("the notice, with the flag on", () => {
     expect(annexIIEntries(HYDROQUINONE.note)).toEqual([1339]);
   });
 
+  it("speaks only for hydroquinone under entry 1339: another row a source cited there gets no notice, and no nail exception (Codex review)", () => {
+    // The importer keeps such a mis-cited row `avoid` (annex-ii-corrections.test.ts); the notice must not call it hydroquinone's entry.
+    for (const name of ["cannabidiol", "c15 19 alkane", "hydroxyisohexyl 3 cyclohexene carboxaldehyde"]) {
+      expect(safetyNoticeFor(avoid(name, "Prohibited in cosmetics (EU Annex II/1339)"), true)).toBeNull();
+    }
+    expect(SAFETY_NOTICE_ENTRIES.find((entry) => entry.entry === 1339)?.names).toEqual(["hydroquinone"]);
+    // Only an entry that says something true of one substance is tied to a name; the rest go by the entry cited.
+    expect(SAFETY_NOTICE_ENTRIES.filter((entry) => entry.names).map((entry) => entry.entry)).toEqual([1339]);
+    expect(safetyNoticeFor(avoid("some other spelling", "Prohibited in cosmetics (EU Annex II/1380)"), true)?.entry).toBe(1380);
+  });
+
   it("adds an entry's dates, then its exception, after the sheet's body, and nothing for an entry with neither", () => {
     expect(safetyNoticeDetail(safetyNoticeFor(HICC, true)!)).toMatch(/^ It has not been allowed on the EU market since 23 August 2019/);
     expect(safetyNoticeDetail(safetyNoticeFor(ISOBUTYLPARABEN, true)!)).toBe("");

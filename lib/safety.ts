@@ -202,6 +202,13 @@ export type SafetyNoticeEntry = {
   dates?: string;
   /** In words, for the ingredient sheet, when the entry itself allows one use (hydroquinone, 1339). */
   exception?: string;
+  /**
+   * The dictionary names the entry speaks for, when it is one substance and
+   * says something only true of that substance. Without it the notice goes by
+   * the cited entry number alone, so a row a source cited under 1339 by
+   * mistake would be told about hydroquinone's nail-product exception.
+   */
+  names?: readonly string[];
 };
 
 export const SAFETY_NOTICE_ENTRIES: readonly SafetyNoticeEntry[] = [
@@ -250,6 +257,8 @@ export const SAFETY_NOTICE_ENTRIES: readonly SafetyNoticeEntry[] = [
     verified: "2026-10-07",
     verifiedBy: "owner",
     exception: "The one exception is professional artificial nail products, at up to 0.02% (Annex III, entry 14).",
+    // The entry is one substance (CAS 123-31-9), under its one INCI name.
+    names: ["hydroquinone"],
   },
 ];
 
@@ -294,12 +303,18 @@ export function annexIIEntries(note: string | undefined): number[] {
 /**
  * The notice for one ingredient, or null. Needs the flag on, a recognised
  * name the dictionary marks `avoid`, and a cited Annex II entry that is on the
- * verified list with a date.
+ * verified list with a date. An entry that lists its `names` speaks only for
+ * those: any other row citing it gets no notice from it.
  */
 export function safetyNoticeFor(ingredient: Ingredient, enabled: boolean): SafetyNoticeEntry | null {
   if (!enabled || !isVerified(ingredient) || ingredient.safety !== "avoid") return null;
   const cited = annexIIEntries(ingredient.note);
-  return SAFETY_NOTICE_ENTRIES.find((entry) => entry.verified !== null && cited.includes(entry.entry)) ?? null;
+  const name = ingredient.name.trim().toLowerCase();
+  return (
+    SAFETY_NOTICE_ENTRIES.find(
+      (entry) => entry.verified !== null && cited.includes(entry.entry) && (!entry.names || entry.names.includes(name))
+    ) ?? null
+  );
 }
 
 /**
