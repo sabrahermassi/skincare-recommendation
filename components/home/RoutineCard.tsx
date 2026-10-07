@@ -29,14 +29,14 @@ export function StartRoutineCard({ onPress }: { onPress: () => void }) {
       accessibilityLabel="Start your routine. Build my routine"
       style={{ minHeight: CARD_HEIGHT, borderRadius: CARD_RADIUS, backgroundColor: HOME_TILE.start, paddingVertical: 11, paddingLeft: SPACE.inset, paddingRight: SPACE.text, flexDirection: "row", alignItems: "center", gap: SPACE.text, overflow: "hidden" }}
     >
-      <View style={{ flex: 1, gap: 6 }}>
+      <View style={{ flex: 1, gap: SPACE.text }}>
         <Text maxFontSizeMultiplier={CARD_TEXT_SCALE} style={{ fontFamily: DISPLAY_FONT, fontSize: TYPE.heading, lineHeight: LEADING.heading, color: INK }}>
           Start your routine
         </Text>
         <Text maxFontSizeMultiplier={CARD_TEXT_SCALE} style={{ fontSize: TYPE.body, lineHeight: LEADING.body, color: MUTED }}>
           Morning and evening steps for your skin. Takes a minute.
         </Text>
-        <Text maxFontSizeMultiplier={CARD_TEXT_SCALE} style={{ marginTop: 6, fontSize: TYPE.body, fontWeight: "600", color: BUTTON.primary.fill }}>
+        <Text maxFontSizeMultiplier={CARD_TEXT_SCALE} style={{ marginTop: SPACE.tight, fontSize: TYPE.body, fontWeight: "600", color: BUTTON.primary.fill }}>
           Build my routine ›
         </Text>
       </View>
@@ -63,21 +63,21 @@ export function TodayRoutineCard({ today, onPress }: { today: Today; onPress: ()
     >
       <WateryWash {...theme.wash} />
       <Image source={ROUTINE_ART} contentFit="contain" accessibilityLabel="" style={{ position: "absolute", top: 4, right: 4, width: 164, height: 146 }} />
-      <View style={{ gap: 2, paddingRight: 144 }}>
+      <View style={{ gap: SPACE.hair, paddingRight: 144 }}>
         <Text maxFontSizeMultiplier={CARD_TEXT_SCALE} style={{ fontFamily: DISPLAY_FONT, fontSize: TYPE.heading, lineHeight: LEADING.heading, color: INK }}>
           Your skincare routine
         </Text>
-        <View style={{ flexDirection: "row", alignItems: "center", gap: 6 }}>
+        <View style={{ flexDirection: "row", alignItems: "center", gap: SPACE.text }}>
           <TimeIcon time={today.time} />
           <Text maxFontSizeMultiplier={CARD_TEXT_SCALE} style={{ fontSize: TYPE.body, lineHeight: LEADING.body, color: MUTED }}>
             {kicker}
           </Text>
         </View>
-        <Text maxFontSizeMultiplier={CARD_TEXT_SCALE} numberOfLines={2} style={{ marginTop: 4, fontSize: title.length > LONG_TITLE ? TYPE.card : TYPE.title, lineHeight: 22, fontWeight: "600", color: INK }}>
+        <Text maxFontSizeMultiplier={CARD_TEXT_SCALE} numberOfLines={2} style={{ marginTop: SPACE.tight, fontSize: title.length > LONG_TITLE ? TYPE.card : TYPE.title, lineHeight: 22, fontWeight: "600", color: INK }}>
           {title}
         </Text>
       </View>
-      <View style={{ flexDirection: "row", alignItems: "center", gap: 4, overflow: "hidden" }}>
+      <View style={{ flexDirection: "row", alignItems: "center", gap: SPACE.tight, overflow: "hidden" }}>
         {cardPills(today).map((pill, i) => (
           <Fragment key={`${pill.label}-${i}`}>
             {pill.arrow ? <Text style={{ fontSize: TYPE.caption, color: MUTED_FAINT }}>→</Text> : null}

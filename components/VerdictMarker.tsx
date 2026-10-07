@@ -2,7 +2,7 @@ import { View } from "react-native";
 
 import { Text } from "@/components/Text";
 import { LABEL_META, type IngredientLabel } from "@/lib/ingredient-labels";
-import { VERDICT, VERDICT_NEUTRAL, TYPE } from "@/lib/tokens";
+import { VERDICT, VERDICT_NEUTRAL, TYPE, SPACE } from "@/lib/tokens";
 
 // v9 (read off the hand-off): an 8pt dot with a 4pt soft halo round it.
 const DOT = 8;
@@ -38,7 +38,7 @@ export function VerdictDot({ colour, halo }: { colour: string; halo: string }) {
 export function VerdictMarker({ label, text }: { label: IngredientLabel; /** The word to show in place of the label's own (the EU safety notice's "Check label", #404). */ text?: string }) {
   const tone = verdictTone(label);
   return (
-    <View style={{ flexDirection: "row", alignItems: "center", gap: 10 }}>
+    <View style={{ flexDirection: "row", alignItems: "center", gap: SPACE.text }}>
       <VerdictDot colour={tone.solid} halo={tone.halo} />
       <Text style={{ fontSize: TYPE.label, color: tone.word }}>{text ?? LABEL_META[label].label}</Text>
     </View>

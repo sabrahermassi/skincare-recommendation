@@ -15,7 +15,7 @@ const BUILDING_ART = require("@/assets/illustrations/loading-routine.webp");
  */
 export function BuildingRoutine({ title, line, children }: { title: string; line: string; children?: ReactNode }) {
   return (
-    <View accessibilityLiveRegion="polite" style={{ flex: 1, alignItems: "center", justifyContent: "center", gap: SPACE.gutter, paddingHorizontal: 32 }}>
+    <View accessibilityLiveRegion="polite" style={{ flex: 1, alignItems: "center", justifyContent: "center", gap: SPACE.gutter, paddingHorizontal: SPACE.large }}>
       <Image source={BUILDING_ART} contentFit="contain" accessibilityLabel="" style={{ width: 280, height: 280 }} />
       <Text accessibilityRole="header" style={{ textAlign: "center", fontFamily: DISPLAY_FONT, fontSize: TYPE.heading, lineHeight: LEADING.heading, letterSpacing: TRACKING.heading, color: INK }}>
         {noOrphan(title)}

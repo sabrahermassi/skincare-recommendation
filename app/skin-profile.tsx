@@ -117,7 +117,7 @@ export default function SkinProfileScreen() {
           ) : null}
         </View>
         {/* In ink, not secondary grey (v9): it says what the page is for. */}
-        <Text style={{ paddingTop: SPACE.block, paddingHorizontal: 4, fontSize: TYPE.body, lineHeight: LEADING.body, color: INK }}>
+        <Text style={{ paddingTop: SPACE.block, paddingHorizontal: SPACE.tight, fontSize: TYPE.body, lineHeight: LEADING.body, color: INK }}>
           Every score is made from these answers. Change one and your scores update.
         </Text>
 
@@ -142,7 +142,7 @@ export default function SkinProfileScreen() {
                   <Text style={{ fontSize: TYPE.label, fontWeight: "600", color: LINK }}>{isOpen ? "Done" : "Change"}</Text>
                 </Pressable>
                 {isOpen ? (
-                  <View accessibilityLabel={QUESTIONS[question]} style={{ paddingTop: 4, paddingHorizontal: SPACE.gutter, paddingBottom: SPACE.gutter }}>
+                  <View accessibilityLabel={QUESTIONS[question]} style={{ paddingTop: SPACE.tight, paddingHorizontal: SPACE.gutter, paddingBottom: SPACE.gutter }}>
                     {question === "skinType" ? (
                       <SkinTypePicker value={profile.baseSkinType} unknownChosen={answered.has("skinType")} onChange={(baseSkinType) => save({ baseSkinType })} />
                     ) : question === "concerns" ? (

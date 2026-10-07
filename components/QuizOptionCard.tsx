@@ -60,7 +60,7 @@ export function QuizOptionCard({ label, description, selected = false, disabled 
       }}
       className="active:opacity-80"
     >
-      <View style={{ flex: 1, gap: 2 }}>
+      <View style={{ flex: 1, gap: SPACE.hair }}>
         <Text style={{ fontSize: TYPE.card, fontWeight: "600", lineHeight: LEADING.card, color: INK }}>{label}</Text>
         {description ? <Text style={{ fontSize: TYPE.body, lineHeight: LEADING.body, color: MUTED }}>{description}</Text> : null}
       </View>

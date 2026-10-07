@@ -74,7 +74,7 @@ export function FilterDropdown<T extends string>({
         accessibilityRole="button"
         accessibilityLabel={`Filter: ${current}`}
         accessibilityState={{ expanded: open }}
-        style={{ minHeight: TOUCH_TARGET, flexDirection: "row", alignItems: "center", gap: 4, paddingHorizontal: 4 }}
+        style={{ minHeight: TOUCH_TARGET, flexDirection: "row", alignItems: "center", gap: SPACE.tight, paddingHorizontal: SPACE.tight }}
         className="active:opacity-70"
       >
         <Text style={{ fontSize: TYPE.label, color: MUTED }}>Filter:</Text>

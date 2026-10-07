@@ -86,12 +86,12 @@ export function BottomSheet({
 
   const translateY = progress.interpolate({ inputRange: [0, 1], outputRange: [height, 0] });
   const maxHeight = height - insets.top - TOP_GAP - (floating ? FLOAT_INSET : 0);
-  // v7 pop-up padding: 24 top and bottom, 16 at the sides.
+  // v7 pop-up padding: SPACE.section top and bottom, 16 at the sides.
   const padding = bare
     ? {}
     : floating
     ? { paddingTop: SPACE.section, paddingHorizontal: SPACE.gutter, paddingBottom: SPACE.section, gap: SPACE.text }
-    : { paddingTop: 28, paddingHorizontal: SPACE.gutter, paddingBottom: Math.max(24, insets.bottom + 12), gap: SPACE.block };
+    : { paddingTop: SPACE.large, paddingHorizontal: SPACE.gutter, paddingBottom: Math.max(24, insets.bottom + 12), gap: SPACE.block };
 
   const body = (
       <KeyboardAvoidingView behavior={Platform.OS === "ios" ? "padding" : undefined} style={{ flex: 1, justifyContent: "flex-end" }}>

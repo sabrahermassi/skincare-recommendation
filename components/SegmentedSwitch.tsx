@@ -158,7 +158,7 @@ export function SegmentedSwitch<T extends string>({
               accessibilityRole="tab"
               accessibilityLabel={label}
               accessibilityState={{ selected: on }}
-              style={{ flex: 1, flexDirection: "row", gap: SPACE.text, alignItems: "center", justifyContent: "center", paddingHorizontal: 6 }}
+              style={{ flex: 1, flexDirection: "row", gap: SPACE.text, alignItems: "center", justifyContent: "center", paddingHorizontal: SPACE.text }}
               className="active:opacity-70"
             >
               {icon ? icon(on) : null}

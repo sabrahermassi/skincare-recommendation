@@ -39,7 +39,7 @@ export function RouteErrorScreen({ error, retry }: ErrorBoundaryProps) {
         alignItems: "center",
         justifyContent: "center",
         gap: SPACE.block,
-        paddingHorizontal: 32,
+        paddingHorizontal: SPACE.large,
         paddingTop: insets.top,
         paddingBottom: insets.bottom,
       }}
