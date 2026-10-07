@@ -1,13 +1,15 @@
 ---
 name: design-pass
-description: Run the whole Impeccable design loop on the app in one go — critique and audit, fix (typeset, layout, distill, quieter, delight, animate, polish), then critique and audit again — checking every screen in the iOS Simulator, and open one pull request. Only stops to ask the owner about real design decisions. Use when the user says "/design-pass", "run the design pass", or "run all the impeccable steps".
+description: Run the whole Impeccable design loop on the app in one go — critique and audit, fix (typeset, layout, distill, quieter, delight, animate, polish), then critique and audit again — checking every screen in the iOS Simulator, and open one pull request. Never stops midway: it fixes what it can and lists everything that needs the owner at the end. Use when the user says "/design-pass", "run the design pass", or "run all the impeccable steps".
 ---
 
 # Design pass
 
 The owner used to run each Impeccable command by hand, read its report,
 approve the fixes, and repeat. This skill runs the same commands in a fixed
-order and does the approving itself, except where a real decision is needed.
+order and does the approving itself. **It never stops midway.** Where a real
+decision is needed it leaves that one thing undone, writes it down, and keeps
+going; everything left for the owner is handed over once, at the end.
 
 **Never merge. Never write to production. Never force-push, rebase or delete
 a branch.** Read `CLAUDE.md` and `DESIGN.md` once at the start: `DESIGN.md`
@@ -19,8 +21,9 @@ a screen) apply to every step.
 ## The order
 
 Run these eleven Impeccable commands, in this order, in one session. Do not
-ask which to run, and do not ask which screen to start with: every command
-covers the whole app.
+ask which to run, do not ask which screen to start with, and do not pause
+between steps for approval: every command covers the whole app, and the run
+ends only after step 11.
 
 **Check**
 1. `/impeccable critique`
@@ -47,9 +50,9 @@ word). If the Impeccable plugin isn't installed, stop and say so.
 - Work in a new git worktree on a new branch from current `origin/main`
   (`task/design-pass-<date>`). Other sessions may be running; never work in
   their checkout.
-- If an earlier design-pass PR is still open, stop and tell the owner: one
-  run at a time, merged before the next. Stacking ten small PRs is what made
-  merging slow.
+- If an earlier design-pass PR is still open, this is the one reason not to
+  start: tell the owner which PR and end there. One run at a time, merged
+  before the next; stacking ten small PRs is what made merging slow.
 - Start this branch's own dev server on a free port with the staging
   environment loaded and a cleared cache
   (`npx expo start --port <port> --clear`, see the memory note "Simulator QA
@@ -77,15 +80,15 @@ word). If the Impeccable plugin isn't installed, stop and say so.
 - **Steps 10 and 11 are the proof.** If they find something new that needs no
   decision, fix it and say so. Don't start the loop a second time.
 
-## What to decide yourself, and what to ask
+## What to fix yourself, and what to leave for the owner
 
 Fix without asking: contrast, spacing and type that break a rule already in
 `DESIGN.md`; orphan words; touch targets; clipped or overlapping text;
 values that bypass tokens; dead code; an animation that ignores Reduce
 Motion; a duplicate line of copy that says what the line above already says.
 
-**Stop and ask the owner** (one question, with what you'd pick and why, so
-one word answers it) only for:
+**Leave for the owner** (don't do it, don't ask mid-run; write it down with
+what you'd pick and why, so one word answers it) only:
 
 - a choice between two looks: a colour, a typeface, an icon, an illustration
 - removing, merging or reordering something the app does (a step, a card, a
@@ -94,13 +97,14 @@ one word answers it) only for:
   (it goes through the claims audit), and any change to the app's name or
   voice
 - a new animation or "delight" moment on a screen that has none: propose it
-  with a simulator recording or screenshot, don't ship it unasked
+  with a screenshot of where it would go, don't ship it unasked
 - a value in `DESIGN.md` marked as the owner's decision
 - anything touching scoring, the database, accounts or the scanner's logic
 
-Collect these as you go. Ask them together at the end of the fix steps
-(before step 10), not one at a time. If the owner isn't there, leave each one
-undone, list it in the PR, and carry on.
+Collect these as you go and carry on with everything else. Never use a
+question to pause the run. They are handed over once, after step 11, in the
+PR and in the final message. If one of them blocks part of a step, do the
+rest of that step.
 
 ## Finish
 
@@ -115,7 +119,8 @@ undone, list it in the PR, and carry on.
      couldn't reach)
    - **Decisions for you:** each open question with your recommendation
 3. Stop the dev server and the simulator you started.
-4. Tell the owner the PR number and the decisions, nothing else. `/review-prs`
+4. Tell the owner the PR number and the full list of what is left for them,
+   nothing else. Their answers are a follow-up on the same PR; `/review-prs`
    takes it from there.
 
 ## When to run it
