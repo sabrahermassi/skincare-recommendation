@@ -184,6 +184,52 @@ Deno.test("an Open Beauty Facts hit is written in one transaction and read back"
   assertEquals(outcomes(db), ["resolved"]);
 });
 
+Deno.test("an Open Beauty Facts hit stores how old its ingredient list is: the selected photo's upload time (#446)", async () => {
+  let written: Record<string, unknown> | undefined;
+  const upstream: Upstream = () =>
+    jsonResponse({
+      status: 1,
+      product: {
+        product_name: "Calming Toner",
+        brands: "Brand A",
+        ingredients_text: FORMULA,
+        categories_tags: [],
+        images: { "1": { uploaded_t: "1700000000" }, "2": { uploaded_t: "1523208574" }, front_fr: { imgid: "1" }, ingredients_fr: { imgid: "2" } },
+      },
+    });
+  const { deps, fetched } = setup(
+    either(allKnown, (call) => readBack(call, () => written), (call) => {
+      if (call.kind === "rpc" && call.fn === "replace_product_with_ingredients") {
+        written = call.args.p_product as Record<string, unknown>;
+      }
+      return undefined;
+    }),
+    upstream,
+  );
+  const reply = await handleProductLookup(post({ barcode: BARCODE }), deps);
+  assertEquals(reply.status, 200);
+  assertEquals(written?.ingredients_photographed_at, "2018-04-08T17:29:34.000Z");
+  assertEquals((await reply.json()).ingredients_photographed_at, "2018-04-08T17:29:34.000Z");
+  // The photos have to be asked for, or there is nothing to read the date from.
+  assertEquals(JSON.stringify(fetched).includes("images"), true);
+});
+
+Deno.test("an Open Beauty Facts hit with no photo of the list stores null, not a guess (#446)", async () => {
+  let written: Record<string, unknown> | undefined;
+  const { deps } = setup(
+    either(allKnown, (call) => readBack(call, () => written), (call) => {
+      if (call.kind === "rpc" && call.fn === "replace_product_with_ingredients") {
+        written = call.args.p_product as Record<string, unknown>;
+      }
+      return undefined;
+    }),
+    obfHit(),
+  );
+  await handleProductLookup(post({ barcode: BARCODE }), deps);
+  assertEquals(written !== undefined && "ingredients_photographed_at" in written, true);
+  assertEquals(written?.ingredients_photographed_at, null);
+});
+
 Deno.test("a write that fails is 502, never 'not found' or a half answer", async () => {
   const { db, deps } = setup(
     either(allKnown, (call) =>

@@ -52,7 +52,7 @@ type PersistedCatalogue = {
  * definition into every product that contained it, so they are both a
  * different shape and several times larger.
  */
-const SCHEMA_VERSION = 3;
+const SCHEMA_VERSION = 4;
 
 const PRODUCTS_KEY = `forme-catalogue-v${SCHEMA_VERSION}`;
 const META_KEY = `forme-catalogue-meta-v${SCHEMA_VERSION}`;
@@ -153,6 +153,10 @@ function nextGeneration(): string {
  * change the watermark and force a real refetch. Found by Codex on PR #122.
  * Bumping the version forces exactly that refetch on the next launch,
  * rather than leaving it to chance.
+ *
+ * v3 -> v4 (#446): the same again for `ingredientsPhotographedAt`. A v3 blob
+ * has no key for it, and the product screen reads a missing key as "nobody
+ * asked", so a device left on v3 would never show how old a list is.
  */
 const LEGACY_KEYS = [
   "forme-catalogue-v1",
@@ -160,6 +164,9 @@ const LEGACY_KEYS = [
   "forme-catalogue-v2",
   "forme-catalogue-meta-v2",
   "forme-catalogue-manifest-v2",
+  "forme-catalogue-v3",
+  "forme-catalogue-meta-v3",
+  "forme-catalogue-manifest-v3",
 ];
 
 let legacyDropped = false;
@@ -1563,11 +1570,21 @@ export function addScannedToCatalogue(product: ProductWithIngredients): void {
   // old formula with nothing to notice. Every product this scan didn't touch
   // keeps its object — and with it, its cached score.
   //
-  // `source` falls back to `held`'s: `product-lookup`'s select omits the
-  // column entirely (unlike the on-device list's), so a plain re-scan of an
+  // `source` falls back to `held`'s: a `product-lookup` deployed before #446
+  // omits the column entirely (unlike the on-device list's), so a plain re-scan of an
   // already-known product would otherwise silently blank out a source the
   // catalogue already had (#268 review, CodeRabbit).
-  const replacement: ProductWithIngredients = { ...product, source: product.source ?? held?.source, ingredients };
+  //
+  // The photo date falls back the same way, on `undefined` only: a function
+  // deployed before the column existed does not send it, while `null` is its
+  // answer that the list has no photo (#446).
+  const replacement: ProductWithIngredients = {
+    ...product,
+    source: product.source ?? held?.source,
+    ingredientsPhotographedAt:
+      product.ingredientsPhotographedAt !== undefined ? product.ingredientsPhotographedAt : held?.ingredientsPhotographedAt,
+    ingredients,
+  };
   const withDefinitions = (p: ProductWithIngredients) =>
     changed.size > 0 && p.ingredients.some((i) => changed.has(i.id))
       ? { ...p, ingredients: p.ingredients.map((i) => changed.get(i.id) ?? i) }
@@ -1612,10 +1629,11 @@ function sameDefinition(a: Ingredient, b: Ingredient): boolean {
  *
  * `source` on `b` (the fresh read) gets one more exception: `undefined` there
  * means "this producer didn't select the column", not "no source" —
- * `product-lookup`'s select omits it entirely, unlike the on-device list's.
+ * a `product-lookup` deployed before #446 omits it entirely, unlike the on-device list's.
  * Comparing it like any other field would make every re-scan of an
  * already-known, catalogue-sourced product look changed, defeating the fast
  * path this function exists for (#268 review, CodeRabbit).
+ * `ingredientsPhotographedAt` gets the same exception for the same reason (#446).
  */
 function sameProduct(a: ProductWithIngredients, b: ProductWithIngredients): boolean {
   const sameFormula =
@@ -1626,7 +1644,7 @@ function sameProduct(a: ProductWithIngredients, b: ProductWithIngredients): bool
   const fieldsB = b as unknown as Record<string, unknown>;
   for (const key of new Set([...Object.keys(fieldsA), ...Object.keys(fieldsB)])) {
     if (key === "fetchedAt" || key === "ingredients") continue;
-    if (key === "source" && fieldsB[key] === undefined) continue;
+    if ((key === "source" || key === "ingredientsPhotographedAt") && fieldsB[key] === undefined) continue;
     if (!sameValue(fieldsA[key], fieldsB[key])) return false;
   }
   return true;

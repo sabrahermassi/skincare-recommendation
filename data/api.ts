@@ -383,10 +383,11 @@ type CatalogueRow = {
   id: string;
   barcode: string | null;
   /**
-   * Optional because one producer of this shape does not return it: the
-   * `product-lookup` Edge Function has its own narrower `SELECT` with no
-   * `source` column, and `fetchProductByBarcode` casts that response to this
-   * type. Declaring it required would be a type that lies — and the lie would
+   * Optional because one producer of this shape may not return it: the
+   * `product-lookup` Edge Function has its own `SELECT`, which had no `source`
+   * column until #446, and `fetchProductByBarcode` casts that response to this
+   * type. A function deployed before then still answers without it, so
+   * declaring it required would be a type that lies — and the lie would
    * surface as `undefined === "ocr"` quietly evaluating false somewhere.
    */
   source?: string;
@@ -402,6 +403,8 @@ type CatalogueRow = {
   attribution: string | null;
   fetched_at: string | null;
   formula_changed_at: string | null;
+  /** Missing, rather than null, from a `product-lookup` deployed before the column existed (#446). */
+  ingredients_photographed_at?: string | null;
   product_ingredients: {
     position: number;
     ingredients: {
@@ -432,7 +435,7 @@ type IngredientDictionary = Map<string, Ingredient>;
 const PRODUCT_COLUMNS = `
   id, barcode, brand, name, type, source, description, image_url, volume,
   price_krw, suitable_for, targets, attribution, fetched_at,
-  formula_changed_at`;
+  formula_changed_at, ingredients_photographed_at`;
 
 /** One product, with its formula inlined. For reads of a single row. */
 const SELECT = `${PRODUCT_COLUMNS},
@@ -547,6 +550,8 @@ function buildProduct(
     attribution: row.attribution,
     fetchedAt: row.fetched_at ?? undefined,
     formulaChangedAt: row.formula_changed_at ?? undefined,
+    // Null is an answer ("no photo of the list"), so it is kept as null.
+    ingredientsPhotographedAt: row.ingredients_photographed_at,
     source: row.source,
     ingredientIds: ingredients.map((i) => i.id),
     ingredients,

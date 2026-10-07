@@ -63,6 +63,7 @@ import { fileURLToPath } from "node:url";
 import { connect } from "./lib/db.mjs";
 import { MIN_KNOWN_INGREDIENT_RATIO, retryAfterMs } from "./import-obf.mjs";
 import { parseInci } from "./lib/inci-parse.mjs";
+import { ingredientsPhotographedAt } from "../supabase/functions/_shared/ingredients-photo-date.mjs";
 import { parserOnlyChange } from "./lib/formula-diff.mjs";
 import { fetchAliases } from "./lib/aliases.mjs";
 import { paginateOrdered } from "./lib/paginate.mjs";
@@ -178,7 +179,7 @@ export async function fetchIngredients(barcode, retried = false) {
     // everything behind it in the run) until the workflow's own default
     // timeout finally gives up. An abort lands in the catch below like any
     // other network failure, so it's already retryable with no other change.
-    res = await fetch(`${OBF}/api/v2/product/${encodeURIComponent(barcode)}.json?fields=code,ingredients_text`, {
+    res = await fetch(`${OBF}/api/v2/product/${encodeURIComponent(barcode)}.json?fields=code,ingredients_text,images`, {
       headers: { "User-Agent": USER_AGENT },
       signal: AbortSignal.timeout(30_000),
     });
@@ -210,7 +211,14 @@ export async function fetchIngredients(barcode, retried = false) {
   if (body?.status !== 1 || !body.product) {
     return { ok: false, permanent: false, reason: `unexpected response shape (status ${body?.status})`, attempts };
   }
-  return { ok: true, text: (body.product.ingredients_text ?? "").trim(), attempts };
+  return {
+    ok: true,
+    text: (body.product.ingredients_text ?? "").trim(),
+    // `images` was asked for, so one that is missing means OBF has no photo:
+    // null, which is written, rather than undefined, which would mean "not looked at".
+    photographedAt: ingredientsPhotographedAt(body.product.images ?? null),
+    attempts,
+  };
 }
 
 /**
@@ -360,10 +368,15 @@ export function isRefinement(current, fresh) {
  * timestamp instead (migration 0021): the label did not move, so nobody who saved the product is
  * told it was reformulated. This is the one place that difference is made, and it is tested.
  */
-export function replaceArgs(row, fresh, action) {
+export function replaceArgs(row, fresh, action, photographedAt) {
   const { id, barcode, brand, name, type, area, description, image_url, volume, in_stock, suitable_for, targets, source, attribution, expires_at } = row;
   const base = {
-    p_product: { id, barcode, brand, name, type, area, description, image_url, volume, in_stock, suitable_for, targets, source, attribution, expires_at },
+    p_product: {
+      id, barcode, brand, name, type, area, description, image_url, volume, in_stock, suitable_for, targets, source, attribution, expires_at,
+      // When the ingredient list was photographed (#446, migration 0033). Left out when this
+      // read did not look, and the function then keeps the date already stored.
+      ...(photographedAt !== undefined ? { ingredients_photographed_at: photographedAt } : {}),
+    },
     p_ingredients: fresh,
     // Same note import-obf.mjs itself passes for an OBF-sourced stub.
     p_stub_note: "No published rating for this ingredient yet.",
@@ -371,6 +384,18 @@ export function replaceArgs(row, fresh, action) {
   if (action === "refresh") return { ...base, p_parser_refresh: true };
   if (action === "reformulated") return { ...base, p_formula_changed_at: new Date().toISOString() };
   throw new Error(`replaceArgs: nothing to write for ${JSON.stringify(action)}`);
+}
+
+/**
+ * What an unchanged product is written with: today as the day it was confirmed, and how old its
+ * ingredient list is (#446). The formula did not move, but the photo it was read from may be a
+ * newer one, and this is also how a product stored before the date existed gets it.
+ */
+export function unchangedUpdate(photographedAt, now = new Date()) {
+  return {
+    fetched_at: now.toISOString(),
+    ...(photographedAt !== undefined ? { ingredients_photographed_at: photographedAt } : {}),
+  };
 }
 
 async function main() {
@@ -483,7 +508,7 @@ async function main() {
         unchanged += 1;
         touched += 1;
         if (!dryRun) {
-          const { error } = await db.from("products").update({ fetched_at: new Date().toISOString() }).eq("id", row.id);
+          const { error } = await db.from("products").update(unchangedUpdate(result.photographedAt)).eq("id", row.id);
           if (error) throw new Error(`fetched_at touch failed for ${row.id} (unchanged): ${error.message}`);
         }
         continue;
@@ -504,7 +529,7 @@ async function main() {
         }
         touched += 1;
         if (!dryRun) {
-          const { error: rpcError } = await db.rpc("replace_product_with_ingredients", replaceArgs(row, fresh, action));
+          const { error: rpcError } = await db.rpc("replace_product_with_ingredients", replaceArgs(row, fresh, action, result.photographedAt));
           if (rpcError) throw new Error(`replace_product_with_ingredients failed for ${row.id} (parser refresh): ${rpcError.message}`);
         }
         continue;
@@ -514,7 +539,7 @@ async function main() {
       touched += 1;
       if (changedSamples.length < 5) changedSamples.push(`${row.brand} — ${row.name}${repair ? " (reformulated: stamped)" : ""}`);
       if (!dryRun) {
-        const { error: rpcError } = await db.rpc("replace_product_with_ingredients", replaceArgs(row, fresh, action));
+        const { error: rpcError } = await db.rpc("replace_product_with_ingredients", replaceArgs(row, fresh, action, result.photographedAt));
         if (rpcError) throw new Error(`replace_product_with_ingredients failed for ${row.id}: ${rpcError.message}`);
       }
     }

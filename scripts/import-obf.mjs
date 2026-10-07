@@ -41,6 +41,7 @@ import { fileURLToPath } from "node:url";
 import { createGunzip } from "node:zlib";
 
 import { connect } from "./lib/db.mjs";
+import { ingredientsPhotographedAt } from "../supabase/functions/_shared/ingredients-photo-date.mjs";
 import { guessType } from "../supabase/functions/_shared/product-type-classifier.mjs";
 import { guessTypeFromIngredients } from "./lib/guess-type-from-ingredients.mjs";
 import { fetchAliases } from "./lib/aliases.mjs";
@@ -348,6 +349,7 @@ const STAMPED_MODULES = [
   "./lib/non-skincare.mjs",
   "./lib/face-skincare.mjs",
   "../supabase/functions/_shared/product-type-classifier.mjs",
+  "../supabase/functions/_shared/ingredients-photo-date.mjs",
 ];
 
 /**
@@ -372,8 +374,9 @@ const STAMPED_MODULES = [
  *
  * `api/v2/search` rather than the older `cgi/search.pl`, for `fields`: without
  * it a page carries every field OBF holds, including nutrition and packaging
- * trees this import ignores. Asking for the nine fields below took a 100-row
- * page from megabytes to ~68KB. Note that search.pl also needs
+ * trees this import ignores. Asking for the fields below took a 100-row
+ * page from megabytes to ~68KB (measured before `images` joined them, #446:
+ * it is how old the ingredient list is, and it makes a page larger). Note that search.pl also needs
  * `action=process` to answer in JSON at all — without it, it returns the HTML
  * page and `res.ok` is still true, which is a silent failure worth avoiding.
  */
@@ -385,6 +388,7 @@ const FIELDS = [
   "categories_tags",
   "ingredients_text",
   "image_url",
+  "images",
   "last_modified_t",
 ].join(",");
 
@@ -560,6 +564,9 @@ function toRow(p, known, samples, rejectedNames, aliases) {
       source: "obf",
       attribution: ATTRIBUTION,
       expires_at: null,
+      // Both the API page and the export line carry `images` whenever OBF has
+      // any, so one that is missing means no photo: null, not "not looked at".
+      ingredients_photographed_at: ingredientsPhotographedAt(p.images ?? null),
     },
     ingredients,
   };

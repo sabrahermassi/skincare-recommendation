@@ -73,6 +73,28 @@ notes the same (`__tests__/annex-stale-citations.test.ts`, and
 `supabase/tests/annex_stale_citations.test.sql` against a real Postgres). The score impact is
 in the #419 PR.
 
+**How old an ingredient list is, is when it was photographed (7 October 2026, #446).** A
+barcode result shows Open Beauty Facts' copy of the list. `fetched_at` is when we last read the
+row, and OBF's `last_modified_t` moves whenever one of its bots touches a product, so neither
+says how old the formula is. `products.ingredients_photographed_at` (migration 0033) is the
+upload time of the photo OBF has selected as the ingredients picture, the newest across
+languages, read by one shared function (`supabase/functions/_shared/ingredients-photo-date.mjs`)
+in the import, the reconcile job and `product-lookup`. Null means OBF has no photo of the list.
+
+- **A writer that did not look cannot wipe the date.** `replace_product_with_ingredients` keeps
+  the stored value when `p_product` has no such key, and replaces it (null included) when it has.
+- **The product screen's notice** (`lib/list-age.ts`) replaced the old one that fired six
+  months after `fetched_at`. It shows for an OBF row only: photographed more than two years
+  ago, or no photo at all. A label scan is the bottle in hand and never shows it.
+- **"Which the EU has banned" is said only where the safety notice may say it:** an ingredient
+  on the owner-verified list (`SAFETY_NOTICE_ENTRIES`), with the safety-notice flag on. The
+  issue asked for it on any `avoid` ingredient; `avoid` also covers rows that are not EU bans
+  and citations that have been wrong (0028 to 0032), so that wording waits for the same
+  switch as the notice it repeats. Turning it on for everyone is the owner's call.
+- **The nightly reconcile job is what keeps the date current**, and it has failed every night
+  since 22 September 2026 (it needs `SUPABASE_ENV`, which its workflow does not set). Not fixed
+  here: which project that job writes to is the operator's decision.
+
 **An allergen the regulation spells differently from CosIng (7 October 2026, #439).** 37 of
 the names in `lib/eu-allergens.ts` matched no dictionary row, for three different reasons,
 and only one of them was a missing row:

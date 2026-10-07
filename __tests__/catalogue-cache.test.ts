@@ -55,10 +55,10 @@ function product(id: string, type: ProductWithIngredients["type"]): ProductWithI
 
 const WATERMARK: CatalogueWatermark = { count: 3, newest: "2026-09-14T00:00:00Z", ingredientCount: 0, ingredientNewest: null };
 
-const PRODUCTS_KEY = "forme-catalogue-v3";
-const META_KEY = "forme-catalogue-meta-v3";
-const MANIFEST_KEY = "forme-catalogue-manifest-v3";
-const CHUNK_PREFIX = "forme-catalogue-chunk-v3-";
+const PRODUCTS_KEY = "forme-catalogue-v4";
+const META_KEY = "forme-catalogue-meta-v4";
+const MANIFEST_KEY = "forme-catalogue-manifest-v4";
+const CHUNK_PREFIX = "forme-catalogue-chunk-v4-";
 
 /**
  * Run a test body as a given platform.
@@ -214,6 +214,21 @@ describe("disk layer", () => {
     expect(await AsyncStorage.getItem("forme-catalogue-v2")).toBeNull();
     expect(await AsyncStorage.getItem("forme-catalogue-meta-v2")).toBeNull();
     expect(await AsyncStorage.getItem("forme-catalogue-manifest-v2")).toBeNull();
+  });
+
+  /** v3 -> v4 (#446): a v3 blob has no key for `ingredientsPhotographedAt`, so it would never say how old a list is. */
+  it("deletes the v3 blobs the photo-date schema bump left behind", async () => {
+    await AsyncStorage.setItem("forme-catalogue-v3", JSON.stringify([{ id: "old" }]));
+    await AsyncStorage.setItem("forme-catalogue-meta-v3", "{}");
+    await AsyncStorage.setItem("forme-catalogue-manifest-v3", "{}");
+    await AsyncStorage.setItem("forme-catalogue-chunk-v3-abc-0", "stranded");
+
+    await dropLegacyBlobs();
+
+    expect(await AsyncStorage.getItem("forme-catalogue-v3")).toBeNull();
+    expect(await AsyncStorage.getItem("forme-catalogue-meta-v3")).toBeNull();
+    expect(await AsyncStorage.getItem("forme-catalogue-manifest-v3")).toBeNull();
+    expect(await AsyncStorage.getItem("forme-catalogue-chunk-v3-abc-0")).toBeNull();
   });
 
   /**
