@@ -403,6 +403,10 @@ the scanner, How scoring works and the ingredient sheet slide up.
   13pt brand line but also used for the small notes and tags on Find your
   actives and Saved, and the placeholder token (4.13). Darkening it is the
   next contrast step.
+- **Icons are two sets, not SF Symbols:** Ionicons (`@expo/vector-icons`: menu rows,
+  routine, scoring sheet, camera, saved) and the app's own SVG marks (tab bar,
+  hearts, stars, ticks, shield). Each screen keeps to one. Moving to SF Symbols
+  would be a visual change for every menu row and is not planned.
 - **Colour lives in three files** (`tokens.ts`, `colors.ts`, `tailwind.config.js`)
   and is kept in step by hand.
 - **Five font sizes are written inline** (10 to 14, inside rings and badges, below
