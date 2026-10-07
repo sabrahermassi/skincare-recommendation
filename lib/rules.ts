@@ -431,7 +431,7 @@ export const INGREDIENT_RULES: IngredientRule[] = [
     names: [
       "limonene", "linalool", "citronellol", "geraniol", "eugenol", "coumarin",
       "citral", BENZYL_SALICYLATE_NAME, "benzyl benzoate", "hexyl cinnamal",
-      "butylphenyl methylpropional", "isoeugenol", "farnesol",
+      "isoeugenol", "farnesol",
     ],
     category: "fragrance",
     hurts: { sensitive: true, concerns: ["atopic"] },
@@ -439,6 +439,18 @@ export const INGREDIENT_RULES: IngredientRule[] = [
     // alcohol), not a salicylic-acid source — kept out of SALICYLATE_NAMES
     // on purpose, see lib/retinoid-salicylate-names.ts.
     reason: "An EU-labelled fragrance allergen - declared precisely because it sensitises some people",
+    weight: 6,
+    source: { label: "DermNet: fragrance allergy", url: "https://dermnetnz.org/topics/fragrance-allergy" },
+  },
+  {
+    // Lilial was one of the allergens above until the EU prohibited it (Annex II/1666,
+    // #419), so it is no longer "EU-labelled". It keeps the same charge: without it a
+    // product already under the hazard cap would score higher for sensitive skin once
+    // the ingredient became a ban.
+    names: ["butylphenyl methylpropional"],
+    category: "fragrance",
+    hurts: { sensitive: true, concerns: ["atopic"] },
+    reason: "A fragrance ingredient that sensitises some people",
     weight: 6,
     source: { label: "DermNet: fragrance allergy", url: "https://dermnetnz.org/topics/fragrance-allergy" },
   },
