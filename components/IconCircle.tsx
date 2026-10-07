@@ -25,7 +25,8 @@ export function IconCircle({
   children: ReactNode;
 }) {
   // On a glass pop-up it stays the white disc: glass is never put on glass.
-  const glass = hasLiquidGlass && !useContext(OnGlass);
+  const onGlass = useContext(OnGlass);
+  const glass = hasLiquidGlass && !onGlass;
   return (
     <Pressable
       onPress={onPress}
