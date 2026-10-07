@@ -159,7 +159,9 @@ letter on the routine, and the "!" mark in the scanner's announcement.
 `noOrphan` (`lib/text.ts`), which joins the last two words with a non-breaking
 space. Every centred title and short line uses it: page, quiz and question-card
 titles, empty states (Saved's own included), pop-ups and sheets, error screens
-and the result's title and summary. A new centred heading should too.
+and the result's title and summary. A new centred heading should too. The exception is a title that shares a row
+with another element (a question card's beside its tag): it keeps normal wrapping
+once text is above its normal size, since a pair kept together can be too wide.
 
 ## Spacing
 
@@ -245,7 +247,7 @@ once (`hasLiquidGlass`); nothing else should call the native glass directly
 - **Where:** the navigation and control layer that floats over content: the fixed
   header (`GlassHeader`), the tab bar capsule (a faint `GLASS_BAR` white, 22%), the round nav buttons
   (`IconCircle`, interactive), the raised scan button (tinted sage, interactive),
-  the segmented switch's thumb on the page looks (interactive), and the things
+  the segmented switch's thumb on the page looks, and the things
   that float over a screen: floating pop-ups (`BottomSheet` floating), the filter
   popover and both toasts. Anything that carries text takes `GLASS_FROST` (white
   at 40%) so the words read over whatever is behind; the undo toast is tinted
@@ -254,7 +256,8 @@ once (`hasLiquidGlass`); nothing else should call the native glass directly
   ingredient sheet) and the camera's and the routine's coloured switch thumbs.
 - **Where not:** content. Cards, reason boxes, rows and reading text stay flat,
   and glass is never put on glass (the glass thumb inside the plain switch track
-  is the one nesting, as in iOS 26's own segmented control).
+  is the one nesting, as in iOS 26's own segmented control). A round button on a
+  glass pop-up keeps its white disc (`OnGlass`).
 - Reduce Transparency: the real glass adapts by itself; the blur fallback draws
   a solid surface instead (`useReduceTransparency`, `Glass`'s `solid`). The
   sheets' dim-and-blur scrim and the scanner's blur are not glass and are left
@@ -285,7 +288,7 @@ once (`hasLiquidGlass`); nothing else should call the native glass directly
   small score ring, the heart. 12pt between cards. Search, Saved, History and
   the finder's results all use it.
 - **Score beside a product** (`ScorePill`): a 30pt ring, 2pt in the band's
-  `solid`, the number 12 bold in `deep`, no fill. A safety shield sits beside it
+  `solid`, the number 12 bold in `word` (it is small text), no fill. A safety shield sits beside it
   when the EU notice applies.
 - **Big score** (`ScoreRing` in `components/result/`): a 96pt ring on a 108pt
   white disc, over the result sheet's edge. Under it the verdict pill

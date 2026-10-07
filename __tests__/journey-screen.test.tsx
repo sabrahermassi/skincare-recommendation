@@ -13,6 +13,12 @@ import { EMPTY_PROFILE, useAppStore } from "@/store/useAppStore";
 
 jest.setTimeout(30_000);
 
+let mockFontScale = 1;
+jest.mock("react-native/Libraries/Utilities/useWindowDimensions", () => ({
+  __esModule: true,
+  default: () => ({ width: 402, height: 874, scale: 3, fontScale: mockFontScale }),
+}));
+
 jest.mock("expo-router", () => ({
   router: { back: jest.fn(), push: jest.fn(), replace: jest.fn(), canGoBack: jest.fn(() => true) },
 }));
@@ -22,6 +28,7 @@ jest.mock("react-native-safe-area-context", () => ({
 jest.mock("@/lib/reduce-motion", () => ({ reduceMotionNow: () => true }));
 
 afterEach(() => {
+  mockFontScale = 1;
   useAppStore.setState({ profile: EMPTY_PROFILE, routineActives: [], savedIngredients: [] });
   jest.mocked(router.push).mockClear();
 });
@@ -58,6 +65,10 @@ it("lets a profile answer be changed, and then it no longer says it came from th
   await pick("Sensitive skin: Somewhat");
   expect(screen.getByRole("radio", { name: "Sensitive skin: Somewhat" }).props.accessibilityState.checked).toBe(true);
   expect(screen.getAllByText("From your profile")).toHaveLength(1);
+  // Picking the profile's answer again does not bring the tag back: it was chosen here.
+  await pick("Sensitive skin: Very");
+  expect(screen.getByRole("radio", { name: "Sensitive skin: Very" }).props.accessibilityState.checked).toBe(true);
+  expect(screen.getAllByText("From your profile")).toHaveLength(1);
 });
 
 it("asks everything when the profile is empty", async () => {
@@ -73,6 +84,16 @@ it("shows the first goals and the rest a tap away, open at once for a goal in th
   await fireEvent.press(screen.getByRole("button", { name: /more goals$/ }));
   expect(GOALS.every((goal) => screen.getByRole("radio", { name: goal.label }))).toBe(true);
   expect(screen.queryByRole("button", { name: /more goals$/ })).toBeNull();
+});
+
+// The title sits beside its tag, so the pair kept together only applies while text is at its normal size.
+it("keeps the last two words of a question together, until the text size grows", async () => {
+  await render(<Journey />);
+  expect(screen.getByRole("header", { name: "What do you want to work on?" }).props.children).toBe("What do you want to work\u00A0on?");
+  await screen.unmount();
+  mockFontScale = 1.5;
+  await render(<Journey />);
+  expect(screen.getByRole("header", { name: "What do you want to work on?" }).props.children).toBe("What do you want to work on?");
 });
 
 it("keeps Show what helps off until a goal is picked (Q0), and takes one goal only", async () => {
