@@ -4,6 +4,7 @@ import { router } from "expo-router";
 import IngredientRoute from "@/app/ingredient/[inci]";
 import { fetchProduct } from "@/data/api";
 import type { Ingredient, ProductWithIngredients, SkinProfile } from "@/data/types";
+import { EU_ALLERGEN_COPY, EU_ALLERGEN_SOURCE } from "@/lib/eu-allergens";
 import { PREGNANCY_CAUTION } from "@/lib/pregnancy-caution";
 import { EU_PROHIBITED_SOURCE, SAFETY_NOTICE_COPY } from "@/lib/safety";
 import { EMPTY_PROFILE, useAppStore } from "@/store/useAppStore";
@@ -46,7 +47,10 @@ const INGREDIENTS = [
   ingredient("glycerin", { functions: ["humectant"] }),
   ingredient("butylene glycol"),
   ingredient("lanolin", { functions: ["emollient", "skin conditioning"] }),
-  ingredient("some restricted preservative", { safety: "caution" }),
+  // An EU-labelled fragrance allergen (Annex III entry 346) with no rule of its own,
+  // and an ingredient that is only restricted (a pH adjuster's maximum): #407.
+  ingredient("vanillin"),
+  ingredient("sodium hydroxide", { safety: "caution", note: "Restricted use (EU Annex III/15a)" }),
   ingredient("retinol"),
   ingredient("isopropyl myristate", { verified: false }),
   ingredient("parfum"),
@@ -128,11 +132,25 @@ describe("the ingredient page, opened from a product", () => {
     expect(screen.queryByText("Good")).toBeNull();
   });
 
-  it("gives a restricted ingredient for reactive skin the list's Watch, with the warning's own reason", async () => {
-    await open("some restricted preservative", { baseSkinType: "dry", sensitivity: "high" });
-    expect(screen.getAllByText("Worth knowing").length).toBeGreaterThan(0);
-    expect(screen.getByText("Common irritant for sensitive skin")).toBeTruthy();
+  it("gives an EU allergen for reactive skin the list's Watch, with the warning's own reason", async () => {
+    await open("vanillin", { baseSkinType: "dry", sensitivity: "high" });
+    // The score charged it, so the sheet says so: the pill and the penalty agree.
+    expect(screen.getAllByText("Lowers your score").length).toBeGreaterThan(0);
+    expect(screen.getByText("Watch")).toBeTruthy();
+    expect(screen.getByText(EU_ALLERGEN_COPY.fragranceReason("Vanillin"))).toBeTruthy();
     expect(screen.queryByText("Flagged for everyone")).toBeNull();
+  });
+
+  // #407: Annex III alone is "allowed with limits" and says nothing about the person.
+  it("gives an ingredient that is only restricted no warning, no Watch, and says 'Allowed with limits'", async () => {
+    await open("sodium hydroxide", { baseSkinType: "dry", sensitivity: "high" });
+    expect(screen.queryByText("Worth knowing")).toBeNull();
+    expect(screen.queryByText(/Common irritant for sensitive skin/)).toBeNull();
+    expect(screen.queryByText("Restricted")).toBeNull();
+    expect(screen.getByText("Allowed with limits")).toBeTruthy();
+    expect(screen.getByText("Annex III, entry 15a")).toBeTruthy();
+    // The import's citation is a status, not what the ingredient does.
+    expect(screen.queryByText(/Restricted use \(EU Annex III/)).toBeNull();
   });
 
   it("says a misread pore-clogger the score charged counts against the person, not that it can't be judged", async () => {
@@ -201,10 +219,10 @@ describe.each([
     expect(screen.getByRole("link", { name: EU_PROHIBITED_SOURCE.label })).toBeTruthy();
   });
 
-  it("shows no source under a restricted ingredient's warning", async () => {
-    await open("some restricted preservative", { baseSkinType: "dry", sensitivity: "high" });
-    expect(screen.getByText("Common irritant for sensitive skin")).toBeTruthy();
-    expect(screen.queryByLabelText(/^Source:/)).toBeNull();
+  it("lists the Annex III entry as the source of an allergen warning", async () => {
+    await open("vanillin", { baseSkinType: "dry", sensitivity: "high" });
+    expect(screen.getByText(EU_ALLERGEN_COPY.fragranceReason("Vanillin"))).toBeTruthy();
+    expect(screen.getByRole("link", { name: EU_ALLERGEN_SOURCE.label })).toBeTruthy();
   });
 });
 
@@ -215,7 +233,7 @@ describe("the ingredient page's layout", () => {
   it("says where it sits on the label", async () => {
     await open("glycerin", {});
     expect(screen.getByText("On this label")).toBeTruthy();
-    expect(screen.getByText(/^#2 of 12/)).toBeTruthy();
+    expect(screen.getByText(/^#2 of 13/)).toBeTruthy();
   });
 
   it("is a sheet with a close button, and no Previous or Next", async () => {

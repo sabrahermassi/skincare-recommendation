@@ -16,7 +16,9 @@ import { INGREDIENT_RULES } from "@/lib/rules";
 import { SCHOOL_CHAT_COPY } from "@/lib/school-chat";
 import { EVENING_FALLBACK, EVENING_TIPS, GENERAL_TIPS, MORNING_TIPS, REST_NIGHT_TIP } from "@/lib/skin-tips";
 import { LABEL_ORDER, SCORING_DISCLAIMER, SCORING_INTRO, SCORING_SOURCES, scoreBandLines, scoreFactors, scoreNotes } from "@/lib/scoring-explainer";
-import { SAFETY_NOTICE_COPY, SAFETY_NOTICE_ENTRIES, UNSET_SENSITIVITY_REASON, contraindications } from "@/lib/safety";
+import { EU_ALLERGEN_CONDITION, EU_ALLERGEN_COPY, EU_ALLERGEN_ENTRIES } from "@/lib/eu-allergens";
+import { displayIngredientName } from "@/lib/ingredient-name";
+import { SAFETY_NOTICE_COPY, SAFETY_NOTICE_ENTRIES, contraindications } from "@/lib/safety";
 import { EMPTY_PROFILE } from "@/store/useAppStore";
 
 type OwnedClaim = { source: string; text: string };
@@ -185,10 +187,34 @@ const SAFETY_NOTICE_CLAIMS: OwnedClaim[] = [
   })),
 ];
 
+// #407: the EU allergen copy — each sentence rendered for every name on the
+// list, with and without the unset-sensitivity note (the `contraindications`
+// collection below runs at "high", over sample ingredients that hold none of
+// these names), plus the words the sheet and the risk card use.
+const EU_ALLERGEN_CLAIMS: OwnedClaim[] = [
+  ...EU_ALLERGEN_ENTRIES.flatMap((entry) =>
+    entry.names.flatMap((name) => {
+      const shown = displayIngredientName(name);
+      const reason = entry.kind === "fragrance" ? EU_ALLERGEN_COPY.fragranceReason(shown) : EU_ALLERGEN_COPY.warningReason(shown);
+      return [
+        { source: `EU_ALLERGEN_ENTRIES.${entry.entry}.${name}`, text: reason },
+        { source: `EU_ALLERGEN_ENTRIES.${entry.entry}.${name}.unset`, text: `${reason}${EU_ALLERGEN_COPY.unsetNote}` },
+      ];
+    })
+  ),
+  ...EU_ALLERGEN_ENTRIES.flatMap((entry) => (entry.exempt ? [{ source: `EU_ALLERGEN_ENTRIES.${entry.entry}.exempt`, text: entry.exempt }] : [])),
+  ...Object.entries(EU_ALLERGEN_CONDITION).map(([kind, text]) => ({ source: `EU_ALLERGEN_CONDITION.${kind}`, text })),
+  ...Object.entries(EU_ALLERGEN_COPY.subtitle).map(([kind, text]) => ({ source: `EU_ALLERGEN_COPY.subtitle.${kind}`, text })),
+  { source: "EU_ALLERGEN_COPY.exemptCondition", text: EU_ALLERGEN_COPY.exemptCondition },
+  { source: "EU_ALLERGEN_COPY.limits", text: EU_ALLERGEN_COPY.limits },
+  { source: "EU_ALLERGEN_COPY.noneListed", text: EU_ALLERGEN_COPY.noneListed },
+  { source: "EU_ALLERGEN_COPY.noneFlagged", text: EU_ALLERGEN_COPY.noneFlagged },
+  { source: "EU_ALLERGEN_COPY.entries(1)", text: EU_ALLERGEN_COPY.entries(1) },
+  { source: "EU_ALLERGEN_COPY.entries(2)", text: EU_ALLERGEN_COPY.entries(2) },
+];
+
 const OWNED_CLAIMS: OwnedClaim[] = [
-  // #183: the restricted-ingredient warning for an unset sensitivity. The
-  // `contraindications` collection below runs at "high", so it never reaches it.
-  { source: "UNSET_SENSITIVITY_REASON", text: UNSET_SENSITIVITY_REASON },
+  ...EU_ALLERGEN_CLAIMS,
   // #406: the oily-skin pore row on Skin match, as it is read: names, then this.
   { source: "PORE_COUNTS_TEXT", text: `Coconut Oil ${PORE_COUNTS_TEXT}` },
   ...NOTE_CLAIMS,
@@ -262,6 +288,14 @@ describe("medical and safety claims policy", () => {
     ]);
     // The four single-partner lines all read "with a retinoid", so they collapse to one.
     expect(new Set(PAIRING_CLAIMS.map((claim) => claim.text)).size).toBe(6);
+  });
+
+  // Without this, a regression that emptied the list would pass the audit on nothing.
+  it("audits every EU allergen name, in both of its sentences", () => {
+    const names = EU_ALLERGEN_ENTRIES.flatMap((entry) => entry.names);
+    expect(names.length).toBeGreaterThan(200);
+    const audited = EU_ALLERGEN_CLAIMS.map((claim) => claim.source);
+    for (const entry of EU_ALLERGEN_ENTRIES) for (const name of entry.names) expect(audited).toContain(`EU_ALLERGEN_ENTRIES.${entry.entry}.${name}.unset`);
   });
 
   it("keeps every app-authored ingredient and product claim within policy", () => {

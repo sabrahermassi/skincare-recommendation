@@ -176,6 +176,7 @@ that file's own instruction at the top of `OWNED_CLAIMS`.
 | EU safety notice (flag-gated, #404) | `lib/safety.ts` (`SAFETY_NOTICE_COPY`, with each entry's `dates`) | Yes — `SAFETY_NOTICE_CLAIMS`, every sentence as read on screen (the shield's label and the share line too, #405) |
 | Pregnancy-caution reasons | `lib/pregnancy-caution.ts` | Yes — `PREGNANCY_CAUTION.*.reason`, audited directly (the `contraindications[]` collection never reached them: it runs over the sample ingredients, which hold none of these names) |
 | Contraindication reasons | `lib/safety.ts` (`contraindications`) | Yes — `contraindications[]` |
+| EU allergen warnings, "Allowed with limits", the risk card's EU-flagged count (#407) | `lib/eu-allergens.ts` (`EU_ALLERGEN_COPY`, `EU_ALLERGEN_CONDITION`) | Yes — `EU_ALLERGEN_CLAIMS`: both warning sentences rendered for every name on the list, with and without the unset-sensitivity note |
 | Context nudges (sun/SPF) | `lib/context-nudges.ts` | Yes — `contextNudges[]`, every variant (#234) |
 | Pairing notes (evening, layering, shelf) | `lib/active-pairings.ts` | Yes — `pairingNotes[]`, every variant (#233) |
 | Skincare School | `data/school.ts` | Yes — every question and answer, `SCHOOL.*` (#235) |

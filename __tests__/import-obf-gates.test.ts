@@ -84,6 +84,19 @@ describe("the import rejects what it cannot believe", () => {
     expect(toRow(obfProduct({ product_name: "Dissolvant pour les ongles" }), KNOWN, [])).toBe("not skincare");
   });
 
+  // #420: a colouring kit is named by its shade, so the formula refuses it.
+  it("rejects a hair-dye kit by its ingredients, however it is named", () => {
+    const dye = new Set([...KNOWN, "toluene-2,5-diamine", "resorcinol", "m-aminophenol"]);
+    const kit = obfProduct({
+      product_name: "Excellence Creme Ultra 4.11 Ash Brown",
+      categories_tags: ["en:face"],
+      ingredients_text: "Aqua, Glycerin, Niacinamide, Toluene-2,5-Diamine, Resorcinol, m-Aminophenol",
+    });
+    expect(toRow(kit, dye, [])).toBe("not skincare");
+    // The same words without the dye ingredients are a plain cream.
+    expectKept(toRow(obfProduct({ product_name: "Excellence Creme Ultra 4.11 Ash Brown" }), dye, []));
+  });
+
   it("rejects a deliberately mangled ingredient list", () => {
     const mangled = toRow(
       obfProduct({
