@@ -241,6 +241,8 @@ describe("v9 list layout", () => {
     const row = within(count.parent!);
     expect(row.getByRole("button", { name: /^Filter: / })).toBeTruthy();
     expect(row.getByRole("button", { name: "Clear all" })).toBeTruthy();
+    // A long filter name or larger text: the controls drop to their own line instead of running off the screen.
+    expect(count.parent).toHaveStyle({ flexWrap: "wrap" });
   });
 
   it("clears the whole shelf from Clear all, after asking with one Delete button", async () => {
