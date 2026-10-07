@@ -170,6 +170,20 @@ describe("the label result", () => {
     expect(screen.queryByText("Is it right for your skin?")).toBeNull();
   });
 
+  // #470: a label result says it too, with a score and without one.
+  it("says it is not medical advice on Skin match, with a score and without one", async () => {
+    const NOTE = "Not medical advice. Patch test new products. For a skin condition, see a dermatologist.";
+    await open(LIST);
+    await fireEvent.press(screen.getByRole("tab", { name: "Skin match" }));
+    expect(screen.getAllByText(NOTE)).toHaveLength(1);
+    await act(async () => screen.unmount());
+
+    useAppStore.setState({ profile: { ...EMPTY_PROFILE, baseSkinType: "dry" } });
+    await open(LIST);
+    await fireEvent.press(screen.getByRole("tab", { name: "Skin match" }));
+    expect(screen.getAllByText(NOTE)).toHaveLength(1);
+  });
+
   it("says a thin read can't be scored, and asks for a retake, not the quiz", async () => {
     await open(["water", "mystery extract", "another unknown"]);
     expect(screen.getByText("Retake the photo")).toBeTruthy();

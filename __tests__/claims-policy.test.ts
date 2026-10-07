@@ -15,7 +15,7 @@ import { PREGNANCY_CAUTION } from "@/lib/pregnancy-caution";
 import { INGREDIENT_RULES } from "@/lib/rules";
 import { SCHOOL_CHAT_COPY } from "@/lib/school-chat";
 import { EVENING_FALLBACK, EVENING_TIPS, GENERAL_TIPS, MORNING_TIPS, REST_NIGHT_TIP } from "@/lib/skin-tips";
-import { LABEL_ORDER, SCORING_DISCLAIMER, SCORING_INTRO, SCORING_SOURCES, scoreBandLines, scoreFactors, scoreNotes } from "@/lib/scoring-explainer";
+import { LABEL_ORDER, MEDICAL_NOTE, SCORING_DISCLAIMER, SCORING_INTRO, SCORING_SOURCES, scoreBandLines, scoreFactors, scoreNotes } from "@/lib/scoring-explainer";
 import { EU_ALLERGEN_CONDITION, EU_ALLERGEN_COPY, EU_ALLERGEN_ENTRIES } from "@/lib/eu-allergens";
 import { displayIngredientName } from "@/lib/ingredient-name";
 import { LIST_AGE_COPY, listAgeSentence } from "@/lib/list-age";
@@ -151,6 +151,7 @@ const SCORING_CLAIMS: OwnedClaim[] = [
   ]),
   ...scoreBandLines().map((band) => ({ source: `scoreBandLines.${band.label}`, text: `${band.range}: ${band.label}. ${band.meaning}` })),
   { source: "LABEL_ORDER", text: LABEL_ORDER },
+  { source: "MEDICAL_NOTE", text: MEDICAL_NOTE },
   { source: "SCORING_DISCLAIMER", text: SCORING_DISCLAIMER },
   { source: "SCORING_INTRO", text: SCORING_INTRO },
   { source: "SCORING_SOURCES", text: SCORING_SOURCES },
