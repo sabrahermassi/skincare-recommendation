@@ -417,6 +417,11 @@ the scanner, How scoring works and the ingredient sheet slide up.
   title shrinks (`ScreenHeader`, down to 0.7) rather than ending in "…". Not
   checked: a smaller phone (the simulators here start at the 17e, 6.1 inch) and
   the other screens at that size.
+- **Weight is mostly one step (semibold, 146 of 159 settings).** The routine's
+  step cards are the first screen to try a second: the product name stays
+  semibold and its verdict line ("Good match · 77/100") is medium (500), so the
+  name leads. Other screens still use semibold for names and the lines under
+  them; move them one at a time, looking at each first.
 - **Icons are two sets, not SF Symbols:** Ionicons (`@expo/vector-icons`: menu rows,
   routine, scoring sheet, camera, saved) and the app's own SVG marks (tab bar,
   hearts, stars, ticks, shield). Each screen keeps to one. Moving to SF Symbols
