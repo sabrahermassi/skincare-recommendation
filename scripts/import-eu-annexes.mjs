@@ -54,24 +54,32 @@ PREFIX cdm: <http://publications.europa.eu/ontology/cdm#>
 SELECT ?w ?celex WHERE {
   ?w cdm:resource_legal_id_celex ?celex .
   FILTER(STRSTARTS(STR(?celex), "${CELEX_BASE}-"))
-} ORDER BY DESC(?celex) LIMIT 5`;
+} ORDER BY DESC(?celex) LIMIT 20`;
 
 /**
- * The newest consolidated version in a SPARQL answer: the one whose CELEX (`02009R1223-20260518`)
- * ends in the latest date.
+ * The newest consolidated version in a SPARQL answer that already applies: the one whose CELEX
+ * (`02009R1223-20260518`) ends in the latest date on or before `asOf`. That date is the day the
+ * version's last amendment applies, and the Publications Office can publish a version before it, so
+ * the highest date alone may be a text that is not law yet. Such versions come back in `upcoming`,
+ * soonest first, and are never chosen.
  *
  * @param {{ results?: { bindings?: { w?: { value?: string }, celex?: { value?: string } }[] } }} answer
- * @returns {{ celex: string, cellarId: string, consolidatedOn: string }}
+ * @param {string} [asOf] A `YYYY-MM-DD` day; today in UTC when left out.
+ * @returns {{ celex: string, cellarId: string, consolidatedOn: string, upcoming: string[] }}
  */
-export function newestVersion(answer) {
+export function newestVersion(answer, asOf = new Date().toISOString().slice(0, 10)) {
+  const cutoff = asOf.replaceAll("-", "");
   const found = (answer?.results?.bindings ?? [])
     .map((b) => ({ celex: b.celex?.value ?? "", uri: b.w?.value ?? "" }))
     .filter((v) => new RegExp(`^${CELEX_BASE}-\\d{8}$`).test(v.celex) && /\/cellar\/[0-9a-f-]{36}$/.test(v.uri))
     .sort((a, b) => b.celex.localeCompare(a.celex));
   if (found.length === 0) throw new Error(`The Publications Office named no consolidated version of CELEX ${CELEX_BASE}.`);
-  const [{ celex, uri }] = found;
+  const inForce = found.filter((v) => v.celex.slice(-8) <= cutoff);
+  const upcoming = found.filter((v) => v.celex.slice(-8) > cutoff).map((v) => v.celex).reverse();
+  if (inForce.length === 0) throw new Error(`Every consolidated version of CELEX ${CELEX_BASE} the Publications Office named applies after ${asOf}.`);
+  const [{ celex, uri }] = inForce;
   const date = celex.slice(-8);
-  return { celex, cellarId: uri.split("/").pop(), consolidatedOn: `${date.slice(0, 4)}-${date.slice(4, 6)}-${date.slice(6)}` };
+  return { celex, cellarId: uri.split("/").pop(), consolidatedOn: `${date.slice(0, 4)}-${date.slice(4, 6)}-${date.slice(6)}`, upcoming };
 }
 
 /**
@@ -107,6 +115,7 @@ async function fetchLatest() {
   const asked = await fetchOffice(`${SPARQL_URL}?query=${encodeURIComponent(SPARQL)}`, { Accept: "application/sparql-results+json" });
   if (!asked.ok) throw new Error(`The Publications Office SPARQL service answered ${asked.status}.`);
   const version = newestVersion(await asked.json());
+  for (const celex of version.upcoming) console.log(`Not in force yet, skipped: ${celex} (applies from ${celex.slice(-8, -4)}-${celex.slice(-4, -2)}-${celex.slice(-2)}).`);
   const url = `${CELLAR_URL}/${version.cellarId}`;
   const res = await fetchOffice(url, { Accept: "application/xhtml+xml", "Accept-Language": "eng" });
   if (!res.ok) throw new Error(`The text of ${version.celex} answered ${res.status} (${url}).`);

@@ -23,7 +23,35 @@ describe("the newest consolidated version", () => {
         ],
       },
     };
-    expect(newestVersion(answer)).toEqual({ celex: "02009R1223-20260518", cellarId: "9382f98e-9b27-11f1-b25c-01aa75ed71a1", consolidatedOn: "2026-05-18" });
+    expect(newestVersion(answer, "2026-10-07")).toEqual({ celex: "02009R1223-20260518", cellarId: "9382f98e-9b27-11f1-b25c-01aa75ed71a1", consolidatedOn: "2026-05-18", upcoming: [] });
+  });
+
+  it("skips a version published before it applies, and names it as upcoming", () => {
+    const answer = {
+      results: {
+        bindings: [
+          binding("02009R1223-20261201", "11111111-2222-3333-4444-555555555555"),
+          binding("02009R1223-20260518"),
+          binding("02009R1223-20261101", "66666666-7777-8888-9999-000000000000"),
+        ],
+      },
+    };
+    expect(newestVersion(answer, "2026-10-07")).toEqual({
+      celex: "02009R1223-20260518",
+      cellarId: "9382f98e-9b27-11f1-b25c-01aa75ed71a1",
+      consolidatedOn: "2026-05-18",
+      upcoming: ["02009R1223-20261101", "02009R1223-20261201"],
+    });
+  });
+
+  it("takes a version on the day it starts to apply", () => {
+    const answer = { results: { bindings: [binding("02009R1223-20260518"), binding("02009R1223-20261007", "11111111-2222-3333-4444-555555555555")] } };
+    expect(newestVersion(answer, "2026-10-07")).toMatchObject({ celex: "02009R1223-20261007", upcoming: [] });
+  });
+
+  it("refuses when every version it was given applies later", () => {
+    const answer = { results: { bindings: [binding("02009R1223-20261201")] } };
+    expect(() => newestVersion(answer, "2026-10-07")).toThrow(/applies after 2026-10-07/);
   });
 
   it("ignores anything that is not a dated consolidation of this regulation", () => {
