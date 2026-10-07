@@ -94,6 +94,10 @@ it("opens Skin match on the score, with no row of the answers above it", async (
   await show(["niacinamide"], { concerns: ["hyperpigmentation"], baseSkinType: "combination", sensitivity: "some", pregnancyStatus: null });
   await openMatch();
   expect(screen.getByTestId("score-ring")).toBeTruthy();
+  // The score arrives: the arc starts undrawn, and the number is the real one from the first frame.
+  const arc = screen.getByTestId("score-arc");
+  expect(arc.props.strokeDashoffset).toBeGreaterThan(0);
+  expect(arc.props.strokeOpacity).toBe(0);
   expect(screen.queryByText("Combination")).toBeNull();
   expect(screen.queryByText("Somewhat sensitive")).toBeNull();
   expect(screen.queryByText("Edit")).toBeNull();

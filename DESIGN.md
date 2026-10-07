@@ -400,6 +400,9 @@ the scanner, How scoring works and the ingredient sheet slide up.
 - Sheets rise on a cubic ease and the segmented thumb springs. Everything
   checks Reduce Motion (`lib/reduce-motion.ts`): with it on, things just appear
   (no slide, zero-length animations).
+- **The score arrives** (`ScoreRing`): the arc draws round from 12 o'clock and
+  the number comes up, 700ms the first time a result opens and 350ms after. The
+  number is the real one throughout; only its opacity moves.
 - Tap targets follow `TOUCH_TARGET` (44). One known exception: `ReferenceLink`
   is 36pt tall. Icon buttons carry a spoken label.
 - Contrast ratios are noted beside tokens in `lib/tokens.ts`. Nothing computed is
