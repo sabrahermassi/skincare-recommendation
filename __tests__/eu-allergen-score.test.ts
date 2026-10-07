@@ -153,14 +153,16 @@ describe("the three rules added with it (#407)", () => {
     expect(score(formula(ing(name)), profile("none")).breakdown.irritationPenalty).toBe(0);
   });
 
-  it.each(["pinus sylvestris leaf oil", "abies sibirica oil", "cupressus sempervirens oil"])("charges %s like the other essential oils", (name: string) => {
+  it.each(["pinus sylvestris leaf oil", "abies sibirica oil", "cupressus sempervirens oil", "cupressus sempervirens leaf/nut/stem oil"])("charges %s like the other essential oils", (name: string) => {
     const result = score(formula(ing(name)), profile("some"));
     expect(result.irritants).toEqual([name]);
     expect(result.reasons[0].reason).toMatch(/essential oil/i);
   });
 
-  it("does not charge a pine bark extract, an antioxidant, or an unrelated oil", () => {
+  it("does not charge a pine bark extract, an antioxidant, a pine nut's fatty oil, or an unrelated oil", () => {
     expect(penalty("pinus pinaster bark extract")).toBe(0);
+    expect(penalty("pinus koraiensis seed oil")).toBe(0);
+    expect(penalty("pinus pentaphylla seed oil")).toBe(0);
     expect(penalty("abies balsamea resin")).toBe(0);
     expect(penalty("olea europaea fruit oil")).toBe(0);
   });

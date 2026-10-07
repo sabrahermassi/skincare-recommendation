@@ -473,8 +473,9 @@ export const INGREDIENT_RULES: IngredientRule[] = [
     names: [
       /lavandula/, /mentha/, "peppermint oil", /eucalyptus/, /citrus .*(peel oil|oil)/,
       /cymbopogon/, /rosmarinus/, "clove oil", /eugenia caryophyllus/,
-      // Pine, fir and cypress oils (#407); not "pinus pinaster bark extract", an antioxidant.
-      /^(pinus|abies|cupressus)\b.* oil$/,
+      // Pine, fir and cypress oils (#407); not "pinus pinaster bark extract", an
+      // antioxidant, and not a pine nut's fatty oil ("pinus koraiensis seed oil").
+      /^(pinus|abies|cupressus)\b(?!.* (seed|nut|kernel) oil$).* oil$/,
     ],
     category: "fragrance",
     hurts: { sensitive: true, concerns: ["redness", "atopic"] },
