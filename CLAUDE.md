@@ -25,16 +25,11 @@ code still runs there.
 Supabase is the live backend (Edge Functions `product-lookup`, `label-ocr`,
 `delete-account` deployed). `data/api.ts` falls back to 8 sample products only when
 `EXPO_PUBLIC_SUPABASE_URL`/`_ANON_KEY` are absent — keeps checkouts and
-tests hermetic. Live catalogue: 851 products (grows when someone runs the
-operator script `import:obf` only — with `--dump <file>` it reads OBF's whole
-export, about 2,830 usable face products, rather than the six categories its
-API sweep pages; users can no longer add products from the
-app — a product exists only with a name, a barcode and an ingredient list,
-enforced in `replace_product_with_ingredients`; `import:dailymed` is retired
-because DailyMed has no barcodes. The one scheduled catalogue job,
-`reconcile-obf.yml`, re-checks existing rows for reformulation, it doesn't add
-new ones; check the live count rather than trusting this number for long),
-~36k dictionary ingredients, ~25k synonyms.
+tests hermetic. Users cannot add products from the app: the catalogue grows
+only when the operator runs `import:obf`, and a product exists only with a
+name, a barcode and an ingredient list (`replace_product_with_ingredients`).
+Counts and import history: `docs/feeding-the-catalogue.md` — read the live
+count, don't trust a written one.
 
 `FOR_ME_MVP.md` is launch scope. Track gaps as GitHub issues on the "Skin
 Recommendation" board, not here.
@@ -82,40 +77,20 @@ behind it, and it is the intent that governs when the two disagree.
 
 ## Staging infrastructure
 
-Staging works and is wired up. These are the rules that keep it that way —
-the history of how it broke is in `docs/decisions.md`.
+Staging works and is wired up; how it broke is in `docs/decisions.md`.
 
 **Migrations apply themselves.** `staging-migrate.yml` runs on any push
-touching `supabase/migrations/**.sql` and is working. Do not apply a
-migration to staging by hand, and do not reach for the Supabase CLI when
-something fails — that workflow's own header explains why the CLI path was
-rejected. If a run fails, read the log and fix the cause.
+touching `supabase/migrations/**.sql`. Do not apply a migration to staging by
+hand, and do not reach for the Supabase CLI when something fails — the
+workflow's header explains why. If a run fails, read the log and fix the cause.
 
-**Edge Functions deploy themselves — for exactly the three listed.**
-`staging-deploy-functions.yml` auto-deploys `label-ocr`, `product-lookup`
-and `delete-account` (#224) on any push touching them or `_shared/`.
-**Neither that workflow nor `ci.yml` discovers a new function.** So if you
-add a fourth Edge Function, update both by hand, in the same PR that adds
-it:
-
-- `.github/workflows/ci.yml` — the "Typecheck the Deno Edge Functions"
-  step's file list
-- `.github/workflows/staging-deploy-functions.yml` — both the trigger paths
-  and the `supabase functions deploy` lines
-
-Forgetting this ships a function that is never type-checked and never
-reaches staging. That gap has already existed once.
-
-**`deno check` needs `--node-modules-dir=none`** when run from the repo
-root: the root `package.json` makes Deno auto-detect npm resolution and
-break on `supabase-js`'s npm sub-dependencies. Already set in `ci.yml` —
-don't remove it.
-
-**In `label-ocr`, the `GOOGLE_VISION_API_KEY` check must stay after logging
-is in scope.** A missing key used to return 503 before any `scan_log` row
-was written, so a real production misconfiguration would show as *zero
-failures* in the weekly metric rather than the truth. Keep that ordering if
-you touch the file.
+**Edge Functions deploy themselves — for exactly the three listed**
+(`label-ocr`, `product-lookup`, `delete-account`). Neither
+`staging-deploy-functions.yml` nor `ci.yml` discovers a new one: adding a
+fourth means editing both in the same PR (checklist: `docs/decisions.md`,
+"Staging infrastructure"). Two guards live next to the code they protect, in
+`ci.yml` (`deno check --node-modules-dir=none`) and `label-ocr/handler.ts`
+(the missing-key check sits after logging is in scope) — keep both.
 
 **"Verified on staging" is a claim, not a formality.** Actually hit the
 deployed endpoint — `curl` is enough, no phone needed — and read `scan_log`
@@ -124,17 +99,15 @@ not a deployed function behaving.
 
 ## You have no TTY — regenerating route types
 
-`href` strings are type-checked against `.expo/types/router.d.ts`, which
-only `expo start` regenerates (`expo export` does not). The QR needs a real
-TTY to draw — **type generation does not**, it happens on disk regardless.
+`href` strings are type-checked against `.expo/types/router.d.ts`, which only
+`expo start` regenerates (`expo export` does not). Type generation needs no TTY.
 
 **On any route add/rename/remove:** run `npx expo start --port <free-port>`
-backgrounded with output redirected to a file (ignore the missing QR line);
-wait until `.expo/types/router.d.ts` changes, or ~10s after the log shows
-`Waiting on http://localhost:<port>`; kill it; re-run `npm run typecheck`;
-tell the user a route changed so their own dev server picks up the file
-too. If types look wrong (non-route dirs appearing as routes), delete
-`.expo/types` and repeat.
+backgrounded, output to a file (ignore the missing QR); wait until
+`.expo/types/router.d.ts` changes (or ~10s after `Waiting on
+http://localhost:<port>`); kill it; re-run `npm run typecheck`; tell the user
+a route changed. If non-route dirs appear as routes, delete `.expo/types` and
+repeat.
 
 ## Architecture
 
@@ -146,30 +119,26 @@ the real backend; the invariant keeps the seam clean for the day it isn't.
 **Routing** — Expo Router (file-based) in `app/`; web must work, not just
 native.
 
-- **`/` is `app/(tabs)/index.tsx`** (Home, v9: the "Scan Any Product" card,
-  an Explore row of two tiles — "Skin Needs" (`app/journey.tsx`, whose stories are `app/journey-story.tsx`) and
-  "Skincare Routine" — and today's tip as an envelope that opens a sheet),
-  not a product list. There is no product search: it was removed
-  on 1 October 2026. The scanner is `app/scanner.tsx`, a full-screen modal
-  on the root stack (it slides up, iOS-style), opened by `openScanner()` in
-  `lib/open-scanner.ts` — from the raised middle tab button and every "Scan"
+- **`/` is `app/(tabs)/index.tsx`** (Home), not a product list. There is no
+  product search (removed 1 October 2026). The scanner is `app/scanner.tsx`,
+  a full-screen modal on the root stack, opened by `openScanner()` in
+  `lib/open-scanner.ts` from the raised middle tab button and every "Scan"
   card or button. It is not a tab: `app/(tabs)/scan.tsx` only holds that
-  button's place in the bar.
-  `initialRouteName` doesn't change what `/` resolves to. A root
-  `app/index.tsx` is impossible — it collides with `app/(tabs)/index.tsx`.
+  button's place in the bar. `initialRouteName` doesn't change what `/`
+  resolves to, and a root `app/index.tsx` is impossible — it collides with
+  `app/(tabs)/index.tsx`.
 - **Never navigate from a layout file.** Gate with a declarative
   `<Redirect>` inside the navigator, or navigate from a user event.
 - Regenerate typed routes (above) whenever routes change.
 
-**State** — `store/useAppStore.ts`, one Zustand store: skin profile,
-onboarding flag, wishlist, the products a person put in their own routine
-(`routinePicks`) and the actives added from a Skin needs story with their days
-(`routineActives`, `routineStepLimit`, `routineStarted`), whether the routine
-was opened and built (`routineBuilt`: a skin profile alone is not a routine) and the skincare tip
-last read on Home (`tipRead`), all device only, never
-sent to the account, and the regulatory-safety feature flag (`safetyNoticeEnabled`,
-`lib/features.ts`, off by default; a dev-only Profile row turns it on, #403, #404). Skin needs' advice lives in one data file,
-`lib/skin-needs-data.ts`: its copy is placeholder until scientifically checked. Persisted via `persist` + AsyncStorage, gated on
+**State** — `store/useAppStore.ts`, one Zustand store (fields: read the file).
+The routine fields (`routinePicks`, `routineActives`, `routineBuilt`, …) and
+`tipRead` are device only, never sent to the account. `routineBuilt` exists
+because a skin profile alone is not a routine. The regulatory-safety flag
+(`safetyNoticeEnabled`, `lib/features.ts`) is off by default; a dev-only
+Profile row turns it on (#403, #404). Skin needs' advice lives in
+`lib/skin-needs-data.ts`; its copy is placeholder until scientifically
+checked. Persisted via `persist` + AsyncStorage, gated on
 `useAppStore.persist.hasHydrated()` in `app/_layout.tsx` — except the profile,
 which `formeStorageFor` keeps in the Keychain on a phone (#189).
 **Two files may import AsyncStorage, and no third without review:**
@@ -228,16 +197,11 @@ with confidence tiers, owns acne fit).
   unreadable formulas (< 3 identified ingredients, or < 25% coverage);
   unknown ingredients lower confidence, never block an answer.
 - **`contactWeight` (`lib/rules.ts`) is the only place a product's *type*
-  touches the score** — it returns `{ harm, benefit }`, scored independently:
-  harm stays at 1 unless a type is unambiguously short-contact, so a wrong
+  touches the score** — it returns `{ harm, benefit }`, scored independently.
+  Harm stays at 1 unless a type is unambiguously short-contact, so a wrong
   type guess can only over-state risk, never hide it; benefit is discounted
-  more freely, since crediting a rinse-off product at leave-on strength is
-  the opposite mistake. **`cleanser`, `body-wash` and `body-scrub` discount
-  both** (0.25/0.25, 0.5/0.5); `micellar-water` — split out of `cleanser`
-  because it's wiped rather than rinsed — takes full weight on both.
-  `unknown`, `exfoliator`, `conditioner`, `hair-mask` and `shampoo` keep harm
-  at 1 but discount benefit to 0.5 (0.25 for `unknown`), since each spans
-  both a rinse-off and leave-on product. Reasoning in `docs/decisions.md`.
+  more freely. Per-type values are in the code; reasoning in
+  `docs/decisions.md`, "Scoring".
 - **For "very sensitive" only, a product's main fragrance ingredient
   (the heaviest rule: parfum/fragrance, then essential oils, then allergens;
   or, when no fragrance rule is in the formula, an EU fragrance allergen no rule
@@ -249,39 +213,15 @@ with confidence tiers, owns acne fit).
   hazard. `irritant` warnings go through the graduated irritation penalty
   instead — **do not merge these two tiers.**
 - **EU "restricted" (Annex III) never adds an irritation charge by itself
-  (#407).** It means *allowed with conditions* (a maximum amount, a product
-  type, a label warning) and applies to everyone; the regulation has no
-  skin-type rule. For reactive and unset sensitivity (same scaling as every
-  other irritant, including the "very sensitive" fragrance floor, #363), an
-  Annex III ingredient is charged only when it is **(a)** an EU fragrance
-  allergen — an entry whose wording requires it on the ingredient list above
-  0.001% leave-on or 0.01% rinse-off (entries 45 and 67-92, a dozen more, and
-  the 45 added by Regulation (EU) 2023/1545) — or **(b)** an entry whose
-  required warning mentions an allergic reaction or sensitisation (almost all
-  hair dye). Every other restricted ingredient is charged nothing for being
-  restricted; a named rule in `lib/rules.ts` still charges it by its own
-  weight. Both lists live in one code constant, `lib/eu-allergens.ts` (INCI
-  name, Annex III entry, regulation, source URL, verified date), each name read
-  from the consolidated text and never added from memory or from a dictionary
-  note. Where Annex III prints a spelling CosIng does not ("Sulphate", "Acetyl
-  Cedrene"), `COSING_SPELLINGS` in the same file holds CosIng's INCI name with
-  its record number, because the dictionary is keyed on CosIng's names; the
-  names the dictionary lacked are in `scripts/data/eu-allergen-names.csv`, for
-  `import:cosing` (#439). **Benzyl alcohol (entry 45) is in the constant but exempt**: the entry
-  covers it only when it is not a preservative, which a label cannot show. An
-  ingredient that is both an allergen and a `category: "fragrance"` rule is
-  charged **once, at the higher of the two** (`ALLERGEN_CHARGE` against the
-  rule's weight). One predicate, `euAllergenFor` in `lib/safety.ts`, drives the
-  charge, the warning, the list label and the risk count, so they cannot
-  drift. Wording: "{Name} is a known fragrance allergen. The EU requires it on
-  labels so sensitive people can avoid it." and "{Name} can cause allergic
-  reactions; the EU requires a warning on the label." (`EU_ALLERGEN_COPY`);
-  "Common irritant for sensitive skin" is never used for a restricted-only
-  ingredient. The ingredient sheet says "Allowed with limits" (with the label
-  duty or the Annex III entry number), never "Restricted". Irritant rules
-  came with it: hydrogen peroxide and benzalkonium chloride (`irritants`),
-  and pine, fir and cypress oils (the essential-oil rule). Stearalkonium and
-  steartrimonium chloride were left out: no source supports them.
+  (#407).** It means *allowed with conditions*, not irritating. Only an EU
+  fragrance allergen or an entry whose required warning names allergy or
+  sensitisation is charged, and both lists are the one constant
+  `lib/eu-allergens.ts` — add a name only from the consolidated text, never
+  from memory. One predicate, `euAllergenFor` in `lib/safety.ts`, drives the
+  charge, warning, list label and risk count; an allergen that is also a
+  fragrance rule is charged once, at the higher weight. The UI says "Allowed
+  with limits", never "Restricted". Rest: `docs/decisions.md`, "EU
+  'restricted' (Annex III)".
 - Import `COMEDOGENIC_FLAG_THRESHOLD` (3) from `lib/safety.ts` — never
   re-inline a comedogenic check. There is no comedogenic *hazard*: the 0-5
   column is empty for catalogue rows, so pore-clogging is warned about and
@@ -345,13 +285,7 @@ development build with this app's bundle ID. Why: `docs/decisions.md`,
 For everything else, `expo-camera` is bundled in Expo Go — no dev build
 needed, *if* Expo Go's installed SDK matches this project's.
 
-- **iPhone:** if a plain App Store Expo Go refuses the project, use
-  `eas go` (Apple Developer Program + TestFlight) or sign.expo.dev
-  re-signing.
-- **Android:** if the Play Store build refuses it, run
-  `npx expo-go download android <sdk>` with this project's *actual* SDK.
+If a plain App Store Expo Go refuses the project (SDK mismatch), see
+`README.md`, "On your phone".
 
-Windows: **never pipe `expo start`'s output** — the QR needs a real TTY
-(type generation does not, see above). If a WSL/Hyper-V adapter is
-advertising the wrong IP, pin
-`REACT_NATIVE_PACKAGER_HOSTNAME=<your Wi-Fi IP>`.
+**Never pipe `expo start`'s output** — the QR needs a real TTY.

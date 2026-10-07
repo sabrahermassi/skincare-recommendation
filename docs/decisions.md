@@ -637,6 +637,47 @@ decisions:
   (no product to keep), there is no Add button; the old one on every result
   is gone. Actives are added from Skin needs stories.
 
+### EU "restricted" (Annex III) never adds an irritation charge by itself (#407)
+
+Moved here from `CLAUDE.md`, which keeps the one-line rule. It means *allowed
+with conditions* (a maximum amount, a product type, a label warning) and
+applies to everyone; the regulation has no skin-type rule. For reactive and
+unset sensitivity (same scaling as every other irritant, including the "very
+sensitive" fragrance floor, #363), an Annex III ingredient is charged only
+when it is **(a)** an EU fragrance allergen — an entry whose wording requires
+it on the ingredient list above 0.001% leave-on or 0.01% rinse-off (entries
+45 and 67-92, a dozen more, and the 45 added by Regulation (EU) 2023/1545) —
+or **(b)** an entry whose required warning mentions an allergic reaction or
+sensitisation (almost all hair dye). Every other restricted ingredient is
+charged nothing for being restricted; a named rule in `lib/rules.ts` still
+charges it by its own weight.
+
+- Both lists live in one code constant, `lib/eu-allergens.ts` (INCI name,
+  Annex III entry, regulation, source URL, verified date), each name read from
+  the consolidated text and never added from memory or from a dictionary note.
+- Where Annex III prints a spelling CosIng does not ("Sulphate", "Acetyl
+  Cedrene"), `COSING_SPELLINGS` in the same file holds CosIng's INCI name with
+  its record number, because the dictionary is keyed on CosIng's names. The
+  names the dictionary lacked are in `scripts/data/eu-allergen-names.csv`, for
+  `import:cosing` (#439).
+- **Benzyl alcohol (entry 45) is in the constant but exempt**: the entry covers
+  it only when it is not a preservative, which a label cannot show.
+- An ingredient that is both an allergen and a `category: "fragrance"` rule is
+  charged **once, at the higher of the two** (`ALLERGEN_CHARGE` against the
+  rule's weight).
+- One predicate, `euAllergenFor` in `lib/safety.ts`, drives the charge, the
+  warning, the list label and the risk count, so they cannot drift.
+- Wording: "{Name} is a known fragrance allergen. The EU requires it on labels
+  so sensitive people can avoid it." and "{Name} can cause allergic reactions;
+  the EU requires a warning on the label." (`EU_ALLERGEN_COPY`); "Common
+  irritant for sensitive skin" is never used for a restricted-only ingredient.
+  The ingredient sheet says "Allowed with limits" (with the label duty or the
+  Annex III entry number), never "Restricted".
+- Irritant rules came with it: hydrogen peroxide and benzalkonium chloride
+  (`irritants`), and pine, fir and cypress oils (the essential-oil rule).
+  Stearalkonium and steartrimonium chloride were left out: no source supports
+  them.
+
 ## SDK and platform history
 
 **iOS is the only release target for this MVP, decided 19 September 2026.**
@@ -880,8 +921,27 @@ bookkeeping is consistent from here.
 could be created and stay permanently empty, because nothing deployed the
 functions that write to it anywhere except production.
 `staging-deploy-functions.yml` now auto-deploys `label-ocr` and
-`product-lookup`. It does not discover new functions — see `CLAUDE.md` for
-the checklist that has to be followed by hand when one is added.
+`product-lookup` (and `delete-account`, #224). It does not discover new
+functions, and neither does `ci.yml`. If you add a fourth Edge Function,
+update both by hand in the same PR that adds it:
+
+- `.github/workflows/ci.yml` — the "Typecheck the Deno Edge Functions" step's
+  file list
+- `.github/workflows/staging-deploy-functions.yml` — both the trigger paths
+  and the `supabase functions deploy` lines
+
+Forgetting this ships a function that is never type-checked and never reaches
+staging. That gap has already existed once.
+
+`deno check` needs `--node-modules-dir=none` from the repo root: the root
+`package.json` makes Deno auto-detect npm resolution and break on
+`supabase-js`'s npm sub-dependencies. `ci.yml` already sets it; don't remove it.
+
+In `label-ocr`, the `GOOGLE_VISION_API_KEY` check must stay after logging is
+in scope. A missing key used to return 503 before any `scan_log` row was
+written, so a real production misconfiguration would show as *zero failures*
+in the weekly metric rather than the truth. The reason is also in a comment
+in `handler.ts`, and a test pins it.
 
 **`SUPABASE_ACCESS_TOKEN` is account-wide, and that is accepted.** Supabase
 personal access tokens cannot be scoped to a project, so the token in GitHub

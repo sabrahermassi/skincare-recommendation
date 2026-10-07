@@ -69,8 +69,7 @@ tailwind.config.js          nativewind preset + content globs
 
 ## Notes
 
-- **Tailwind must stay on v3.** NativeWind 4's runtime declares `tailwindcss: "~3"`
-  as a hard peer; Tailwind 4 breaks it.
+- Build constraints (Tailwind v3, `reactCompiler` off) are in `CLAUDE.md`.
 - **Barcode scanning on web was QR-only as of SDK 54** (`expo-camera` used jsQR
   in the browser; EAN-13 / UPC-A scanned on iOS and Android only, with the scan
   screen showing a notice on web rather than failing silently) — **unverified
@@ -80,5 +79,3 @@ tailwind.config.js          nativewind preset + content globs
   MVP, so the untested end-to-end path stays a note rather than something to
   chase.
 - Web camera needs a secure context — `localhost` is fine, a LAN IP is not.
-- `experiments.reactCompiler` is off; it conflicts with NativeWind's
-  `jsxImportSource`. Re-enable and retest once the app is stable.
