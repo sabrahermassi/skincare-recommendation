@@ -9,7 +9,7 @@ import { Text } from "@/components/Text";
 import type { Sensitivity } from "@/data/types";
 import { DAY_LETTERS, evidenceFor, familyOf, inSentence, sensitivityNote, sensitivityOf, startLine, startNights, weekRows, type NeedAnswers, type StoryActive } from "@/lib/skin-needs";
 import { FAMILIES, LOOK_FOR_ART, PAIR_AVOID_ART, PAIR_LOVE_ART, SENSITIVITY_ART, SIGNS } from "@/lib/skin-needs-data";
-import { BUTTON, DISPLAY_FONT, DIVIDER, INK, LINK, MUTED, MUTED_FAINT, ROUTINE_SWITCH, SKIN_NEEDS, STONE, SURFACE, WHITE, TYPE, RADIUS, SPACE } from "@/lib/tokens";
+import { BUTTON, DISPLAY_FONT, DIVIDER, INK, LINK, MUTED, MUTED_FAINT, ROUTINE_SWITCH, SKIN_NEEDS, STONE, SURFACE, WHITE, TYPE, RADIUS, SPACE, LEADING, TRACKING } from "@/lib/tokens";
 
 /**
  * The cards of an active's story (design_handoff "october 3d", 2–7): one idea
@@ -21,7 +21,7 @@ import { BUTTON, DISPLAY_FONT, DIVIDER, INK, LINK, MUTED, MUTED_FAINT, ROUTINE_S
 function Heading({ title, line, top = 32, children }: { title: string; line?: string; top?: number; children?: ReactNode }) {
   return (
     <View style={{ paddingTop: top, paddingHorizontal: SPACE.section, gap: SPACE.text }}>
-      <Text accessibilityRole="header" style={{ fontFamily: DISPLAY_FONT, fontSize: TYPE.display, lineHeight: 40, letterSpacing: -0.6, color: INK }}>
+      <Text accessibilityRole="header" style={{ fontFamily: DISPLAY_FONT, fontSize: TYPE.display, lineHeight: 40, letterSpacing: TRACKING.display, color: INK }}>
         {title}
       </Text>
       {line ? <Text style={{ fontSize: TYPE.card, lineHeight: 24, color: MUTED }}>{line}</Text> : null}
@@ -72,7 +72,7 @@ export function WhyCard({ active, goal }: { active: StoryActive; goal: string })
           <Tick size={15} color={BUTTON.primary.fill} />
           <Text style={{ fontSize: TYPE.body, fontWeight: "600", color: SKIN_NEEDS.chosenInk }}>{goal}</Text>
         </View>
-        <Text style={{ fontSize: TYPE.body, lineHeight: 21, color: MUTED }}>Also helps with {alsoHelps}.</Text>
+        <Text style={{ fontSize: TYPE.body, lineHeight: LEADING.body, color: MUTED }}>Also helps with {alsoHelps}.</Text>
       </View>
     </View>
   );
@@ -125,7 +125,7 @@ export function StartCard({ active, answers }: { active: StoryActive; answers: P
       ) : null}
       <View style={{ marginTop: "auto", marginHorizontal: SPACE.gutter, backgroundColor: SKIN_NEEDS.note, borderRadius: RADIUS.panel, paddingVertical: SPACE.gutter, paddingLeft: SPACE.block, paddingRight: 20, flexDirection: "row", alignItems: "center", gap: SPACE.block }}>
         <Image source={SENSITIVITY_ART[sensitivity]} contentFit="contain" accessibilityLabel="" style={{ width: 64, height: 62 }} />
-        <Text style={{ flex: 1, fontSize: TYPE.card, lineHeight: 23, fontWeight: "600", color: INK }}>{sensitivityNote(answers, nights)}</Text>
+        <Text style={{ flex: 1, fontSize: TYPE.card, lineHeight: LEADING.card, fontWeight: "600", color: INK }}>{sensitivityNote(answers, nights)}</Text>
       </View>
     </View>
   );
@@ -182,7 +182,7 @@ function RailStep({ number, name, active, amount, last = false }: { number: numb
   return (
     <View style={{ flexDirection: "row", gap: SPACE.block }}>
       <View style={{ width: 28, alignItems: "center" }}>
-        <View style={{ width: 28, height: 28, borderRadius: 14, backgroundColor: active ? BUTTON.primary.fill : ROUTINE_SWITCH.stepFill, alignItems: "center", justifyContent: "center" }}>
+        <View style={{ width: 28, height: 28, borderRadius: RADIUS.control, backgroundColor: active ? BUTTON.primary.fill : ROUTINE_SWITCH.stepFill, alignItems: "center", justifyContent: "center" }}>
           <Text maxFontSizeMultiplier={1} style={{ fontSize: TYPE.caption, fontWeight: "700", color: active ? WHITE : LINK }}>
             {number}
           </Text>
@@ -280,7 +280,7 @@ export function AvoidCard({ active }: { active: StoryActive }) {
       {/* What to do instead, right under the pair (owner), then the signs that say it's too much. */}
       <View style={{ marginTop: 20, marginHorizontal: SPACE.gutter, backgroundColor: SURFACE, borderRadius: RADIUS.card, paddingVertical: SPACE.block, paddingHorizontal: SPACE.gutter, flexDirection: "row", alignItems: "center", gap: SPACE.block }}>
         <SwapIcon color={BUTTON.primary.fill} />
-        <Text style={{ flex: 1, fontSize: TYPE.body, lineHeight: 21, color: INK }}>
+        <Text style={{ flex: 1, fontSize: TYPE.body, lineHeight: LEADING.body, color: INK }}>
           Not in the same routine.{"\n"}Alternate: <Text style={{ fontWeight: "600" }}>morning and evening</Text>, or <Text style={{ fontWeight: "600" }}>different days</Text>.
         </Text>
       </View>
@@ -316,7 +316,7 @@ export function ShopCard({ active, actions }: { active: StoryActive; /** "Add <a
         </Hand>
       </View>
       <View style={{ marginTop: SPACE.text, marginHorizontal: SPACE.gutter, backgroundColor: SURFACE, borderRadius: RADIUS.panel, paddingTop: SPACE.gutter, paddingHorizontal: 20, paddingBottom: 4 }}>
-        <Text accessibilityRole="header" style={{ fontSize: TYPE.caption, fontWeight: "600", letterSpacing: 0.78, textTransform: "uppercase", color: MUTED_FAINT }}>
+        <Text accessibilityRole="header" style={{ fontSize: TYPE.caption, fontWeight: "600", letterSpacing: TRACKING.caption, textTransform: "uppercase", color: MUTED_FAINT }}>
           Look for
         </Text>
         <LookRow icon={<SearchIcon />} first>
@@ -336,7 +336,7 @@ export function ShopCard({ active, actions }: { active: StoryActive; /** "Add <a
       {shopping.strength ? (
         <View style={{ marginTop: 28, marginHorizontal: SPACE.gutter, paddingHorizontal: 4, gap: SPACE.block }}>
           <View style={{ flexDirection: "row", alignItems: "baseline", justifyContent: "space-between" }}>
-            <Text style={{ fontSize: TYPE.caption, fontWeight: "600", letterSpacing: 0.78, textTransform: "uppercase", color: MUTED_FAINT }}>Product strength</Text>
+            <Text style={{ fontSize: TYPE.caption, fontWeight: "600", letterSpacing: TRACKING.caption, textTransform: "uppercase", color: MUTED_FAINT }}>Product strength</Text>
             <Text style={{ fontSize: TYPE.caption, color: MUTED_FAINT }}>{shopping.strength.range}</Text>
           </View>
           <View accessibilityLabel={`Product strength: ${shopping.strength.range}. Higher isn't better.`} style={{ flexDirection: "row", gap: 4, height: 36 }}>

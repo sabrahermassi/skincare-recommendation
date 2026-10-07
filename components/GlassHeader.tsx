@@ -39,7 +39,7 @@ export function GlassHeader({
   return (
     <View onLayout={(event) => onHeight(event.nativeEvent.layout.height)} style={{ position: "absolute", top: 0, left: 0, right: 0 }}>
       {/* Liquid Glass on iOS 26 and later, the frosted blur elsewhere (`Glass`). */}
-      <Glass style={StyleSheet.absoluteFill} blur={BLUR} fill={glass} tint={glass} />
+      <Glass style={StyleSheet.absoluteFill} blur={BLUR} fill={glass} tint={glass} solid={solid} />
       {/* Plain until the list scrolls, so at rest the header is exactly the
           page's own colour, whatever the blur does. */}
       <Animated.View pointerEvents="none" style={[StyleSheet.absoluteFill, { backgroundColor: solid, opacity: atRest }]} />

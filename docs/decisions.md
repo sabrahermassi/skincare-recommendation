@@ -368,6 +368,13 @@ every visit, reads nothing from the profile and writes nothing to it: one
 thing to work on, and two optional answers (sensitive skin, pregnant or
 breastfeeding).
 
+**Amended 7 October 2026 (owner):** asking twice was the problem. Sensitivity and
+pregnancy now start from the skin profile when it holds them, still tappable
+and with a "From your profile" tag until changed; nothing is written back. The
+goal and the actives in use are still asked fresh every visit. Of thirteen
+goals, six show and the rest sit behind "+ 7 more" (open at once when the
+picked goal is one of them).
+
 A scan opened from there does not get the skin match. The first build reused
 it, scored for the pick, and called a dark-spot serum "80, good match" for
 pimples: the score answers "does this suit my skin", and for acne most of it
@@ -827,6 +834,15 @@ alternative is no automated function deploys at all. `staging-migrate.yml`'s
 header rejects the same token for *migrations* precisely because a
 connection string can be scoped to one project and a token cannot — that
 reasoning still stands for migrations. **Do not re-flag this as a finding.**
+
+### iPhone only, no iPad build (7 October 2026)
+
+`ios.supportsTablet` is false. iPhone is the only release target (19 September
+2026) and nothing in the app adapts to an iPad: no size classes, one 292pt
+carousel card, a portrait lock. With it true the app would ship to iPad as a
+stretched phone UI. An iPad runs it as a phone-sized window. Turn it on again
+only with a real iPad layout, and re-check the multitasking and orientation
+rules at the same time.
 
 ## Plans
 

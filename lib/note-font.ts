@@ -1,9 +1,9 @@
-import { Caveat_500Medium } from "@expo-google-fonts/caveat";
+import { Kalam_400Regular } from "@expo-google-fonts/kalam";
 import { useFonts } from "expo-font";
 import { useEffect, useState } from "react";
 import { AccessibilityInfo, useWindowDimensions, type TextStyle } from "react-native";
 
-import { NOTE_FONT, TIP_NOTE, TYPE } from "@/lib/tokens";
+import { HAND_FONT, LEADING, TIP_NOTE, TYPE } from "@/lib/tokens";
 
 /**
  * Whether a journal note — or Home's Tip of the day — is shown in handwriting
@@ -16,22 +16,36 @@ import { NOTE_FONT, TIP_NOTE, TYPE } from "@/lib/tokens";
  * which is what makes it the safe side of every one of these decisions.
  */
 
-/** What `_layout.tsx` preloads and `useNoteFont` waits on. */
-export const NOTE_FONT_SOURCE = { [NOTE_FONT]: Caveat_500Medium };
+/** The handwriting: Kalam, the same face as the tip and Home's greeting (owner, 7 October 2026: one handwriting face, not two). Already loaded with the other fonts at startup. */
+const HAND_FONT_SOURCE = { [HAND_FONT]: Kalam_400Regular };
 
 /**
  * The code points the handwritten face draws, as inclusive ranges — read off
  * the font file's own character map, and held to it by
  * `__tests__/note-font.test.tsx`. Deliberately narrower than the file: basic
- * and extended Latin, basic Cyrillic and everyday punctuation. Anything else
- * — Hangul, CJK, emoji, a combining accent — sends the whole note to the UI
- * font.
+ * Latin, the parts of Latin-1 and Latin Extended-A Kalam has, and everyday
+ * punctuation. Anything else — Hangul, CJK, Cyrillic, emoji, a combining
+ * accent, a few Central European letters — sends the whole note to the UI font.
+ * (Kalam has no Cyrillic; Caveat, which this replaced, did.)
  */
 export const SCRIPT_COVERAGE: readonly (readonly [number, number])[] = [
   [0x20, 0x7e], // printable ASCII
-  [0xa0, 0x17e], // Latin-1 Supplement, Latin Extended-A
-  [0x400, 0x45f], // basic Cyrillic
-  [0x2010, 0x2010], // hyphen
+  [0xa0, 0x107], // Latin-1 Supplement, start of Latin Extended-A
+  [0x10c, 0x113],
+  [0x116, 0x11b],
+  [0x11e, 0x11f],
+  [0x122, 0x123],
+  [0x12a, 0x12b],
+  [0x12e, 0x131],
+  [0x136, 0x137],
+  [0x139, 0x13e],
+  [0x141, 0x148],
+  [0x14c, 0x14d],
+  [0x150, 0x15b],
+  [0x15e, 0x165],
+  [0x16a, 0x16b],
+  [0x16e, 0x173],
+  [0x178, 0x17e],
   [0x2013, 0x2014], // en and em dash
   [0x2018, 0x201a], // single quotes
   [0x201c, 0x201e], // double quotes
@@ -74,17 +88,17 @@ export function usesHandwriting(
  */
 const NOTE_TEXT: Record<"card" | "preview" | "tip", { handwritten: TextStyle; plain: TextStyle }> = {
   card: {
-    handwritten: { fontFamily: NOTE_FONT, fontSize: TYPE.title, lineHeight: 26 },
-    plain: { fontSize: TYPE.body, lineHeight: 22 },
+    handwritten: { fontFamily: HAND_FONT, fontSize: TYPE.card, lineHeight: 24 },
+    plain: { fontSize: TYPE.body, lineHeight: LEADING.card },
   },
   preview: {
-    handwritten: { fontFamily: NOTE_FONT, fontSize: TYPE.body, lineHeight: 20 },
-    plain: { fontSize: TYPE.caption, lineHeight: 17 },
+    handwritten: { fontFamily: HAND_FONT, fontSize: TYPE.label, lineHeight: LEADING.label },
+    plain: { fontSize: TYPE.caption, lineHeight: LEADING.caption },
   },
   // Home's Tip of the day (v7).
   tip: {
-    handwritten: { fontFamily: NOTE_FONT, fontSize: TIP_NOTE.fontSize, lineHeight: TIP_NOTE.lineHeight },
-    plain: { fontSize: TYPE.body, lineHeight: 22 },
+    handwritten: { fontFamily: HAND_FONT, fontSize: TIP_NOTE.fontSize, lineHeight: TIP_NOTE.lineHeight },
+    plain: { fontSize: TYPE.body, lineHeight: LEADING.card },
   },
 };
 
@@ -112,7 +126,7 @@ function useBoldText(): boolean {
 
 /** The style for one note, in one place — re-decided as the note or the settings change. */
 export function useNoteTextStyle(text: string, where: keyof typeof NOTE_TEXT): TextStyle {
-  const [loaded] = useFonts(NOTE_FONT_SOURCE);
+  const [loaded] = useFonts(HAND_FONT_SOURCE);
   const { fontScale } = useWindowDimensions();
   const boldText = useBoldText();
   return noteTextStyle(where, usesHandwriting(text, { loaded, fontScale, boldText }));

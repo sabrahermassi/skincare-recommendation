@@ -27,12 +27,12 @@ import { cloggerConfidence, PORE_COUNTS_TEXT, poreCountedNames, poreVerdict } fr
 import { irritationRisk, poreRisk, type Risk } from "@/lib/risk";
 import { EU_PROHIBITED_SOURCE, irritationWarnings, isVerified, SAFETY_NOTICE_COPY, type SafetyNoticeHit } from "@/lib/safety";
 import { inSentence } from "@/lib/skin-needs";
-import { CARD_RADIUS, DIVIDER, DISPLAY_FONT, HOME_CARD_FILL, INK, MUTED, RISK_FILL, RISK_LINE, SEGMENT_TRACK, SHEET, SPACE, STONE, STONE_GLASS, TEASER_INK, TYPE, VERDICT, VERDICT_NEUTRAL, WHITE, RADIUS } from "@/lib/tokens";
+import { CARD_RADIUS, DIVIDER, DISPLAY_FONT, HOME_CARD_FILL, INK, MUTED, RISK_FILL, RISK_LINE, SEGMENT_TRACK, SHEET, SPACE, STONE, STONE_GLASS, TEASER_INK, TYPE, VERDICT, VERDICT_NEUTRAL, WHITE, RADIUS, LEADING, TRACKING } from "@/lib/tokens";
 import { EMPTY_PROFILE } from "@/store/useAppStore";
 import { noOrphan } from "@/lib/text";
 
 type Tab = "match" | "ingredients";
-type Tone = { solid: string; deep: string; wash: string; halo: string };
+type Tone = { solid: string; deep: string; word: string; wash: string; halo: string };
 
 // The one pairing note that is pure scheduling, not a cost.
 const EVENING_NOTE = "retinoid-evening";
@@ -231,10 +231,10 @@ function MatchTab({ ingredients, type, match, profile, need }: { ingredients: In
       <>
         <NoticeCard hits={noticeHits} />
         <View style={{ gap: 4, borderRadius: CARD_RADIUS, backgroundColor: VERDICT.medium.wash, padding: SPACE.gutter }}>
-          <Text accessibilityRole="header" style={{ fontSize: TYPE.card, fontWeight: "600", color: VERDICT.medium.deep }}>
+          <Text accessibilityRole="header" style={{ fontSize: TYPE.card, fontWeight: "600", color: VERDICT.medium.word }}>
             We only recognised {identified} of {ingredients.length} names
           </Text>
-          <Text style={{ fontSize: TYPE.body, lineHeight: 21, color: INK }}>That&apos;s too few to score it fairly.</Text>
+          <Text style={{ fontSize: TYPE.body, lineHeight: LEADING.body, color: INK }}>That&apos;s too few to score it fairly.</Text>
         </View>
       </>
     );
@@ -292,11 +292,11 @@ function NoticeCard({ hits }: { hits: SafetyNoticeHit[] }) {
         <SafetyShield />
       </View>
       <View style={{ flex: 1, gap: 4 }}>
-        <Text accessibilityRole="header" style={{ fontSize: TYPE.card, fontWeight: "600", color: VERDICT.low.deep }}>
+        <Text accessibilityRole="header" style={{ fontSize: TYPE.card, fontWeight: "600", color: VERDICT.low.word }}>
           {SAFETY_NOTICE_COPY.cardTitle}
         </Text>
         {hits.map((hit) => (
-          <Text key={hit.ingredient.name} style={{ fontSize: TYPE.body, lineHeight: 21, color: INK }}>
+          <Text key={hit.ingredient.name} style={{ fontSize: TYPE.body, lineHeight: LEADING.body, color: INK }}>
             <Text style={{ fontWeight: "600" }}>{displayIngredientName(hit.ingredient.name)}</Text>
             {SAFETY_NOTICE_COPY.cardText}
           </Text>
@@ -474,10 +474,10 @@ function Reasons({ ingredients, match, profile }: { ingredients: Ingredient[]; m
   return (
     <View style={{ marginTop: SPACE.text }}>
       <View style={{ paddingHorizontal: 4, gap: 4 }}>
-        <Text accessibilityRole="header" style={{ fontFamily: DISPLAY_FONT, fontSize: TYPE.heading, lineHeight: 28, letterSpacing: -0.5, color: INK }}>
+        <Text accessibilityRole="header" style={{ fontFamily: DISPLAY_FONT, fontSize: TYPE.heading, lineHeight: LEADING.heading, letterSpacing: TRACKING.heading, color: INK }}>
           {noOrphan(REASONS_TITLE[match.verdict])}
         </Text>
-        <Text style={{ fontSize: TYPE.body, lineHeight: 21, color: MUTED }}>
+        <Text style={{ fontSize: TYPE.body, lineHeight: LEADING.body, color: MUTED }}>
           {noOrphan(`${line}${watching > 0 ? ` ${watching === 1 ? "One thing to watch" : `${watching} things to watch`} below.` : ""}`)}
         </Text>
       </View>
@@ -583,7 +583,7 @@ function ReasonBox({ row, lead = false }: { row: Reason; lead?: boolean }) {
         {row.notice ? (
           <>
             <ReferenceLink label={EU_PROHIBITED_SOURCE.label} url={EU_PROHIBITED_SOURCE.url} />
-            <Text style={{ fontSize: TYPE.caption, lineHeight: 17, color: MUTED }}>{SAFETY_NOTICE_COPY.rowCaveat}</Text>
+            <Text style={{ fontSize: TYPE.caption, lineHeight: LEADING.caption, color: MUTED }}>{SAFETY_NOTICE_COPY.rowCaveat}</Text>
           </>
         ) : null}
       </View>
@@ -657,11 +657,11 @@ function NeedMatch({ ingredients, match, profile, need }: { ingredients: Ingredi
     <View style={{ gap: SPACE.gutter }}>
       {/* Where the score ring's verdict pill sits on any other result: the answer, in words. */}
       <View testID="need-verdict" style={{ alignSelf: "center", minHeight: 40, borderRadius: RADIUS.control, paddingHorizontal: 20, justifyContent: "center", backgroundColor: tone.deep }}>
-        <Text accessibilityRole="header" style={{ fontSize: TYPE.card, lineHeight: 22, fontWeight: "600", color: WHITE }}>
+        <Text accessibilityRole="header" style={{ fontSize: TYPE.card, lineHeight: LEADING.card, fontWeight: "600", color: WHITE }}>
           {verdict.headline}
         </Text>
       </View>
-      <Text style={{ paddingHorizontal: 4, textAlign: "center", fontSize: TYPE.body, lineHeight: 21, color: MUTED }}>{verdict.line}</Text>
+      <Text style={{ paddingHorizontal: 4, textAlign: "center", fontSize: TYPE.body, lineHeight: LEADING.body, color: MUTED }}>{verdict.line}</Text>
       <View style={{ gap: SPACE.block }}>
         {rows.map((row) => (
           <ReasonBox key={row.key} row={row} />
@@ -709,7 +709,7 @@ function RoutineNotes({ ingredients, type, profile }: { ingredients: Ingredient[
             </View>
             <View style={{ flex: 1, gap: 1 }}>
               <Text style={{ fontSize: TYPE.body, fontWeight: "600", color: caution ? VERDICT.medium.deep : INK }}>In a routine</Text>
-              <Text style={{ fontSize: TYPE.body, lineHeight: 21, color: INK }}>{note.text}</Text>
+              <Text style={{ fontSize: TYPE.body, lineHeight: LEADING.body, color: INK }}>{note.text}</Text>
             </View>
           </View>
         );
@@ -724,16 +724,16 @@ function PregnancyCard({ match }: { match: MatchResult }) {
   if (pregnancy.length === 0) return null;
   return (
     <View style={{ flexDirection: "row", alignItems: "flex-start", gap: SPACE.block, borderRadius: CARD_RADIUS, backgroundColor: VERDICT.low.wash, padding: SPACE.gutter }}>
-      <View style={{ width: 28, height: 28, borderRadius: 14, alignItems: "center", justifyContent: "center", backgroundColor: VERDICT.low.solid }}>
+      <View style={{ width: 28, height: 28, borderRadius: RADIUS.control, alignItems: "center", justifyContent: "center", backgroundColor: VERDICT.low.solid }}>
         <Svg width={14} height={14} viewBox="0 0 24 24" fill="none">
           <Path d="M12 7v6M12 17h.01" stroke={WHITE} strokeWidth={2.8} strokeLinecap="round" />
         </Svg>
       </View>
       <View style={{ flex: 1, gap: 2 }}>
-        <Text accessibilityRole="header" style={{ fontSize: TYPE.card, fontWeight: "600", color: VERDICT.low.deep }}>
+        <Text accessibilityRole="header" style={{ fontSize: TYPE.card, fontWeight: "600", color: VERDICT.low.word }}>
           Best avoided while pregnant
         </Text>
-        <Text style={{ fontSize: TYPE.body, lineHeight: 21, color: INK }}>
+        <Text style={{ fontSize: TYPE.body, lineHeight: LEADING.body, color: INK }}>
           It contains {listNames(pregnancy.map((w) => displayIngredientName(w.ingredient.name)))}. If you&apos;re unsure, ask your doctor or midwife.
         </Text>
       </View>
@@ -752,7 +752,7 @@ function NoProfile() {
       <Text accessibilityRole="header" style={{ textAlign: "center", fontSize: TYPE.card, fontWeight: "600", color: INK }}>
         Is it right for your skin?
       </Text>
-      <Text style={{ marginTop: 4, textAlign: "center", fontSize: TYPE.body, lineHeight: 21, color: MUTED }}>4 quick questions. No sign-up needed.</Text>
+      <Text style={{ marginTop: 4, textAlign: "center", fontSize: TYPE.body, lineHeight: LEADING.body, color: MUTED }}>4 quick questions. No sign-up needed.</Text>
       <PrimaryButton label="Get my match" onPress={openQuiz} style={{ marginTop: SPACE.block, width: BUTTON_WIDTH.inCard }} />
     </View>
   );
@@ -785,7 +785,7 @@ function ProfileTeaser({ visible, onClose, onQuiz }: { visible: boolean; onClose
             <Circle cx={40} cy={40} r={34} stroke={SEGMENT_TRACK} strokeWidth={6} fill="none" />
             <Circle cx={40} cy={40} r={34} stroke={VERDICT.high.solid} strokeWidth={6} strokeLinecap="round" fill="none" strokeDasharray="180 999" transform="rotate(-90 40 40)" />
           </Svg>
-          <Text maxFontSizeMultiplier={1} style={{ fontFamily: DISPLAY_FONT, fontSize: TYPE.large, lineHeight: 34, color: TEASER_INK }}>
+          <Text maxFontSizeMultiplier={1} style={{ fontFamily: DISPLAY_FONT, fontSize: TYPE.large, lineHeight: LEADING.large, color: TEASER_INK }}>
             ?
           </Text>
         </View>
@@ -794,10 +794,10 @@ function ProfileTeaser({ visible, onClose, onQuiz }: { visible: boolean; onClose
         </View>
       </View>
       <View style={{ alignItems: "center", gap: SPACE.text, paddingTop: SPACE.section, paddingHorizontal: 20, paddingBottom: 20 }}>
-        <Text accessibilityRole="header" style={{ textAlign: "center", fontFamily: DISPLAY_FONT, fontSize: TYPE.heading, lineHeight: 28, letterSpacing: -0.5, color: INK }}>
+        <Text accessibilityRole="header" style={{ textAlign: "center", fontFamily: DISPLAY_FONT, fontSize: TYPE.heading, lineHeight: LEADING.heading, letterSpacing: TRACKING.heading, color: INK }}>
           Is it right for your skin?
         </Text>
-        <Text style={{ maxWidth: 300, textAlign: "center", fontSize: TYPE.body, lineHeight: 21, color: MUTED }}>Answer 4 quick questions and we&apos;ll match every product to your skin.</Text>
+        <Text style={{ maxWidth: 300, textAlign: "center", fontSize: TYPE.body, lineHeight: LEADING.body, color: MUTED }}>Answer 4 quick questions and we&apos;ll match every product to your skin.</Text>
         <PrimaryButton label="Take the 1-minute quiz" onPress={onQuiz} style={{ marginTop: SPACE.block, width: BUTTON_WIDTH.secondary }} />
       </View>
     </BottomSheet>
@@ -831,7 +831,7 @@ function IngredientsTab({
   return (
     <>
       <PregnancyCard match={match} />
-      <Text style={{ paddingHorizontal: 4, fontSize: TYPE.body, lineHeight: 21, color: INK }}>General ingredients info, the same for everyone.</Text>
+      <Text style={{ paddingHorizontal: 4, fontSize: TYPE.body, lineHeight: LEADING.body, color: INK }}>General ingredients info, the same for everyone.</Text>
       {/* The two risks in one box, a row each (v9); either opens the list filtered to its watch-outs. */}
       <View testID="risk-cards" style={{ borderRadius: RADIUS.card, backgroundColor: RISK_FILL, paddingVertical: 4, paddingHorizontal: SPACE.gutter }}>
         <RiskRow title="Irritation risk" risk={irritation} onPress={irritation.hasEntries ? () => onFilter("watch") : undefined} />
@@ -870,11 +870,11 @@ function RiskRow({ title, risk, divider = false, onPress }: { title: string; ris
       <VerdictDot colour={tone.solid} halo={tone.halo} />
       <View style={{ flex: 1, gap: 2 }}>
         <Text style={{ fontSize: TYPE.label, fontWeight: "600", color: INK }}>{title}</Text>
-        <Text numberOfLines={2} style={{ fontSize: TYPE.caption, lineHeight: 17.5, color: MUTED }}>
+        <Text numberOfLines={2} style={{ fontSize: TYPE.caption, lineHeight: LEADING.caption, color: MUTED }}>
           {risk.note}
         </Text>
       </View>
-      <Text style={{ fontSize: TYPE.label, fontWeight: "600", color: tone.deep }}>{risk.level}</Text>
+      <Text style={{ fontSize: TYPE.label, fontWeight: "600", color: tone.word }}>{risk.level}</Text>
     </Pressable>
   );
 }

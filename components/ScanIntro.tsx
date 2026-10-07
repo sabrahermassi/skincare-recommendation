@@ -4,7 +4,7 @@ import { View } from "react-native";
 
 import { PrimaryButton } from "@/components/PrimaryButton";
 import { Text } from "@/components/Text";
-import { DISPLAY_FONT, INK, MUTED, SPACE, TYPE } from "@/lib/tokens";
+import { DISPLAY_FONT, INK, MUTED, SPACE, TYPE, LEADING, TRACKING } from "@/lib/tokens";
 import { noOrphan } from "@/lib/text";
 
 /**
@@ -44,11 +44,11 @@ export function ScanIntro({
         <Image source={illustration} style={{ width: ART_SIZE, height: ART_SIZE }} contentFit="contain" accessibilityLabel="" />
         <Text
           accessibilityRole="header"
-          style={{ marginTop: SPACE.block, textAlign: "center", fontFamily: DISPLAY_FONT, fontSize: TYPE.heading, lineHeight: 28, letterSpacing: -0.5, color: INK }}
+          style={{ marginTop: SPACE.block, textAlign: "center", fontFamily: DISPLAY_FONT, fontSize: TYPE.heading, lineHeight: LEADING.heading, letterSpacing: TRACKING.heading, color: INK }}
         >
           {noOrphan(title)}
         </Text>
-        <Text style={{ marginTop: SPACE.text, maxWidth: 300, textAlign: "center", fontSize: TYPE.body, lineHeight: 21, color: MUTED }}>{noOrphan(body)}</Text>
+        <Text style={{ marginTop: SPACE.text, maxWidth: 300, textAlign: "center", fontSize: TYPE.body, lineHeight: LEADING.body, color: MUTED }}>{noOrphan(body)}</Text>
         {children ? <View style={{ marginTop: SPACE.block, alignItems: "center" }}>{children}</View> : null}
       </View>
       <View style={{ paddingHorizontal: SPACE.gutter }}>

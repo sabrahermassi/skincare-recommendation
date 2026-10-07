@@ -49,7 +49,7 @@ export const COLORS = {
   // `components/shell/shared.tsx`, which made that file a third place raw hex
   // lived. These are the values; `shared.tsx` re-exports them under its own
   // names so its ten importers are unaffected.
-  shellTerracotta: "#767A5C", // v9 leaf sage: no terracotta anywhere (name kept for its importers)
+  shellTerracotta: "#757959", // v9 leaf sage: no terracotta anywhere (name kept for its importers)
   shellSand: "#E3DFDA",
   // The intro screens' own type and button colours, given by the owner
   // (26 September 2026). Intro only: the quiz, the tab bar and the scanner
@@ -68,7 +68,7 @@ export const COLORS = {
   // smaller or lighter than that. Pressed #A5654F. The terracotta text link
   // (buttonTertiary) stays #9C6350, 4.87:1 on white. A destructive action
   // (Report a mistake) is #A8453A, 5.87:1 with white.
-  buttonPrimary: "#767A5C", // every filled button (v9 leaf sage; white label 4.46:1, computed: just under 4.5, so a label on it stays 16pt semibold or larger)
+  buttonPrimary: "#757959", // every filled button (v9 leaf sage; white label 4.53:1, computed; nudged from #767A5C (4.46) on 7 October 2026 critique, a change the eye does not see)
   buttonPrimaryPressed: "#62664B",
   buttonPrimaryText: "#FFFFFF",
   buttonSecondary: "#EEEFE7", // a less critical action (v9 pale sage, ink label)

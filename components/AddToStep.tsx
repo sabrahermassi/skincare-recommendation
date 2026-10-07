@@ -6,7 +6,7 @@ import { Text } from "@/components/Text";
 import type { ProductWithIngredients } from "@/data/types";
 import { haptic } from "@/lib/haptics";
 import { routineStepOf } from "@/lib/routine-builder";
-import { CARD_RADIUS, CHOSEN, INK, LINK, MUTED, SPACE, TYPE } from "@/lib/tokens";
+import { CARD_RADIUS, CHOSEN, INK, LINK, MUTED, SPACE, TYPE, LEADING } from "@/lib/tokens";
 import { useAppStore } from "@/store/useAppStore";
 
 /**
@@ -40,7 +40,7 @@ export function AddToStep({ product, step, blocked }: { product: ProductWithIngr
   }
   if (blocked) return null;
   if (!place.fits(product)) {
-    return <Text style={{ fontSize: TYPE.label, lineHeight: 20, color: MUTED, textAlign: "center" }}>This doesn&apos;t belong in the {where} step, so it can&apos;t be added there.</Text>;
+    return <Text style={{ fontSize: TYPE.label, lineHeight: LEADING.label, color: MUTED, textAlign: "center" }}>This doesn&apos;t belong in the {where} step, so it can&apos;t be added there.</Text>;
   }
   return (
     <PrimaryButton

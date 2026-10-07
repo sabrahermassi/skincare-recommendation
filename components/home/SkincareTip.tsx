@@ -10,7 +10,7 @@ import { WateryWash } from "@/components/home/WateryWash";
 import { Text } from "@/components/Text";
 import type { HomeTip } from "@/lib/home-today";
 import { reduceMotionNow } from "@/lib/reduce-motion";
-import { BUTTON, DISPLAY_FONT, HAND_FONT, HOME_TODAY, ICON_SHADOW, INK, MUTED, SCRIM, SHEET_SHADOW, SPACE, TYPE, WHITE, RADIUS } from "@/lib/tokens";
+import { BUTTON, DISPLAY_FONT, HAND_FONT, HOME_TODAY, ICON_SHADOW, INK, MUTED, SCRIM, SHEET_SHADOW, SPACE, TYPE, WHITE, RADIUS, LEADING, TRACKING } from "@/lib/tokens";
 
 const ENVELOPE = require("@/assets/illustrations/tip-envelope.webp");
 
@@ -46,8 +46,8 @@ export function TipEnvelope({ tip, read, onOpen }: { tip: HomeTip; read: boolean
         style={{ width: ENVELOPE_SIZE, height: ENVELOPE_SIZE, marginTop: -8, marginBottom: -8, marginLeft: -12, marginRight: -8, transform: [{ rotate: "-6deg" }] }}
       />
       <View style={{ flex: 1, gap: 6 }}>
-        <Text style={{ fontFamily: DISPLAY_FONT, fontSize: TYPE.title, lineHeight: 24, color: INK }}>{head}</Text>
-        <Text style={{ fontSize: TYPE.body, lineHeight: 20, color: MUTED }}>{line}</Text>
+        <Text style={{ fontFamily: DISPLAY_FONT, fontSize: TYPE.title, lineHeight: LEADING.title, color: INK }}>{head}</Text>
+        <Text style={{ fontSize: TYPE.body, lineHeight: LEADING.body, color: MUTED }}>{line}</Text>
         <Text style={{ fontSize: TYPE.body, fontWeight: "600", color: BUTTON.primary.fill }}>{action}</Text>
       </View>
     </BounceCard>
@@ -140,7 +140,7 @@ function OpenNote({ tip, onClose }: { tip: HomeTip; onClose: () => void }) {
             <View style={{ flexDirection: "row", alignItems: "center", justifyContent: "space-between", gap: SPACE.text }}>
               <Animated.View style={[{ flex: 1, flexDirection: "row", alignItems: "center", gap: 6 }, fade(words[0])]}>
                 {tip.kind === "general" ? null : <TimeIcon time={tip.kind} />}
-                <Text style={{ flexShrink: 1, fontSize: TYPE.caption, fontWeight: "600", letterSpacing: 0.8, textTransform: "uppercase", color: theme?.ink ?? MUTED }}>{tip.label}</Text>
+                <Text style={{ flexShrink: 1, fontSize: TYPE.caption, fontWeight: "600", letterSpacing: TRACKING.caption, textTransform: "uppercase", color: theme?.ink ?? MUTED }}>{tip.label}</Text>
               </Animated.View>
               <Pressable
                 onPress={onClose}
@@ -157,7 +157,7 @@ function OpenNote({ tip, onClose }: { tip: HomeTip; onClose: () => void }) {
               <Text style={{ marginTop: SPACE.block, fontFamily: HAND_FONT, fontSize: tip.tip.tip.length > LONG_TIP ? 26 : TYPE.display, lineHeight: tip.tip.tip.length > LONG_TIP ? 34 : 42, color: INK }}>{tip.tip.tip}</Text>
             </Animated.View>
             <Animated.View style={fade(words[2])}>
-              <Text style={{ fontSize: TYPE.body, lineHeight: 22, color: theme?.ink ?? MUTED }}>{tip.tip.why}</Text>
+              <Text style={{ fontSize: TYPE.body, lineHeight: LEADING.body, color: theme?.ink ?? MUTED }}>{tip.tip.why}</Text>
             </Animated.View>
           </View>
         </Animated.View>

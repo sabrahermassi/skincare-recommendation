@@ -1,10 +1,8 @@
 import "../global.css";
 
 import { Figtree_600SemiBold } from "@expo-google-fonts/figtree";
-import { Montserrat_300Light, Montserrat_400Regular } from "@expo-google-fonts/montserrat";
 import { Kalam_400Regular, Kalam_700Bold } from "@expo-google-fonts/kalam";
 import { PTSerif_700Bold, useFonts } from "@expo-google-fonts/pt-serif";
-import { loadAsync as loadFonts } from "expo-font";
 import { Stack } from "expo-router";
 import { StatusBar } from "expo-status-bar";
 import * as SplashScreen from "expo-splash-screen";
@@ -14,7 +12,6 @@ import { AppState } from "react-native";
 import { startAuth } from "@/lib/auth";
 import { COLORS } from "@/lib/colors";
 import { startFirstPage } from "@/lib/first-page";
-import { NOTE_FONT_SOURCE } from "@/lib/note-font";
 import { startShelfSync } from "@/lib/shelf-sync";
 import { prefetchCatalogue, revalidateOnForeground, warmCatalogue } from "@/data/api";
 import { useAppStore } from "@/store/useAppStore";
@@ -35,16 +32,10 @@ export default function RootLayout() {
   // Body text no longer loads a custom font — it renders in the OS system
   // font (see tailwind.config.js's `sans` family), so only the display
   // faces block startup now.
-  //
-  // Montserrat is the FOR.ME shell's (the quiz's Skip, among others) —
-  // loaded here for the same reason: onboarding is the first thing a new
-  // install renders, so its fonts can't be missing on first paint either.
   const [fontsLoaded] = useFonts({
     PTSerif_700Bold,
     // Profile's menu rows (`MENU_FONT`).
     Figtree_600SemiBold,
-    Montserrat_300Light,
-    Montserrat_400Regular,
     // Skin needs' handwritten notes and the skincare tip (`HAND_FONT`), and Home's "Hi there!" (`HAND_FONT_BOLD`).
     Kalam_400Regular,
     Kalam_700Bold,
@@ -114,14 +105,6 @@ export default function RootLayout() {
   // never navigates. See `prefetchCatalogue`.
   useEffect(() => {
     if (ready) prefetchCatalogue();
-  }, [ready]);
-
-  // A journal note's handwriting (#229) starts loading once the app is up,
-  // never inside the gate above: it is for one card, for signed-in people
-  // with notes, and must not cost anyone's first paint. A note shown before
-  // it lands is in the UI font, then switches (lib/note-font.ts).
-  useEffect(() => {
-    if (ready) loadFonts(NOTE_FONT_SOURCE).catch(() => undefined);
   }, [ready]);
 
   // Every screen renders text through the loaded fonts (see components/Text)

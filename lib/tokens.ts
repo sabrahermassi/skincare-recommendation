@@ -114,9 +114,9 @@ export const MUTED = "#524D48"; // v9: 8.35:1 on white, 7.47:1 on SURFACE (compu
  * Still visibly lighter than MUTED (6.07:1), so the three-level hierarchy
  * survives.
  *
- * v7 (29 September 2026) makes it the design's brand/meta grey, `#8A7870`,
- * read off the hand-off: 4.20:1 on SURFACE, 4.03:1 on CANVAS (computed) —
- * under 4.5:1, so it is for the 13pt brand line and meta, never body text.
+ * v7 had it at `#8A7870` (4.20:1 on SURFACE, 4.03:1 on CANVAS, under 4.5:1, so
+ * brand line only). v9 darkened it to the value below: 6.92:1 on SURFACE, 6.54:1
+ * on CANVAS (computed), so it is safe for small notes and tags too.
  */
 export const MUTED_FAINT = "#5E5954"; // v9 meta: 6.9:1 on white (computed)
 
@@ -137,8 +137,13 @@ export const LINK = "#62664B"; // v9 leaf sage, darker: 5.96:1 on white (compute
 /** Grey icons and placeholders: the search magnifier, an info "i" outline (v7). Decorative: 2.78:1 on SURFACE. */
 export const ICON_MUTED = "#ADA7A1"; // v9
 
-/** A text field's placeholder (v9, read off the hand-off): 4.13:1 on SURFACE (computed) — a hint, not content. */
-export const PLACEHOLDER = "#7A746E";
+/**
+ * A text field's placeholder. The hand-off's `#7A746E` is 4.61:1 on SURFACE but
+ * 4.36:1 on CANVAS (computed); `#736D67` is 5.11 on SURFACE, 4.83 on CANVAS and
+ * 4.57 on STONE (the report form's field), so it passes under a field on any
+ * of the three (7 October 2026 audit).
+ */
+export const PLACEHOLDER = "#736D67";
 
 /** The track behind a segmented control's sliding thumb (v7). */
 export const SEGMENT_TRACK = "#E8EBDF"; // v9: on the sage page
@@ -166,6 +171,14 @@ export const TAB_BAR_GLASS = "rgba(255,255,255,0.86)";
  * button) takes no tint, or its own colour.
  */
 export const GLASS_FROST = withAlpha(WHITE, 0.4);
+
+/**
+ * The little white let into the tab bar's glass (7 October 2026 critique):
+ * clear glass over a plain cream page showed nothing, and its labels lost their
+ * edge over a busy list. Less than `GLASS_FROST`: the bar carries short labels
+ * and icons, not sentences.
+ */
+export const GLASS_BAR = withAlpha(WHITE, 0.22);
 
 /**
  * Every destructive or report action (v9, read off the hand-off): the soft
@@ -371,7 +384,7 @@ export type VerdictTone = "high" | "medium" | "low";
  */
 export const VERDICT: Record<
   VerdictTone,
-  { solid: string; tint: string; deep: string; wash: string; halo: string; label: string }
+  { solid: string; tint: string; deep: string; word: string; wash: string; halo: string; label: string }
 > = {
   // v9 warm earth (README's band table): solid and deep read off the
   // hand-off; tint is the hue at about 86% white as the README says, and wash
@@ -384,21 +397,25 @@ export const VERDICT: Record<
   // white on it as a pill was no better. `#A85A14` is 5.1:1 on white and 4.55:1
   // on the tint. Good's and Poor's words are still the hand-off's (3.1:1 and
   // 4.39:1 on white): left for the owner, since Good is the brand's olive.
-  // Good's word is its ring colour, 3.1:1 on white (computed): the hand-off
+  // Good's `deep` is its ring colour, 3.1:1 on white (computed): the hand-off
   // only sets it at 15pt semibold or larger, or as white on the filled pill.
-  high: { solid: "#8A9A5B", tint: "#EEF1E7", deep: "#8A9A5B", wash: "#EEF1E7", halo: "#EEF1E7", label: "Great match" },
-  medium: { solid: "#E78B30", tint: "#FBF1E6", deep: "#A85A14", wash: "#FBF1E6", halo: "#FBF1E6", label: "Fair match" },
-  low: { solid: "#E56B65", tint: "#FFECE9", deep: "#CC4F49", wash: "#FFECE9", halo: "#FFECE9", label: "Poor match" },
+  // So a small word takes `word` instead (owner, 7 October 2026): Good's and
+  // Poor's, darkened to 4.5:1 on white and on their tints (computed:
+  // `#627038` 5.39 / 4.72, `#BC413B` 5.31 / 4.66). Rings, pills and big
+  // numbers keep `deep`; Fair's `deep` already passes, so its `word` is it.
+  high: { solid: "#8A9A5B", tint: "#EEF1E7", deep: "#8A9A5B", word: "#627038", wash: "#EEF1E7", halo: "#EEF1E7", label: "Great match" },
+  medium: { solid: "#E78B30", tint: "#FBF1E6", deep: "#A85A14", word: "#A85A14", wash: "#FBF1E6", halo: "#FBF1E6", label: "Fair match" },
+  low: { solid: "#E56B65", tint: "#FFECE9", deep: "#CC4F49", word: "#BC413B", wash: "#FFECE9", halo: "#FFECE9", label: "Poor match" },
 };
 
 /**
  * An Excellent score's ring and number (v7): a deeper green than Good, so the
  * best products stand apart, on Good's tint. Read off the hand-off.
  */
-export const EXCELLENT = { solid: "#6B7A40", tint: "#EEF1E7", deep: "#6B7A40", wash: "#EEF1E7" } as const; // v9 dark olive
+export const EXCELLENT = { solid: "#6B7A40", tint: "#EEF1E7", deep: "#6B7A40", word: "#6B7A40", wash: "#EEF1E7" } as const; // v9 dark olive
 
 /** A score's ring, number and tint: Excellent's deeper green, else its tone's. */
-export function scoreColours(verdict: Verdict): { solid: string; tint: string; deep: string } {
+export function scoreColours(verdict: Verdict): { solid: string; tint: string; deep: string; word: string } {
   if (verdict === "excellent") return EXCELLENT;
   const tone = toneForVerdict(verdict);
   return tone ? VERDICT[tone] : VERDICT_NEUTRAL;
@@ -412,6 +429,7 @@ export const VERDICT_NEUTRAL = {
   solid: MUTED,
   tint: "#F2F1F0",
   deep: MUTED,
+  word: MUTED,
   wash: "#F4F2EE",
   halo: "#EAE4DF",
   label: "Can't tell yet",
@@ -457,10 +475,10 @@ export const VERDICT_LABEL: Record<Verdict, string> = {
 };
 
 /** Warning text that is not a verdict: flagged-ingredient counts, cautions. */
-export const WARN = VERDICT.medium.deep;
+export const WARN = VERDICT.medium.word;
 
 /** Destructive actions — "erase my profile", and nothing else. */
-export const DANGER = VERDICT.low.deep;
+export const DANGER = VERDICT.low.word;
 
 // ── One-off screen accents ──────────────────────────────────────────────────
 // Repeated raw hex that had no name anywhere — extracted here rather than
@@ -546,6 +564,35 @@ export const TYPE = {
 } as const;
 
 /**
+ * The line height that goes with each `TYPE` size, so a role reads the same on
+ * every screen (7 October 2026 typeset: body had been 20, 21 and 22, caption 17
+ * to 19). Used wherever a style gives both on one line; a screen that needs a
+ * different leading says so with its own number and a reason.
+ */
+export const LEADING = {
+  caption: 18,
+  label: 20,
+  body: 21,
+  card: 22,
+  title: 24,
+  heading: 28,
+  large: 34,
+} as const;
+
+/**
+ * Letter-spacing by role: the serif display sizes are pulled in, the small
+ * capitals (a section label) are let out.
+ */
+export const TRACKING = {
+  display: -0.6,
+  large: -0.6,
+  heading: -0.5,
+  title: -0.2,
+  card: -0.17,
+  caption: 0.8,
+} as const;
+
+/**
  * The one display face (v9, design_handoff_formee_v9): PT Serif Bold, upright,
  * for a screen's title, an ingredient's name and the score. Everything else
  * is the system font. (v9's first round drew Instrument Serif and DM Sans,
@@ -588,13 +635,6 @@ export const FONT_SCALE = {
   reading: 3.6,
   icon: 2,
 } as const;
-
-/**
- * The handwritten face for a journal note (#229), and nothing else — the
- * mirror of `tailwind.config.js`'s `fontFamily.note`. Whether a given note
- * actually gets it is `lib/note-font.ts`'s call, never a component's.
- */
-export const NOTE_FONT = "Caveat_500Medium";
 
 /**
  * Tip of the day (v7 update, 29 September 2026, read off the hand-off): a

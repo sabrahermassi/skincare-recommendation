@@ -38,11 +38,6 @@ export const INTRO = {
 /** How faint the intro's inactive dots are. */
 export const INTRO_INACTIVE_DOT_OPACITY = 0.35;
 
-const FONT = {
-  bodyLight: "Montserrat_300Light",
-  bodyRegular: "Montserrat_400Regular",
-} as const;
-
 /** Fixed pt values shared by both shells — spec §5/§17: nothing here scales
  *  per screen size except the hero/question regions each shell owns itself. */
 export const H_PADDING = 24;
@@ -108,7 +103,7 @@ export function SkipButton({
   onPress,
   color,
   fontSize = SKIP_SIZE,
-  fontFamily = FONT.bodyRegular,
+  fontFamily = null,
 }: {
   onPress: () => void;
   color: string;

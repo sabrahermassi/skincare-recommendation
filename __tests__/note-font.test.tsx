@@ -5,7 +5,7 @@ import { AccessibilityInfo, StyleSheet } from "react-native";
 
 import { NotePreview, ProductNote } from "@/components/ProductNote";
 import { SCRIPT_COVERAGE, inScriptCoverage, usesHandwriting } from "@/lib/note-font";
-import { NOTE_FONT } from "@/lib/tokens";
+import { HAND_FONT } from "@/lib/tokens";
 
 // The note editor is a BottomSheet (#313), which pads for the home indicator.
 jest.mock("react-native-safe-area-context", () => ({
@@ -59,7 +59,7 @@ const fontOf = (text: string) => StyleSheet.flatten(screen.getByText(text).props
 
 describe("which characters the handwriting draws", () => {
   it("claims nothing the font file cannot draw", () => {
-    const file = join(__dirname, "..", "node_modules/@expo-google-fonts/caveat/500Medium/Caveat_500Medium.ttf");
+    const file = join(__dirname, "..", "node_modules/@expo-google-fonts/kalam/400Regular/Kalam_400Regular.ttf");
     const drawn = fontCodePoints(file);
     const missing = SCRIPT_COVERAGE.flatMap(([from, to]) =>
       Array.from({ length: to - from + 1 }, (_, i) => from + i).filter((code) => !drawn.has(code)),
@@ -71,7 +71,7 @@ describe("which characters the handwriting draws", () => {
     const tailwind = jest.requireActual<{ theme: { extend: { fontFamily: Record<string, string[]> } } }>(
       "../tailwind.config.js",
     );
-    expect(tailwind.theme.extend.fontFamily.note).toEqual([NOTE_FONT]);
+    expect(tailwind.theme.extend.fontFamily.note).toEqual([HAND_FONT]);
   });
 
   it.each([
@@ -86,6 +86,7 @@ describe("which characters the handwriting draws", () => {
     ["a mostly English note with one Korean word", "Nice and light, 좋아요"],
     ["emoji", "Love it 😍"],
     ["CJK", "很好用"],
+    ["a Russian note (Kalam has no Cyrillic)", "Очень нежно"],
     ["a combining accent", "crème"],
   ])("gives up on %s", (_: string, text: string) => {
     expect(inScriptCoverage(text)).toBe(false);
@@ -112,9 +113,9 @@ describe("when the handwriting steps aside", () => {
 describe("a note on screen", () => {
   it("is handwritten on the product screen and the Saved card", async () => {
     await render(<ProductNote note="Soft and calm" onSave={() => undefined} />);
-    expect(fontOf("Soft and calm")).toBe(NOTE_FONT);
+    expect(fontOf("Soft and calm")).toBe(HAND_FONT);
     await render(<NotePreview note="Worth it" />);
-    expect(fontOf("Worth it")).toBe(NOTE_FONT);
+    expect(fontOf("Worth it")).toBe(HAND_FONT);
   });
 
   it("puts a Korean note entirely in the UI font, in both places", async () => {

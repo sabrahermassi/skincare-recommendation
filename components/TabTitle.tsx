@@ -1,5 +1,5 @@
 import { Text } from "@/components/Text";
-import { DISPLAY_FONT, INK, TYPE } from "@/lib/tokens";
+import { DISPLAY_FONT, INK, TYPE, LEADING, TRACKING } from "@/lib/tokens";
 
 /**
  * The title at the top of a tab (Home, Saved, Skincare School, Profile): PT Serif
@@ -8,7 +8,7 @@ import { DISPLAY_FONT, INK, TYPE } from "@/lib/tokens";
 
 export function TabTitle({ children }: { children: string }) {
   return (
-    <Text accessibilityRole="header" style={{ fontFamily: DISPLAY_FONT, fontSize: TYPE.large, lineHeight: 33, letterSpacing: -0.6, color: INK }}>
+    <Text accessibilityRole="header" style={{ fontFamily: DISPLAY_FONT, fontSize: TYPE.large, lineHeight: LEADING.large, letterSpacing: TRACKING.large, color: INK }}>
       {children}
     </Text>
   );
