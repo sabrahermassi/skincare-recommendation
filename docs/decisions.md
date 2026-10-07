@@ -79,6 +79,31 @@ rows already written; keep their notes the same (`__tests__/annex-stale-citation
 real Postgres). Entries 1389 and 1397 joined the safety-notice list on #434. The score impact is
 in the #419 PR.
 
+**An allergen the regulation spells differently from CosIng (7 October 2026, #439).** 37 of
+the names in `lib/eu-allergens.ts` matched no dictionary row, for three different reasons,
+and only one of them was a missing row:
+
+- **Not in the dictionary (10 printed names, 11 CosIng rows):** added from CosIng through `import:cosing`, from
+  `scripts/data/eu-allergen-names.csv`, which keeps each row's CosIng record number and
+  link. The import writes the name, the CAS number and CosIng's functions, and no rating.
+- **In the dictionary under CosIng's spelling (18 printed names, 19 CosIng names):** Annex III prints "p-Phenylenediamine
+  Sulphate", "Acetyl Cedrene", "Dihydroxy indoline", "Rose ketone 4 (Damascenone)"; CosIng,
+  and so the dictionary, says "Sulfate", "Acetylcedrene", "Dihydroxyindoline", "Rose
+  Ketone-4". A synonym would not fix this: a synonym turns a label's text into the
+  dictionary's name, and it is the dictionary's name the allergen list has to know.
+  `COSING_SPELLINGS` lists each one with its CosIng record number, added only where that
+  record's CAS number is the one the entry prints.
+- **In the dictionary, but the lookup could not see it (4):** the dictionary writes brackets
+  as spaces, and the lookup did not.
+
+CosIng's "Damascenone" is deliberately not one of them: its record also covers a CAS number
+entry 157 does not print. Left out (5), four because CosIng has no record under that INCI name: cis- and trans-Rose ketone 1
+(CosIng files both under Alpha-Damascone, already listed), 2,6-Dimethoxy-3,5-pyridinediamine
+(only the HCl has a record) and 5-Amino-6-Chloro-o-Cresol HCl (only the base has one). And
+3-Propylidenephthalide (175), which the dictionary holds as "propylidene phthalide", an Open
+Beauty Facts name CosIng does not use: recognising that is the owner's call. The effect on
+scores is in the #439 PR.
+
 ## Routing
 
 **Never navigate from a layout file.** This is not theoretical caution —
