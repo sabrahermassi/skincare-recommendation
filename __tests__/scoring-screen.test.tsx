@@ -35,6 +35,13 @@ describe("How scoring works", () => {
     }
   });
 
+  // #476: the quiz asks "pregnant or breastfeeding", so that is what the sheet says; "or trying" was never an answer.
+  it("says the pregnancy warnings are for someone pregnant or breastfeeding, never 'trying'", async () => {
+    await render(<HowScoringWorks />);
+    expect(screen.getByText(/If you said you're pregnant or breastfeeding, they're shown apart from the score and never hidden\./)).toBeTruthy();
+    expect(screen.queryByText(/or trying/)).toBeNull();
+  });
+
   it("closes from its X", async () => {
     const { router } = jest.requireMock<typeof import("expo-router")>("expo-router");
     await render(<HowScoringWorks />);

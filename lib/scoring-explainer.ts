@@ -70,7 +70,7 @@ export function scoreNotes(): ScoreNote[] {
     {
       kind: "pregnancy",
       title: "Pregnancy warnings",
-      body: "If you said you're pregnant or trying, they're shown apart from the score and never hidden. They don't change it.",
+      body: "If you said you're pregnant or breastfeeding, they're shown apart from the score and never hidden. They don't change it.",
     },
     {
       kind: "no-score",
