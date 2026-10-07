@@ -38,6 +38,7 @@ import { haptic } from "@/lib/haptics";
 import { reduceMotionNow } from "@/lib/reduce-motion";
 import { FitScrollView } from "@/components/FitScrollView";
 import { GlassHeader } from "@/components/GlassHeader";
+import { SAVED_PAGE } from "@/lib/list-page";
 import { noOrphan } from "@/lib/text";
 
 type Tab = "saved" | "history" | "ingredients";
@@ -162,6 +163,8 @@ export default function Saved() {
   });
   const [error, setError] = useState(false);
   const [retryKey, setRetryKey] = useState(0);
+  // How many saved products are drawn: a page at a time (`SAVED_PAGE`).
+  const [savedShown, setSavedShown] = useState(SAVED_PAGE);
 
   // Pairings across the shelf (#233), from the products already loaded here —
   // the shelf lives on this device, so this needs no account.
@@ -315,7 +318,7 @@ export default function Saved() {
           <StepFilter groups={presentGroups} selected={activeFilter} onSelect={setStepFilter} />
           <GroupLabel title={`${shown.length} ${shown.length === 1 ? "product" : "products"}`} onClearAll={() => setConfirmingClear(t)} />
           <View style={{ gap: ROW_GAP }}>
-            {shown.map((id) => {
+            {shown.slice(0, savedShown).map((id) => {
               const product = byId[id];
               const note = savedProducts.find((p) => p.id === id)?.note;
               return (
@@ -327,6 +330,11 @@ export default function Saved() {
               );
             })}
           </View>
+          {shown.length > savedShown ? (
+            <View style={{ alignItems: "center", paddingTop: SPACE.gutter }}>
+              <TextLink label={`Show ${Math.min(SAVED_PAGE, shown.length - savedShown)} more`} onPress={() => setSavedShown((n) => n + SAVED_PAGE)} />
+            </View>
+          ) : null}
 
           <ShelfPairings notes={shelfNotes} />
 
