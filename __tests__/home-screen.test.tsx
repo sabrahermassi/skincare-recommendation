@@ -161,13 +161,16 @@ it("opens the tip as a note with a close button only, then says it was read and 
   const tip = MORNING_TIPS.find((candidate) => screen.queryByText(candidate.tip)) ?? null;
   expect(tip).toBeNull();
   await fireEvent.press(screen.getByRole("button", { name: "Open skincare tip. This morning: about your SPF" }));
+  // It opens once the envelope's place on the page has been read, a moment after the tap.
+  await waitFor(() => expect(MORNING_TIPS.some((candidate) => screen.queryByText(candidate.tip))).toBe(true));
   const shown = MORNING_TIPS.find((candidate) => screen.queryByText(candidate.tip));
   expect(shown).toBeTruthy();
   expect(screen.getByText(shown!.why)).toBeTruthy();
   expect(screen.getByText("This morning · SPF")).toBeTruthy();
   // One Close for a screen reader: the dim area behind the note is not a second one.
   await fireEvent.press(screen.getByRole("button", { name: "Close" }));
-  expect(screen.queryByText(shown!.tip)).toBeNull();
+  // The note folds away, then it is gone.
+  await waitFor(() => expect(screen.queryByText(shown!.tip)).toBeNull());
   expect(screen.getByText("Tip read ✓")).toBeTruthy();
   expect(screen.getByText("Next tip: tonight")).toBeTruthy();
   expect(screen.getByRole("button", { name: "Tip read. Next tip: tonight. Read again" })).toBeTruthy();
