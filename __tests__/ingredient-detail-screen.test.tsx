@@ -117,6 +117,12 @@ describe("the ingredient page, opened from a product", () => {
     }
   });
 
+  it("says a neutral ingredient is neutral once, not in a headline and again at the foot", async () => {
+    await open("butylene glycol", { baseSkinType: "dry" as const });
+    expect(screen.getByText("Nothing against it")).toBeTruthy();
+    expect(screen.queryByText("Neutral for you")).toBeNull();
+  });
+
   it("with no skin profile, doesn't call a plain ingredient Good, as the list gives it no word", async () => {
     await open("glycerin", {});
     expect(screen.getByText("No known concerns")).toBeTruthy();

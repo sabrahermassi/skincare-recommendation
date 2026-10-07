@@ -207,7 +207,6 @@ function Steps({ personalized }: { personalized: boolean }) {
           <Text accessibilityRole="header" style={{ fontSize: TYPE.caption, fontWeight: "600", letterSpacing: TRACKING.caption, textTransform: "uppercase", color: MUTED }}>
             {`Steps for ${DAY_NAMES[day]}`}
           </Text>
-          <Text style={{ fontSize: TYPE.caption, color: MUTED }}>{time === "morning" ? "good morning" : "wind down"}</Text>
         </View>
 
         {/* The catalogue could not be read: say so, and offer another go, rather
