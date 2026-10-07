@@ -59,9 +59,9 @@ it("opens a watch-outs list with at least the ingredients its irritation row cou
     const match = general(ingredients);
     const risk = irritationRisk({ ingredients }, match);
     if (!risk.hasEntries) continue;
-    const { personal, restricted, common } = irritationCounts({ ingredients }, match);
+    const { personal, euFlagged, common } = irritationCounts({ ingredients }, match);
     // The row names one of the three counts; the list must hold at least that many.
-    const named = personal > 0 ? personal : restricted > 0 ? restricted : common;
+    const named = personal > 0 ? personal : euFlagged > 0 ? euFlagged : common;
     const listed = ingredientGroups(ingredients, match, false).watch.length;
     expect({ label, enough: listed >= named, some: listed > 0 }).toEqual({ label, enough: true, some: true });
   }
