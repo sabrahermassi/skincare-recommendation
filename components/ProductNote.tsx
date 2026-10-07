@@ -7,7 +7,7 @@ import { Text } from "@/components/Text";
 import { MAX_NOTE_CHARS, NOTE_COPY, cleanNote, tooLongCopy } from "@/lib/journal";
 import { useNoteTextStyle } from "@/lib/note-font";
 import {
-  BORDER_INACTIVE,
+  LINE,
   CANVAS,
   CARD_SHADOW,
   DANGER,
@@ -129,7 +129,7 @@ export function NoteEditor({
           minHeight: 120,
           borderRadius: RADIUS.control,
           borderWidth: 1,
-          borderColor: over ? WARN : BORDER_INACTIVE,
+          borderColor: over ? WARN : LINE,
           backgroundColor: CANVAS,
           padding: SPACE.block,
           fontSize: TYPE.body,

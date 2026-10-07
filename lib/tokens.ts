@@ -225,10 +225,6 @@ export const LINE = "#E3DFDA"; // v9
 /** The empty avatar's disc behind the see-through picture (v7, read off the hand-off). */
 export const AVATAR_FILL = "#ECE8E3"; // v9
 
-/** @deprecated Prefer {@link LINE}. Kept because it names the same value in
- *  the control-state code that already reads well as "border, inactive". */
-export const BORDER_INACTIVE = LINE;
-
 // ── Controls ────────────────────────────────────────────────────────────────
 
 /**
