@@ -3,6 +3,9 @@ import { GlassView, isGlassEffectAPIAvailable, isLiquidGlassAvailable } from "ex
 import { createContext, type ReactNode } from "react";
 import { Platform, StyleSheet, View, type StyleProp, type ViewStyle } from "react-native";
 
+import { useReduceTransparency } from "@/lib/reduce-transparency";
+import { WHITE } from "@/lib/tokens";
+
 /**
  * Whether this phone can draw Apple's Liquid Glass (iOS 26 and later, and the
  * API actually present: some iOS 26 betas lack it). Answered once. Anywhere
@@ -37,7 +40,9 @@ export const OnGlass = createContext(false);
  *
  * `fill` is the frosting's colour in the fallback; `tint` lets a little of a
  * colour into the real glass (leave it off for clear glass). `interactive`
- * gives the real glass its press response. Light always: the app is light only.
+ * gives the real glass its press response. With Reduce Transparency on, the
+ * fallback is `solid` (white unless told otherwise); the real glass adapts by itself.
+ * Light always: the app is light only.
  * Sized by `style`, which usually fills its parent.
  */
 export function Glass({
@@ -45,6 +50,7 @@ export function Glass({
   fill,
   blur = 12,
   tint,
+  solid = WHITE,
   interactive = false,
   children,
 }: {
@@ -55,15 +61,21 @@ export function Glass({
   blur?: number;
   /** Liquid Glass only: a colour let into the glass. */
   tint?: string;
+  /** Fallback only, with Reduce Transparency on: the opaque colour in place of the blur. */
+  solid?: string;
   interactive?: boolean;
   children?: ReactNode;
 }) {
+  const reduceTransparency = useReduceTransparency();
   if (hasLiquidGlass) {
     return (
       <GlassView glassEffectStyle="regular" colorScheme="light" tintColor={tint} isInteractive={interactive} style={style}>
         {children}
       </GlassView>
     );
+  }
+  if (reduceTransparency) {
+    return <View style={[style, { overflow: "hidden", backgroundColor: solid }]}>{children}</View>;
   }
   return (
     <View style={[style, { overflow: "hidden" }]}>

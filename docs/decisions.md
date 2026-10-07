@@ -834,3 +834,12 @@ alternative is no automated function deploys at all. `staging-migrate.yml`'s
 header rejects the same token for *migrations* precisely because a
 connection string can be scoped to one project and a token cannot — that
 reasoning still stands for migrations. **Do not re-flag this as a finding.**
+
+### iPhone only, no iPad build (7 October 2026)
+
+`ios.supportsTablet` is false. iPhone is the only release target (19 September
+2026) and nothing in the app adapts to an iPad: no size classes, one 292pt
+carousel card, a portrait lock. With it true the app would ship to iPad as a
+stretched phone UI. An iPad runs it as a phone-sized window. Turn it on again
+only with a real iPad layout, and re-check the multitasking and orientation
+rules at the same time.

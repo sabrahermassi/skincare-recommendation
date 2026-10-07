@@ -68,7 +68,7 @@ the 40pt icon circles).
 
 | Token | Value | Use |
 |---|---|---|
-| `BUTTON.primary` | fill `#767A5C`, pressed `#62664B`, label white | every filled button, tick and progress |
+| `BUTTON.primary` | fill `#757959`, pressed `#62664B`, label white | every filled button, tick and progress |
 | `BUTTON.secondary` | fill `#EEEFE7`, label `INK` | a less important action |
 | `BUTTON.tertiary` | outline `#62664B` | a low-emphasis action |
 | `BUTTON.disabled` | `#C9CCB8` | any disabled button |
@@ -258,6 +258,10 @@ once (`hasLiquidGlass`); nothing else should call the native glass directly
   and glass is never put on glass (the glass thumb inside the plain switch track
   is the one nesting, as in iOS 26's own segmented control). A round button on a
   glass pop-up keeps its white disc (`OnGlass`).
+- Reduce Transparency: the real glass adapts by itself; the blur fallback draws
+  a solid surface instead (`useReduceTransparency`, `Glass`'s `solid`). The
+  sheets' dim-and-blur scrim and the scanner's blur are not glass and are left
+  as they are.
 - Light only (`colorScheme="light"`). Never set opacity 0 on glass or a parent of
   it: the glass stops drawing.
 
@@ -387,17 +391,25 @@ the scanner, How scoring works and the ingredient sheet slide up.
   (no slide, zero-length animations).
 - Tap targets follow `TOUCH_TARGET` (44). One known exception: `ReferenceLink`
   is 36pt tall. Icon buttons carry a spoken label.
-- Contrast ratios are noted beside tokens in `lib/tokens.ts`. Below 4.5:1
-  today: only the white label on `BUTTON.primary.fill`, 4.46 (see Known gaps).
+- Contrast ratios are noted beside tokens in `lib/tokens.ts`. `MUTED_FAINT` and the
+  placeholder are below 4.5:1 today (see Known gaps).
   A small verdict word takes `VERDICT[tone].word`, never `deep` (a ring, pill or
   big number keeps `deep`).
 
 ## Known gaps
 
-- **The white label on the sage button is 4.46:1**, just under 4.5:1 for small
-  text; it is set at 16pt semibold or larger. Good's and Poor's small words now
-  use `VERDICT[tone].word` (5.39 and 5.31 on white); their rings, pills and big
-  numbers keep the hand-off's colours.
+- **The three small-text contrast gaps from the last critique are closed.** The sage button
+  went from `#767A5C` (4.46) to `#757959` (4.53), a step the eye does not see.
+  Good's and Poor's small words use `VERDICT[tone].word` (5.39 and 5.31 on
+  white); their rings, pills and big numbers keep the hand-off's colours. Still
+  under 4.5:1: `MUTED_FAINT` (4.20 on cards, 4.03 on the page), meant for the
+  13pt brand line but also used for the small notes and tags on Find your
+  actives and Saved, and the placeholder token (4.13). Darkening it is the
+  next contrast step.
+- **Icons are two sets, not SF Symbols:** Ionicons (`@expo/vector-icons`: menu rows,
+  routine, scoring sheet, camera, saved) and the app's own SVG marks (tab bar,
+  hearts, stars, ticks, shield). Each screen keeps to one. Moving to SF Symbols
+  would be a visual change for every menu row and is not planned.
 - **Colour lives in three files** (`tokens.ts`, `colors.ts`, `tailwind.config.js`)
   and is kept in step by hand.
 - **Five font sizes are written inline** (10 to 14, inside rings and badges, below
