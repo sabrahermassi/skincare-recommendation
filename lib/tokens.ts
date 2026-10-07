@@ -139,10 +139,11 @@ export const ICON_MUTED = "#ADA7A1"; // v9
 
 /**
  * A text field's placeholder. The hand-off's `#7A746E` is 4.61:1 on SURFACE but
- * 4.36:1 on CANVAS (computed); `#77716B` is 4.82 and 4.55, under a field on
- * either (7 October 2026 audit).
+ * 4.36:1 on CANVAS (computed); `#736D67` is 5.11 on SURFACE, 4.83 on CANVAS and
+ * 4.57 on STONE (the report form's field), so it passes under a field on any
+ * of the three (7 October 2026 audit).
  */
-export const PLACEHOLDER = "#77716B";
+export const PLACEHOLDER = "#736D67";
 
 /** The track behind a segmented control's sliding thumb (v7). */
 export const SEGMENT_TRACK = "#E8EBDF"; // v9: on the sage page

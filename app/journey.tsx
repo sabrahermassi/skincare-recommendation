@@ -19,7 +19,7 @@ import { reduceMotionNow } from "@/lib/reduce-motion";
 import { encodeAnswers, familyOf, hiddenLine, holdsActive, optionsFor, safeOnly, storyLength, storyLengthLine, type NeedAnswers, type StoryActive } from "@/lib/skin-needs";
 import { useOwnProducts } from "@/lib/use-own-products";
 import { ACTIVES_IN_USE, GOAL_OPTIONS, type ActiveKey } from "@/lib/skin-needs-data";
-import { BUTTON, CANVAS, CANVAS_GLASS, CHOSEN, DISPLAY_FONT, ICON_SHADOW, INK, LINK, MUTED, MUTED_FAINT, SKIN_NEEDS, SPACE, STAR_ON, SURFACE, WHITE, TYPE, RADIUS, LEADING, TRACKING } from "@/lib/tokens";
+import { BUTTON, CANVAS, CANVAS_GLASS, CHOSEN, DISPLAY_FONT, ICON_SHADOW, INK, LINK, MUTED, MUTED_FAINT, SKIN_NEEDS, SPACE, STAR_ON, SURFACE, TOUCH_TARGET, WHITE, TYPE, RADIUS, LEADING, TRACKING } from "@/lib/tokens";
 import { useAppStore } from "@/store/useAppStore";
 import { noOrphan } from "@/lib/text";
 
@@ -83,6 +83,12 @@ function usesOf(used: readonly string[]): ActiveKey[] {
 export default function Journey() {
   const profile = useAppStore((state) => state.profile);
   const [draft, setDraft] = useState<Draft>(() => ({ goal: null, ...fromProfile(profile), used: [] }));
+  // Which of the profile's two answers were changed here: one that was says so no longer, even if picked again.
+  const [edited, setEdited] = useState({ sensitivity: false, pregnancy: false });
+  const change = (next: Draft) => {
+    setEdited((was) => ({ sensitivity: was.sensitivity || next.sensitivity !== draft.sensitivity, pregnancy: was.pregnancy || next.pregnancy !== draft.pregnancy }));
+    setDraft(next);
+  };
   const [showing, setShowing] = useState(false);
   const goal = draft.goal;
   if (showing && goal) {
@@ -91,23 +97,21 @@ export default function Journey() {
         answers={{ goal, sensitivity: draft.sensitivity, pregnancy: draft.pregnancy, uses: usesOf(draft.used) }}
         onBack={() => setShowing(false)}
         // "Not pregnant? Change": the answer becomes no, and the hidden ones come back.
-        onNotPregnant={() => setDraft((d) => ({ ...d, pregnancy: "no" }))}
+        onNotPregnant={() => change({ ...draft, pregnancy: "no" })}
       />
     );
   }
-  return <Questions draft={draft} onChange={setDraft} onShow={() => setShowing(true)} />;
+  return <Questions draft={draft} edited={edited} onChange={change} onShow={() => setShowing(true)} />;
 }
 
 // ── Q1 ──────────────────────────────────────────────────────────────────────
 
-function Questions({ draft, onChange, onShow }: { draft: Draft; onChange: (next: Draft) => void; onShow: () => void }) {
+function Questions({ draft, edited, onChange, onShow }: { draft: Draft; edited: { sensitivity: boolean; pregnancy: boolean }; onChange: (next: Draft) => void; onShow: () => void }) {
   const insets = useSafeAreaInsets();
   const ready = draft.goal !== null;
-  const profile = useAppStore((state) => state.profile);
-  const known = fromProfile(profile);
   // The tag says where an answer came from, until it is changed.
-  const sensitivityTag = known.sensitivity !== null && draft.sensitivity === known.sensitivity ? "From your profile" : "Optional";
-  const pregnancyTag = known.pregnancy !== null && draft.pregnancy === known.pregnancy ? "From your profile" : "Optional";
+  const sensitivityTag = draft.sensitivity !== null && !edited.sensitivity ? "From your profile" : "Optional";
+  const pregnancyTag = draft.pregnancy !== null && !edited.pregnancy ? "From your profile" : "Optional";
   // Thirteen goals at once is a wall: the first few, and the rest a tap away (always open for a goal that is in the rest).
   const [moreGoals, setMoreGoals] = useState(false);
   const shownGoals = moreGoals || (draft.goal !== null && GOALS.findIndex((g) => g.key === draft.goal) >= FIRST_GOALS) ? GOALS : GOALS.slice(0, FIRST_GOALS);
@@ -133,6 +137,7 @@ function Questions({ draft, onChange, onShow }: { draft: Draft; onChange: (next:
                 onPress={() => setMoreGoals(true)}
                 accessibilityRole="button"
                 accessibilityLabel={`Show ${GOALS.length - shownGoals.length} more goals`}
+                hitSlop={(TOUCH_TARGET - 40) / 2}
                 style={{ height: 40, paddingHorizontal: 14, borderRadius: RADIUS.control, borderWidth: 1, borderColor: SKIN_NEEDS.line, justifyContent: "center" }}
                 className="active:opacity-70"
               >
@@ -220,11 +225,13 @@ function Questions({ draft, onChange, onShow }: { draft: Draft; onChange: (next:
 
 /** A white card: the question, "Pick one" or "Optional" on its right, the chips, and a note. */
 function QuestionCard({ title, tag, note, children }: { title: string; tag: string; note?: string; children: React.ReactNode }) {
+  // The title shares a row with the tag, so at a larger text size a pair kept together ("or breastfeeding?") is too wide for what is left and would overflow or break inside a word. Normal wrapping then.
+  const { fontScale } = useWindowDimensions();
   return (
     <View style={{ backgroundColor: SURFACE, borderRadius: RADIUS.panel, padding: 20, gap: SPACE.gutter }}>
       <View style={{ flexDirection: "row", alignItems: "baseline", justifyContent: "space-between", gap: SPACE.text }}>
         <Text accessibilityRole="header" style={{ flex: 1, fontSize: TYPE.title, fontWeight: "600", lineHeight: LEADING.title, color: INK }}>
-          {noOrphan(title)}
+          {fontScale > 1 ? title : noOrphan(title)}
         </Text>
         <Text style={{ fontSize: TYPE.caption, fontWeight: "600", color: MUTED_FAINT }}>{tag}</Text>
       </View>

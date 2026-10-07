@@ -43,6 +43,17 @@ it("shows the error screen instead of a crash, and Try again renders the screen 
   expect(screen.getByText("fine now")).toBeTruthy();
 });
 
+it("keeps the last two words of the heading and the line together", async () => {
+  await render(
+    <Try catch={RouteErrorScreen}>
+      <Flaky />
+    </Try>,
+  );
+  // The text matcher folds a non-breaking space into a plain one, so read the rendered strings.
+  expect(screen.getByText(ROUTE_ERROR_COPY.heading).props.children).toBe("Something went\u00A0wrong");
+  expect(screen.getByText(ROUTE_ERROR_COPY.body).props.children).toBe(ROUTE_ERROR_COPY.body.replace(/ again\.$/, "\u00A0again."));
+});
+
 it("is what the root layout hands Expo Router as its ErrorBoundary", () => {
   const layout = require("@/app/_layout") as { ErrorBoundary?: unknown };
   expect(layout.ErrorBoundary).toBe(RouteErrorScreen);

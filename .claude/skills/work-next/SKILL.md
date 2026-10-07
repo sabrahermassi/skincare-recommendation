@@ -418,12 +418,38 @@ Wait for comments from all three, but **don't block a round on one that
 never responds** — rate-limited or silent is normal for at least one of
 these on any given round; act on whichever came back.
 
+**Read findings where they actually are.** Codex and CodeRabbit put their
+findings in **inline review comments**, not in the PR conversation — Codex's
+review body is only a banner, and `gh pr view --comments` shows none of the
+findings. Every round, read all three places, and the thread state:
+
+```bash
+gh api repos/<owner>/<repo>/pulls/<n>/comments --paginate   # inline findings (Codex, CodeRabbit, pr-review)
+gh api repos/<owner>/<repo>/pulls/<n>/reviews --paginate    # review bodies
+gh api repos/<owner>/<repo>/issues/<n>/comments --paginate  # @claude review, CodeRabbit summary
+```
+
+plus unresolved review threads (GraphQL `pullRequest.reviewThreads` with
+`isResolved: false`). A finding counts as handled only when its thread has a
+reply ("Fixed in <sha>: …" or why not) **and** is resolved. Codex marks
+severity with a badge in the comment body (`badge/P1`, `badge/P2`, …).
+
+**Wait for Codex before leaving a PR.** Codex usually posts 3–10 minutes
+after a PR opens or after `@codex review`. Poll (Monitor tool or a
+background until-loop, never a foreground `sleep`) every 2 minutes for up to
+**15 minutes** before declaring the round done without it. Evidence for
+this rule: on PR #414 a Codex P1 landed 4 minutes after opening, the chain
+had moved on to #415 by minute 19 without reading it, and it was fixed only
+21 hours later by a different session.
+
 Each round:
 1. Fix every finding that doesn't need an architectural or schema decision.
    Weigh severity the way the finding is actually marked, not by which tool
-   raised it: a critical/P0-equivalent finding always gets fixed. A
-   nitpick/cleanup-tier finding is optional — fix it if it's cheap and
-   clearly right, otherwise leave it. A finding that isn't actually relevant
+   raised it: a critical/P0-equivalent finding always gets fixed. **Codex
+   P0, P1 and P2 are all real-defect tiers — fix every valid one** (17 of
+   the last 24 Codex findings were P2, and most were genuine bugs). Codex
+   P3 and CodeRabbit nitpicks are optional — fix them if cheap and clearly
+   right, otherwise leave them. A finding that isn't actually relevant
    (wrong, already handled, out of scope for this ticket) gets neither
    fixed nor deferred to Open Questions — just don't act on it.
 2. For anything needing a decision, reply in-thread explaining why it's
@@ -546,6 +572,11 @@ Then, without waiting for the user and without asking whether to continue:
 - Note that the queue can grow mid-run: re-querying each time (rather than
   working from the list read at step 0) means a ticket labeled `code-ready`
   while the chain is running gets picked up too.
+- **Before the finish line, sweep every PR this chain opened** for review
+  comments that arrived after you left it (Codex and CodeRabbit often post
+  late). Read the three comment sources and unresolved threads from step 7
+  for each; fix, reply and resolve anything new, the same way step 7 does.
+  Only then is the chain done.
 - **Only when nothing is left** is it the finish line: stop, and give one
   short closing index — not a re-run of the per-PR reports, which are
   already written and posted on each PR. The index is just: every PR in
