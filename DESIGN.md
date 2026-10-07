@@ -58,7 +58,7 @@ the 40pt icon circles).
 | `MUTED` | `#524D48` | secondary text, group labels (8.35:1 on white) |
 | `MUTED_FAINT` | `#5E5954` | brand line, meta (6.9:1) |
 | `TAB_INACTIVE` | `#5E5954` | unselected tab icons and names |
-| `PLACEHOLDER` | `#7A746E` | input placeholder |
+| `PLACEHOLDER` | `#77716B` | input placeholder |
 | `ICON_MUTED` | `#ADA7A1` | search magnifier, decorative icons |
 | `ROW_CHEVRON` | `#B9A79E` | row chevrons |
 | `HAIRLINE` / `LINE` | `#E3DFDA` | dividers inside a card, unchosen outlines |
@@ -388,21 +388,21 @@ the scanner, How scoring works and the ingredient sheet slide up.
   (no slide, zero-length animations).
 - Tap targets follow `TOUCH_TARGET` (44). One known exception: `ReferenceLink`
   is 36pt tall. Icon buttons carry a spoken label.
-- Contrast ratios are noted beside tokens in `lib/tokens.ts`. `MUTED_FAINT` and the
-  placeholder are below 4.5:1 today (see Known gaps).
+- Contrast ratios are noted beside tokens in `lib/tokens.ts`. Nothing computed is
+  below 4.5:1 for small text today.
   A small verdict word takes `VERDICT[tone].word`, never `deep` (a ring, pill or
   big number keeps `deep`).
 
 ## Known gaps
 
-- **The three small-text contrast gaps from the last critique are closed.** The sage button
-  went from `#767A5C` (4.46) to `#757959` (4.53), a step the eye does not see.
-  Good's and Poor's small words use `VERDICT[tone].word` (5.39 and 5.31 on
-  white); their rings, pills and big numbers keep the hand-off's colours. Still
-  under 4.5:1: `MUTED_FAINT` (4.20 on cards, 4.03 on the page), meant for the
-  13pt brand line but also used for the small notes and tags on Find your
-  actives and Saved, and the placeholder token (4.13). Darkening it is the
-  next contrast step.
+- **The small-text contrast gaps are closed.** The sage button went from
+  `#767A5C` (4.46) to `#757959` (4.53), a step the eye does not see. Good's and
+  Poor's small words use `VERDICT[tone].word` (5.39 and 5.31 on white); their
+  rings, pills and big numbers keep the hand-off's colours. The placeholder went
+  from `#7A746E` to `#77716B` (4.82 on white, 4.55 on the page). `MUTED_FAINT`
+  is `#5E5954`, 6.92:1; an earlier note here that it was 4.2:1 came from a stale
+  comment in `lib/tokens.ts`, now fixed. Icons and decorative marks are held to
+  3:1, not 4.5.
 - **Icons are two sets, not SF Symbols:** Ionicons (`@expo/vector-icons`: menu rows,
   routine, scoring sheet, camera, saved) and the app's own SVG marks (tab bar,
   hearts, stars, ticks, shield). Each screen keeps to one. Moving to SF Symbols
