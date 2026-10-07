@@ -84,9 +84,14 @@ export function scoreNotes(): ScoreNote[] {
 /** The sheet's first line (v9, the hand-off's words). */
 export const SCORING_INTRO = "Your score shows how well a product fits your skin profile.";
 
-/** Where the ingredient facts come from (v9, the hand-off's words), said before the disclaimer. */
+/**
+ * Where the ingredient facts come from, said before the disclaimer. It does not say "every" or
+ * "each" ingredient is checked or sourced: some rules and pregnancy cautions still have no source
+ * (`__tests__/rule-sources.test.ts`), and the dictionary does not recognise every name. A test fails
+ * if this says so while any does (#472).
+ */
 export const SCORING_SOURCES =
-  "Every ingredient is checked against EU CosIng and published safety reviews. You'll find the sources on each ingredient's page.";
+  "We match ingredient names against the EU's CosIng list and our own ingredient notes. Where we have a source, it's on the ingredient's page. Some ingredients we don't recognise yet.";
 
 export const SCORING_DISCLAIMER =
   "No ads, no brand deals, no paid placements. Not medical advice: for a skin condition, see a dermatologist.";
