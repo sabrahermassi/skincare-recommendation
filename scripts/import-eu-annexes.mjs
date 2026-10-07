@@ -261,7 +261,7 @@ async function readStoredRows(db) {
 }
 
 /** Writes the plan. Reads `ingredients.updated_at`'s newest value before and after, so the run can say it did not move. */
-async function applyToDatabase(db, plan) {
+async function applyToDatabase(db, plan, stamp) {
   const newest = async () => {
     const { data, error } = await db.from("ingredients").select("updated_at").order("updated_at", { ascending: false }).limit(1);
     if (error) throw new Error(`read ingredients.updated_at: ${error.message}`);
@@ -277,7 +277,7 @@ async function applyToDatabase(db, plan) {
   for (const annex of ["II", "III"]) {
     const entries = plan.markDeleted.filter((r) => r.annex === annex).map((r) => r.entry);
     for (let i = 0; i < entries.length; i += CHUNK) {
-      const { error } = await db.from("regulatory_entries").update({ status: "deleted" }).eq("annex", annex).in("entry", entries.slice(i, i + CHUNK));
+      const { error } = await db.from("regulatory_entries").update({ status: "deleted", ...stamp }).eq("annex", annex).in("entry", entries.slice(i, i + CHUNK));
       if (error) throw new Error(`mark regulatory_entries deleted: ${error.message}`);
     }
   }
@@ -362,7 +362,8 @@ async function main() {
   const rows = parsed.entries.map((entry) => toRow(entry, source, parsed.version.consolidatedOn));
   const plan = planWrites(await readStoredRows(db), rows);
   console.log(`regulatory_entries: ${plan.insert.length} to insert, ${plan.update.length} to update, ${plan.markDeleted.length} to mark deleted, ${plan.unchanged} unchanged.`);
-  await applyToDatabase(db, plan);
+  // A deletion records the text that established it, so the row says which consolidation dropped the entry.
+  await applyToDatabase(db, plan, { source_version: source.celex, source_hash: source.sha256, source_url: source.url ?? null, last_verified: parsed.version.consolidatedOn });
   console.log("Done.");
 }
 

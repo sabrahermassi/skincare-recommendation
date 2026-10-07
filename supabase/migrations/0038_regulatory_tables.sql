@@ -105,5 +105,7 @@ drop policy if exists "ingredient regulatory is publicly readable" on ingredient
 create policy "ingredient regulatory is publicly readable"
   on ingredient_regulatory for select to anon, authenticated using (true);
 
+grant select on regulatory_entries, ingredient_regulatory to anon, authenticated;
+
 -- Belt and braces beside the missing write policies: no grant to write either, for anyone but the service role.
 revoke insert, update, delete, truncate on regulatory_entries, ingredient_regulatory from anon, authenticated;
