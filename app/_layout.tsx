@@ -157,7 +157,6 @@ export default function RootLayout() {
         <Stack.Screen name="ingredient/[inci]" options={SHEET_ROUTE} />
         <Stack.Screen name="skin-profile" options={{ headerShown: false }} />
         <Stack.Screen name="support" options={{ headerShown: false }} />
-        <Stack.Screen name="school" options={{ headerShown: false }} />
         <Stack.Screen name="scoring" options={SHEET_ROUTE} />
         <Stack.Screen name="routine" options={{ headerShown: false }} />
         {/* "What my skin needs" (v9): full screen, its own back and progress. */}
