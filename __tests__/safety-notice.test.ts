@@ -68,8 +68,8 @@ describe("the notice, with the flag on", () => {
 
   it("never fires for an Annex II entry that is not on the list, or one still waiting for its date", () => {
     expect(safetyNoticeFor(UNLISTED, true)).toBeNull();
-    // None is waiting today: 1339 was the last. One added without a date must stay silent.
-    expect(SAFETY_NOTICE_ENTRIES.filter((entry) => entry.verified === null)).toEqual([]);
+    // Five are waiting (#468): the bans the audit of 7 October 2026 found. Each stays silent until the owner dates it.
+    expect(SAFETY_NOTICE_ENTRIES.filter((entry) => entry.verified === null).map((entry) => entry.entry)).toEqual([1730, 1388, 1703, 1721, 1575]);
     for (const pending of SAFETY_NOTICE_ENTRIES.filter((entry) => entry.verified === null)) {
       expect(safetyNoticeFor(avoid("pending", `Prohibited in cosmetics (EU Annex II/${pending.entry})`), true)).toBeNull();
     }
