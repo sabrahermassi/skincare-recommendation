@@ -51,7 +51,7 @@ import NotFound from "@/app/+not-found";
  */
 type Fit = IngredientLabel | "none";
 
-type Tone = { solid: string; tint: string; deep: string; wash: string };
+type Tone = { solid: string; tint: string; deep: string; word: string; wash: string };
 const TONE: Record<Fit, Tone> = {
   good: VERDICT.high,
   watch: VERDICT.medium,
@@ -266,7 +266,7 @@ function IngredientDetail({
                 (Codex review on #414). */}
             {notice && !forProfile ? (
               <View style={{ borderRadius: CARD_RADIUS, backgroundColor: tone.wash, padding: SPACE.gutter, gap: 4 }}>
-                <Text style={{ fontSize: TYPE.body, fontWeight: "600", color: tone.deep }}>{SAFETY_NOTICE_COPY.sheetHeadline}</Text>
+                <Text style={{ fontSize: TYPE.body, fontWeight: "600", color: tone.word }}>{SAFETY_NOTICE_COPY.sheetHeadline}</Text>
                 <Text style={{ fontSize: TYPE.body, lineHeight: 22, color: INK }}>
                   {SAFETY_NOTICE_COPY.sheetBody(notice.entry)}
                   {notice.dates ? ` ${notice.dates}` : ""}
@@ -277,7 +277,7 @@ function IngredientDetail({
             {forProfile ? (
               <View style={{ borderRadius: CARD_RADIUS, backgroundColor: tone.wash, padding: SPACE.gutter, gap: 4 }}>
                 <CardHeading>For your skin</CardHeading>
-                <Text style={{ fontSize: TYPE.body, fontWeight: "600", color: tone.deep }}>{undecided ? ORIGIN_DEPENDENT_HEADLINE : notice ? SAFETY_NOTICE_COPY.sheetHeadline : fitHeadline(fit, helps, hurts, warning, rule, profile)}</Text>
+                <Text style={{ fontSize: TYPE.body, fontWeight: "600", color: tone.word }}>{undecided ? ORIGIN_DEPENDENT_HEADLINE : notice ? SAFETY_NOTICE_COPY.sheetHeadline : fitHeadline(fit, helps, hurts, warning, rule, profile)}</Text>
                 {/* The EU notice says what the listing is, and for HICC its dates (#404). */}
                 {notice ? (
                   <Text style={{ fontSize: TYPE.body, lineHeight: 22, color: INK }}>
@@ -306,7 +306,7 @@ function IngredientDetail({
                     {fitBody(fit, helps, hurts, verified, Boolean(rule), isCommonIrritant(ingredient), match !== null, cloggerConfidence(ingredient) === "high")}
                   </Text>
                 )}
-                <Text style={{ marginTop: 4, fontSize: TYPE.caption, fontWeight: "600", color: tone.deep }}>{undecided ? "Not in your score" : fitTag(fit, helps, hurts, warning, match)}</Text>
+                <Text style={{ marginTop: 4, fontSize: TYPE.caption, fontWeight: "600", color: tone.word }}>{undecided ? "Not in your score" : fitTag(fit, helps, hurts, warning, match)}</Text>
               </View>
             ) : null}
 

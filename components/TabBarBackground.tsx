@@ -5,7 +5,7 @@ import Animated, { makeMutable, useAnimatedReaction, useAnimatedStyle, useShared
 import { Glass, hasLiquidGlass } from "@/components/Glass";
 import { FLOW_LEAD, FLOW_TRAIL } from "@/lib/flow";
 import { TAB_BAR_HEIGHT, TAB_BAR_RADIUS, TAB_BAR_SIDE_MARGIN } from "@/lib/tab-bar";
-import { HAIRLINE, TAB_BAR_GLASS, TAB_PILL } from "@/lib/tokens";
+import { GLASS_BAR, HAIRLINE, TAB_BAR_GLASS, TAB_PILL } from "@/lib/tokens";
 
 // The pill behind the current tab (v9, read off the hand-off: 64 by 48), a
 // capsule like the bar it sits in.
@@ -70,6 +70,7 @@ export function TabBarBackground() {
         <Glass
           blur={TAB_BAR_BLUR}
           fill={TAB_BAR_GLASS}
+          tint={GLASS_BAR}
           style={[
             { position: "absolute", top: 0, left: x0, width: x1 - x0, height: h, borderRadius: r },
             hasLiquidGlass ? null : { borderWidth: StyleSheet.hairlineWidth, borderColor: HAIRLINE },

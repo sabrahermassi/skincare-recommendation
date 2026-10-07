@@ -62,7 +62,7 @@ function ScoreRing({ match }: { match: Pick<MatchResult, "score" | "verdict"> })
           {score ?? "–"}
         </Text>
         {score !== null ? (
-          <Text maxFontSizeMultiplier={1} style={{ fontSize: 10 * scale, fontWeight: "500", opacity: 0.75, color: colours.deep }}>
+          <Text maxFontSizeMultiplier={1} style={{ fontSize: 10 * scale, fontWeight: "500", opacity: 0.75, color: colours.word }}>
             /100
           </Text>
         ) : null}

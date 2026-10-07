@@ -182,7 +182,7 @@ function RailStep({ number, name, active, amount, last = false }: { number: numb
   return (
     <View style={{ flexDirection: "row", gap: SPACE.block }}>
       <View style={{ width: 28, alignItems: "center" }}>
-        <View style={{ width: 28, height: 28, borderRadius: 14, backgroundColor: active ? BUTTON.primary.fill : ROUTINE_SWITCH.stepFill, alignItems: "center", justifyContent: "center" }}>
+        <View style={{ width: 28, height: 28, borderRadius: RADIUS.control, backgroundColor: active ? BUTTON.primary.fill : ROUTINE_SWITCH.stepFill, alignItems: "center", justifyContent: "center" }}>
           <Text maxFontSizeMultiplier={1} style={{ fontSize: TYPE.caption, fontWeight: "700", color: active ? WHITE : LINK }}>
             {number}
           </Text>

@@ -10,7 +10,7 @@ import { EXCELLENT, VERDICT, VERDICT_NEUTRAL } from "@/lib/tokens";
 const SIZE = 30;
 
 /** A score's ring and number colours: Excellent's deeper green, else its band's; grey for none. */
-function scoreBandColours(score: number | null): { solid: string; deep: string } {
+function scoreBandColours(score: number | null): { solid: string; deep: string; word: string } {
   if (score === null) return VERDICT_NEUTRAL;
   return score >= SCORE_BANDS.excellent ? EXCELLENT : VERDICT[matchTone(score)];
 }
@@ -30,7 +30,7 @@ export function ScorePill({ score, notice = false }: { score: number | null; not
       accessibilityLabel={score === null ? "No score" : `${score} out of 100`}
       style={{ width: SIZE, height: SIZE, borderRadius: SIZE / 2, borderWidth: 2, borderColor: colours.solid, alignItems: "center", justifyContent: "center" }}
     >
-      <Text maxFontSizeMultiplier={1} style={{ fontSize: 12, fontWeight: "700", color: colours.deep }}>
+      <Text maxFontSizeMultiplier={1} style={{ fontSize: 12, fontWeight: "700", color: colours.word }}>
         {score ?? "–"}
       </Text>
     </View>

@@ -243,7 +243,7 @@ once (`hasLiquidGlass`); nothing else should call the native glass directly
 (`GlassButton`, the scanner's round buttons, is the one older exception).
 
 - **Where:** the navigation and control layer that floats over content: the fixed
-  header (`GlassHeader`), the tab bar capsule, the round nav buttons
+  header (`GlassHeader`), the tab bar capsule (a faint `GLASS_BAR` white, 22%), the round nav buttons
   (`IconCircle`, interactive), the raised scan button (tinted sage, interactive),
   the segmented switch's thumb on the page looks (interactive), and the things
   that float over a screen: floating pop-ups (`BottomSheet` floating), the filter
@@ -367,7 +367,9 @@ the scanner, How scoring works and the ingredient sheet slide up.
   button on its own bar at the foot, disabled until a choice is made.
 - **Find your actives** (`app/journey`, `app/journey-story`): one scrolling
   screen of questions (chips and answer cards), a pinned "Show what helps"
-  button, then a deck of cards that opens a story of tappable cards.
+  button, then a deck of cards that opens a story of tappable cards. Sensitivity
+  and pregnancy start from the skin profile (tagged "From your profile" until
+  changed); the goal shows six of thirteen with "+ 7 more".
 - **Routine**: skin profile card, the tinted Morning | Evening switch, the day
   strip, numbered discs on a dotted rail beside white step cards.
 - **Saved, School, Profile**: Large titles; Saved uses its three tabs; School is
@@ -383,23 +385,26 @@ the scanner, How scoring works and the ingredient sheet slide up.
 - Tap targets follow `TOUCH_TARGET` (44). One known exception: `ReferenceLink`
   is 36pt tall. Icon buttons carry a spoken label.
 - Contrast ratios are noted beside tokens in `lib/tokens.ts`. Below 4.5:1
-  today: Good's word 3.1, Poor's word 4.39, and the white label on
-  `BUTTON.primary.fill` 4.46 (see Known gaps).
+  today: only the white label on `BUTTON.primary.fill`, 4.46 (see Known gaps).
+  A small verdict word takes `VERDICT[tone].word`, never `deep` (a ring, pill or
+  big number keeps `deep`).
 
 ## Known gaps
 
-- **Good's word is 3.1:1, Poor's is 4.39:1 on white, and the white label on the
-  sage button is 4.46:1**, all under 4.5:1 for small text. They are the
-  hand-off's colours; Good is the brand olive. Left for the owner.
+- **The white label on the sage button is 4.46:1**, just under 4.5:1 for small
+  text; it is set at 16pt semibold or larger. Good's and Poor's small words now
+  use `VERDICT[tone].word` (5.39 and 5.31 on white); their rings, pills and big
+  numbers keep the hand-off's colours.
 - **Colour lives in three files** (`tokens.ts`, `colors.ts`, `tailwind.config.js`)
   and is kept in step by hand.
-- **About 40 font sizes are written inline** rather than from `TYPE`.
+- **Five font sizes are written inline** (10 to 14, inside rings and badges, below
+  `TYPE`'s smallest) and **33 radius literals** remain (dots, bars, half-height
+  pills and a few odd sizes such as 13, 18, 24). The ones that matched
+  `RADIUS` now use it.
 - **The app icon is a terracotta heart** while the interface is sage and olive.
 - **Two header patterns** (see Headers) and the result's glass header, whose text
   shows through the tab pills while scrolling, are known and deliberate or
   undecided, not accidents.
-- **Find your actives does not read the quiz's sensitivity and pregnancy
-  answers**, so it can say "skipped" after a quiz.
 
 ## Provenance
 

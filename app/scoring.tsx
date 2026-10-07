@@ -118,8 +118,8 @@ function FactorRow({ factor, divided }: { factor: ScoreFactor; divided: boolean 
 }
 
 const NOTE_LOOK: Record<ScoreNote["kind"], { icon: keyof typeof Ionicons.glyphMap; fill: string; ink: string }> = {
-  pregnancy: { icon: "warning-outline", fill: VERDICT.low.tint, ink: VERDICT.low.deep },
-  "no-score": { icon: "list-outline", fill: VERDICT_NEUTRAL.tint, ink: VERDICT_NEUTRAL.deep },
+  pregnancy: { icon: "warning-outline", fill: VERDICT.low.tint, ink: VERDICT.low.word },
+  "no-score": { icon: "list-outline", fill: VERDICT_NEUTRAL.tint, ink: VERDICT_NEUTRAL.word },
   personal: { icon: "person-outline", fill: CHOSEN.fill, ink: CHOSEN.accent },
 };
 

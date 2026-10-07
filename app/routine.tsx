@@ -344,7 +344,7 @@ function StepCard({
   return (
     <View style={{ flexDirection: "row", alignItems: "stretch", gap: SPACE.block }}>
       <View style={{ width: 28, alignItems: "center", paddingTop: 14 }}>
-        <View style={{ width: 28, height: 28, borderRadius: 14, backgroundColor: ROUTINE_SWITCH.stepFill, alignItems: "center", justifyContent: "center" }}>
+        <View style={{ width: 28, height: 28, borderRadius: RADIUS.control, backgroundColor: ROUTINE_SWITCH.stepFill, alignItems: "center", justifyContent: "center" }}>
           <Text maxFontSizeMultiplier={1} style={{ fontSize: TYPE.caption, fontWeight: "700", color: LINK }}>
             {number}
           </Text>
@@ -498,7 +498,7 @@ function PickRow({ pick, own = false }: { pick: RoutinePick; own?: boolean }) {
           {product.name}
         </Text>
         <View style={{ flexDirection: "row", alignItems: "center", gap: 6 }}>
-          <Text style={{ fontSize: TYPE.caption, fontWeight: "600", color: scoreColours(match.verdict).deep }}>{verdict}</Text>
+          <Text style={{ fontSize: TYPE.caption, fontWeight: "600", color: scoreColours(match.verdict).word }}>{verdict}</Text>
           {notice ? <SafetyShield size={16} /> : null}
         </View>
       </View>

@@ -40,7 +40,7 @@ export function VerdictMarker({ label, text }: { label: IngredientLabel; /** The
   return (
     <View style={{ flexDirection: "row", alignItems: "center", gap: 10 }}>
       <VerdictDot colour={tone.solid} halo={tone.halo} />
-      <Text style={{ fontSize: TYPE.label, color: tone.deep }}>{text ?? LABEL_META[label].label}</Text>
+      <Text style={{ fontSize: TYPE.label, color: tone.word }}>{text ?? LABEL_META[label].label}</Text>
     </View>
   );
 }

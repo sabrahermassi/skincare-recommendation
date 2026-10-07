@@ -230,7 +230,7 @@ function IngredientRow({
         <Text style={{ fontSize: TYPE.card, fontWeight: "500", lineHeight: 21, color: INK }}>{name}</Text>
         {label ? (
           <>
-            <Text style={{ fontSize: TYPE.label, color: tone.deep }}>{word ?? LABEL_META[label].label}</Text>
+            <Text style={{ fontSize: TYPE.label, color: tone.word }}>{word ?? LABEL_META[label].label}</Text>
             {wordLine ? (
               <Text numberOfLines={2} style={{ fontSize: TYPE.caption, lineHeight: 17, color: MUTED }}>
                 {wordLine}

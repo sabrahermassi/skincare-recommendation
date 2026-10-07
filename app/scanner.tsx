@@ -764,7 +764,7 @@ function FoundSheet({
             {product.name}
           </Text>
           <View style={{ marginTop: 6, flexDirection: "row", alignItems: "center", gap: SPACE.text }}>
-            <View testID="found-pill" style={{ height: 28, paddingHorizontal: SPACE.block, borderRadius: 14, justifyContent: "center", backgroundColor: colours.deep }}>
+            <View testID="found-pill" style={{ height: 28, paddingHorizontal: SPACE.block, borderRadius: RADIUS.control, justifyContent: "center", backgroundColor: colours.deep }}>
               <Text style={{ fontSize: TYPE.caption, fontWeight: "600", color: WHITE }}>
                 {verdict ? verdict.headline : !match || match.score === null ? "See full result" : `${VERDICT_LABEL[match.verdict]} · ${match.score}/100`}
               </Text>
