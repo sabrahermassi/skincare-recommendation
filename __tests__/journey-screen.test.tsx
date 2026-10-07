@@ -13,6 +13,12 @@ import { EMPTY_PROFILE, useAppStore } from "@/store/useAppStore";
 
 jest.setTimeout(30_000);
 
+let mockFontScale = 1;
+jest.mock("react-native/Libraries/Utilities/useWindowDimensions", () => ({
+  __esModule: true,
+  default: () => ({ width: 402, height: 874, scale: 3, fontScale: mockFontScale }),
+}));
+
 jest.mock("expo-router", () => ({
   router: { back: jest.fn(), push: jest.fn(), replace: jest.fn(), canGoBack: jest.fn(() => true) },
 }));
@@ -22,6 +28,7 @@ jest.mock("react-native-safe-area-context", () => ({
 jest.mock("@/lib/reduce-motion", () => ({ reduceMotionNow: () => true }));
 
 afterEach(() => {
+  mockFontScale = 1;
   useAppStore.setState({ profile: EMPTY_PROFILE, routineActives: [], savedIngredients: [] });
   jest.mocked(router.push).mockClear();
 });
@@ -73,6 +80,16 @@ it("shows the first goals and the rest a tap away, open at once for a goal in th
   await fireEvent.press(screen.getByRole("button", { name: /more goals$/ }));
   expect(GOALS.every((goal) => screen.getByRole("radio", { name: goal.label }))).toBe(true);
   expect(screen.queryByRole("button", { name: /more goals$/ })).toBeNull();
+});
+
+// The title sits beside its tag, so the pair kept together only applies while text is at its normal size.
+it("keeps the last two words of a question together, until the text size grows", async () => {
+  await render(<Journey />);
+  expect(screen.getByRole("header", { name: "What do you want to work on?" }).props.children).toBe("What do you want to work\u00A0on?");
+  await screen.unmount();
+  mockFontScale = 1.5;
+  await render(<Journey />);
+  expect(screen.getByRole("header", { name: "What do you want to work on?" }).props.children).toBe("What do you want to work on?");
 });
 
 it("keeps Show what helps off until a goal is picked (Q0), and takes one goal only", async () => {
