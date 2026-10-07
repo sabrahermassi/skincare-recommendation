@@ -3,7 +3,7 @@ import { INGREDIENTS } from "@/data/ingredients";
 import type { Ingredient, ProductWithIngredients, SkinProfile } from "@/data/types";
 import { matchProduct, resetScoreCache } from "@/lib/matching";
 import { isSensitive, treatAsReactive } from "@/lib/profile";
-import { UNSET_SENSITIVITY_REASON } from "@/lib/safety";
+import { EU_ALLERGEN_COPY } from "@/lib/eu-allergens";
 import { EMPTY_PROFILE } from "@/store/useAppStore";
 
 /**
@@ -34,12 +34,12 @@ const AHA_SERUM = product([
   INGREDIENTS["panthenol"],
   INGREDIENTS["butylene-glycol"],
 ]);
-// A restricted (`caution`) ingredient no rule names as a reactive-skin harm.
+// An EU-labelled fragrance allergen (Annex III entry 346, vanillin) no rule names as a reactive-skin harm.
 const FRAGRANCED = product([
   INGREDIENTS["niacinamide"],
   INGREDIENTS["panthenol"],
   INGREDIENTS["butylene-glycol"],
-  INGREDIENTS["fragrance"],
+  verified("vanillin"),
 ]);
 // Allantoin helps sensitive skin (and redness, which this profile doesn't name).
 const SOOTHING = product([
@@ -108,7 +108,7 @@ describe("benefits and words stay with what was said", () => {
   it("lists the charged irritant, so the count on screen and the penalty agree", () => {
     const result = matchProduct(FRAGRANCED, at(null));
     expect(result.warnings).toHaveLength(1);
-    expect(result.warnings[0].reason).toBe(UNSET_SENSITIVITY_REASON);
+    expect(result.warnings[0].reason).toBe(`${EU_ALLERGEN_COPY.fragranceReason("Vanillin")}${EU_ALLERGEN_COPY.unsetNote}`);
     expect(result.breakdown.irritationPenalty).toBeGreaterThan(0);
   });
 

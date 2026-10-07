@@ -17,7 +17,7 @@ import { HAND_FONT, LEADING, TIP_NOTE, TYPE } from "@/lib/tokens";
  */
 
 /** The handwriting: Kalam, the same face as the tip and Home's greeting (owner, 7 October 2026: one handwriting face, not two). Already loaded with the other fonts at startup. */
-export const HAND_FONT_SOURCE = { [HAND_FONT]: Kalam_400Regular };
+const HAND_FONT_SOURCE = { [HAND_FONT]: Kalam_400Regular };
 
 /**
  * The code points the handwritten face draws, as inclusive ranges — read off

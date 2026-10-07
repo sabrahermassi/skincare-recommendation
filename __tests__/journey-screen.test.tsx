@@ -73,6 +73,8 @@ it("lets a profile answer be changed, and then it no longer says it came from th
 
 it("asks everything when the profile is empty", async () => {
   await render(<Journey />);
+  // A question's tag is a meta line: medium, not semibold.
+  expect(screen.getByText("Pick one")).toHaveStyle({ fontWeight: "500" });
   expect(screen.queryByText("From your profile")).toBeNull();
   expect(screen.getByRole("radio", { name: "Sensitive skin: Very" }).props.accessibilityState.checked).toBe(false);
 });
