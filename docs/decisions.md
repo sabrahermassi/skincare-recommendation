@@ -796,3 +796,12 @@ alternative is no automated function deploys at all. `staging-migrate.yml`'s
 header rejects the same token for *migrations* precisely because a
 connection string can be scoped to one project and a token cannot — that
 reasoning still stands for migrations. **Do not re-flag this as a finding.**
+
+## Plans
+
+**The catalogue plan lives in `docs/feeding-the-catalogue.md` (7 October 2026).**
+It started as a claude.ai artifact ("Feeding the Catalogue") and went through 64
+versions there, none of them in git. It is now a file here so every later change
+has a commit and a diff. Edit the file, not the artifact; the artifact is only a
+view of it. The earlier history is the dated notes at the top and bottom of the
+file itself.
