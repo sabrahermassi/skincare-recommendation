@@ -9,7 +9,7 @@ import { Text } from "@/components/Text";
 import type { Sensitivity } from "@/data/types";
 import { DAY_LETTERS, evidenceFor, familyOf, inSentence, sensitivityNote, sensitivityOf, startLine, startNights, weekRows, type NeedAnswers, type StoryActive } from "@/lib/skin-needs";
 import { FAMILIES, LOOK_FOR_ART, PAIR_AVOID_ART, PAIR_LOVE_ART, SENSITIVITY_ART, SIGNS } from "@/lib/skin-needs-data";
-import { BUTTON, DISPLAY_FONT, DIVIDER, INK, LINK, MUTED, MUTED_FAINT, ROUTINE_SWITCH, SKIN_NEEDS, STONE, SURFACE, WHITE, TYPE, RADIUS, SPACE } from "@/lib/tokens";
+import { BUTTON, DISPLAY_FONT, DIVIDER, INK, LINK, MUTED, MUTED_FAINT, ROUTINE_SWITCH, SKIN_NEEDS, STONE, SURFACE, WHITE, TYPE, RADIUS, SPACE, LEADING, TRACKING } from "@/lib/tokens";
 
 /**
  * The cards of an active's story (design_handoff "october 3d", 2–7): one idea
@@ -21,7 +21,7 @@ import { BUTTON, DISPLAY_FONT, DIVIDER, INK, LINK, MUTED, MUTED_FAINT, ROUTINE_S
 function Heading({ title, line, top = 32, children }: { title: string; line?: string; top?: number; children?: ReactNode }) {
   return (
     <View style={{ paddingTop: top, paddingHorizontal: SPACE.section, gap: SPACE.text }}>
-      <Text accessibilityRole="header" style={{ fontFamily: DISPLAY_FONT, fontSize: TYPE.display, lineHeight: 40, letterSpacing: -0.6, color: INK }}>
+      <Text accessibilityRole="header" style={{ fontFamily: DISPLAY_FONT, fontSize: TYPE.display, lineHeight: 40, letterSpacing: TRACKING.display, color: INK }}>
         {title}
       </Text>
       {line ? <Text style={{ fontSize: TYPE.card, lineHeight: 24, color: MUTED }}>{line}</Text> : null}
@@ -45,7 +45,7 @@ export function WhyCard({ active, goal }: { active: StoryActive; goal: string })
             accessibilityLabel={`See the evidence: ${evidence.label}`}
             accessibilityHint="Opens in your browser"
             hitSlop={6}
-            style={{ alignSelf: "flex-start", height: 32, flexDirection: "row", alignItems: "center", gap: 4 }}
+            style={{ alignSelf: "flex-start", height: 32, flexDirection: "row", alignItems: "center", gap: SPACE.tight }}
             className="active:opacity-70"
           >
             <Text style={{ fontSize: TYPE.body, fontWeight: "600", color: BUTTON.primary.fill }}>See the evidence</Text>
@@ -64,15 +64,15 @@ export function WhyCard({ active, goal }: { active: StoryActive; goal: string })
           {why.notes[1]}
         </Hand>
       </View>
-      <View style={{ marginTop: "auto", marginHorizontal: SPACE.gutter, backgroundColor: SURFACE, borderRadius: RADIUS.panel, padding: 20, gap: SPACE.block }}>
+      <View style={{ marginTop: "auto", marginHorizontal: SPACE.gutter, backgroundColor: SURFACE, borderRadius: RADIUS.panel, padding: SPACE.inset, gap: SPACE.block }}>
         <Hand color={LINK} says>
           for your goal
         </Hand>
-        <View style={{ alignSelf: "flex-start", minHeight: 36, paddingHorizontal: 14, borderRadius: 18, backgroundColor: SKIN_NEEDS.sage, flexDirection: "row", alignItems: "center", gap: 6 }}>
+        <View style={{ alignSelf: "flex-start", minHeight: 36, paddingHorizontal: SPACE.gutter, borderRadius: 18, backgroundColor: SKIN_NEEDS.sage, flexDirection: "row", alignItems: "center", gap: SPACE.text }}>
           <Tick size={15} color={BUTTON.primary.fill} />
           <Text style={{ fontSize: TYPE.body, fontWeight: "600", color: SKIN_NEEDS.chosenInk }}>{goal}</Text>
         </View>
-        <Text style={{ fontSize: TYPE.body, lineHeight: 21, color: MUTED }}>Also helps with {alsoHelps}.</Text>
+        <Text style={{ fontSize: TYPE.body, lineHeight: LEADING.body, color: MUTED }}>Also helps with {alsoHelps}.</Text>
       </View>
     </View>
   );
@@ -87,7 +87,7 @@ export function StartCard({ active, answers }: { active: StoryActive; answers: P
   return (
     <View style={{ flex: 1 }}>
       <Heading title="How often do I use it?" line={startLine(nights)} />
-      <View style={{ marginTop: 32, marginHorizontal: SPACE.gutter, backgroundColor: SURFACE, borderRadius: RADIUS.panel, paddingTop: 20, paddingHorizontal: SPACE.gutter, paddingBottom: SPACE.block }}>
+      <View style={{ marginTop: SPACE.large, marginHorizontal: SPACE.gutter, backgroundColor: SURFACE, borderRadius: RADIUS.panel, paddingTop: SPACE.inset, paddingHorizontal: SPACE.gutter, paddingBottom: SPACE.block }}>
         <View style={{ flexDirection: "row", paddingBottom: SPACE.text }}>
           <View style={{ width: 84 }} />
           {DAY_LETTERS.map((letter, day) => (
@@ -112,20 +112,20 @@ export function StartCard({ active, answers }: { active: StoryActive; answers: P
         ))}
       </View>
       {nights < 7 ? (
-        <View style={{ height: 56, flexDirection: "row", justifyContent: "flex-end", alignItems: "flex-start", paddingRight: 28 }}>
+        <View style={{ height: 56, flexDirection: "row", justifyContent: "flex-end", alignItems: "flex-start", paddingRight: SPACE.section }}>
           {/* The arrow curls up from the note to the "Later" row (hand-off). */}
-          <Svg width={30} height={30} viewBox="0 0 40 40" fill="none" style={{ marginTop: -8, marginRight: 4 }}>
+          <Svg width={30} height={30} viewBox="0 0 40 40" fill="none" style={{ marginTop: -8, marginRight: SPACE.tight }}>
             <Path d="M34 30C24 28 12 20 8 6" stroke={MUTED_FAINT} strokeWidth={1.6} strokeLinecap="round" />
             <Path d="m3 12 5-7 6 5" stroke={MUTED_FAINT} strokeWidth={1.6} strokeLinecap="round" strokeLinejoin="round" />
           </Svg>
-          <Hand tilt={-3} style={{ marginTop: 6 }}>
+          <Hand tilt={-3} style={{ marginTop: SPACE.tight }}>
             only if your skin is happy
           </Hand>
         </View>
       ) : null}
-      <View style={{ marginTop: "auto", marginHorizontal: SPACE.gutter, backgroundColor: SKIN_NEEDS.note, borderRadius: RADIUS.panel, paddingVertical: SPACE.gutter, paddingLeft: SPACE.block, paddingRight: 20, flexDirection: "row", alignItems: "center", gap: SPACE.block }}>
+      <View style={{ marginTop: "auto", marginHorizontal: SPACE.gutter, backgroundColor: SKIN_NEEDS.note, borderRadius: RADIUS.panel, paddingVertical: SPACE.gutter, paddingLeft: SPACE.block, paddingRight: SPACE.inset, flexDirection: "row", alignItems: "center", gap: SPACE.block }}>
         <Image source={SENSITIVITY_ART[sensitivity]} contentFit="contain" accessibilityLabel="" style={{ width: 64, height: 62 }} />
-        <Text style={{ flex: 1, fontSize: TYPE.card, lineHeight: 23, fontWeight: "600", color: INK }}>{sensitivityNote(answers, nights)}</Text>
+        <Text style={{ flex: 1, fontSize: TYPE.card, lineHeight: LEADING.card, fontWeight: "600", color: INK }}>{sensitivityNote(answers, nights)}</Text>
       </View>
     </View>
   );
@@ -140,7 +140,7 @@ export function WhenCard({ active }: { active: StoryActive }) {
     <View style={{ flex: 1 }}>
       <Heading title="When do I use it?" />
       <View style={{ paddingTop: SPACE.section, paddingHorizontal: SPACE.gutter, flexDirection: "row", gap: SPACE.block }}>
-        <View accessibilityLabel={`Morning: ${time.morning.note}${morningBest ? ". Start here." : ""}`} style={{ flex: 1, height: 112, borderRadius: RADIUS.panel, backgroundColor: SKIN_NEEDS.morning.fill, alignItems: "center", justifyContent: "center", gap: 2, opacity: time.morning.ok ? 1 : 0.45 }}>
+        <View accessibilityLabel={`Morning: ${time.morning.note}${morningBest ? ". Start here." : ""}`} style={{ flex: 1, height: 112, borderRadius: RADIUS.panel, backgroundColor: SKIN_NEEDS.morning.fill, alignItems: "center", justifyContent: "center", gap: SPACE.hair, opacity: time.morning.ok ? 1 : 0.45 }}>
           <Svg width={34} height={34} viewBox="0 0 24 24" fill="none">
             <Circle cx={12} cy={12} r={4.5} fill={SKIN_NEEDS.morning.sunFill} />
             <Path d="M12 2v2M12 20v2M4.93 4.93l1.41 1.41M17.66 17.66l1.41 1.41M2 12h2M20 12h2M6.34 17.66l-1.41 1.41M19.07 4.93l-1.41 1.41" stroke={SKIN_NEEDS.morning.sun} strokeWidth={2} strokeLinecap="round" />
@@ -148,7 +148,7 @@ export function WhenCard({ active }: { active: StoryActive }) {
           <Text style={{ fontSize: TYPE.body, fontWeight: "600", color: SKIN_NEEDS.morning.ink }}>Morning</Text>
           <Text style={{ fontSize: TYPE.caption, color: MUTED_FAINT }}>{time.morning.note}</Text>
         </View>
-        <View accessibilityLabel={`Evening: ${time.evening.note}${morningBest ? "" : ". Start here."}`} style={{ flex: 1, height: 112, borderRadius: RADIUS.panel, backgroundColor: SKIN_NEEDS.evening.fill, alignItems: "center", justifyContent: "center", gap: 2, opacity: time.evening.ok ? 1 : 0.45 }}>
+        <View accessibilityLabel={`Evening: ${time.evening.note}${morningBest ? "" : ". Start here."}`} style={{ flex: 1, height: 112, borderRadius: RADIUS.panel, backgroundColor: SKIN_NEEDS.evening.fill, alignItems: "center", justifyContent: "center", gap: SPACE.hair, opacity: time.evening.ok ? 1 : 0.45 }}>
           <Svg width={30} height={30} viewBox="0 0 24 24">
             <Path d="M12 3a6 6 0 0 0 9 9 9 9 0 1 1-9-9Z" fill={WHITE} />
           </Svg>
@@ -159,7 +159,7 @@ export function WhenCard({ active }: { active: StoryActive }) {
       {/* "start here", under the tile to start with, its arrow curling up to it. */}
       <View style={{ height: 96, flexDirection: morningBest ? "row-reverse" : "row", justifyContent: "flex-end", alignItems: "flex-start", paddingHorizontal: 42 }}>
         {/* The same hand, colour and thin arrow as "only if your skin is happy" (owner). */}
-        <Hand tilt={-3} style={{ marginTop: 22 }}>
+        <Hand tilt={-3} style={{ marginTop: SPACE.section }}>
           start here
         </Hand>
         <Svg width={56} height={46} viewBox="0 0 60 50" fill="none" style={morningBest ? { transform: [{ scaleX: -1 }] } : undefined}>
@@ -182,12 +182,12 @@ function RailStep({ number, name, active, amount, last = false }: { number: numb
   return (
     <View style={{ flexDirection: "row", gap: SPACE.block }}>
       <View style={{ width: 28, alignItems: "center" }}>
-        <View style={{ width: 28, height: 28, borderRadius: 14, backgroundColor: active ? BUTTON.primary.fill : ROUTINE_SWITCH.stepFill, alignItems: "center", justifyContent: "center" }}>
+        <View style={{ width: 28, height: 28, borderRadius: RADIUS.control, backgroundColor: active ? BUTTON.primary.fill : ROUTINE_SWITCH.stepFill, alignItems: "center", justifyContent: "center" }}>
           <Text maxFontSizeMultiplier={1} style={{ fontSize: TYPE.caption, fontWeight: "700", color: active ? WHITE : LINK }}>
             {number}
           </Text>
         </View>
-        {last ? null : <DottedLine color={ROUTINE_SWITCH.stepLine} style={{ flex: 1, marginVertical: 4 }} />}
+        {last ? null : <DottedLine color={ROUTINE_SWITCH.stepLine} style={{ flex: 1, marginVertical: SPACE.tight }} />}
       </View>
       <View style={{ flex: 1, paddingBottom: last ? 0 : 20 }}>
         <View style={{ minHeight: 56, borderRadius: RADIUS.card, backgroundColor: tint, paddingVertical: active ? 14 : 0, paddingHorizontal: SPACE.gutter, justifyContent: "center", gap: SPACE.text }}>
@@ -197,7 +197,7 @@ function RailStep({ number, name, active, amount, last = false }: { number: numb
           </View>
           {active && amount ? (
             <View style={{ flexDirection: "row", alignItems: "center", justifyContent: "space-between" }}>
-              <View style={{ height: 26, paddingHorizontal: 10, borderRadius: 13, backgroundColor: SURFACE, justifyContent: "center" }}>
+              <View style={{ height: 26, paddingHorizontal: SPACE.block, borderRadius: 13, backgroundColor: SURFACE, justifyContent: "center" }}>
                 <Text style={{ fontSize: TYPE.caption, fontWeight: "600", color: SKIN_NEEDS.stepInk }}>{amount}</Text>
               </View>
               <Hand color={SKIN_NEEDS.stepInk} tilt={-4}>
@@ -235,7 +235,7 @@ export function PairsCard({ active }: { active: StoryActive }) {
           {pairs[1].label}
         </Hand>
       </View>
-      <View style={{ marginTop: "auto", marginHorizontal: SPACE.gutter, backgroundColor: SURFACE, borderRadius: RADIUS.panel, paddingVertical: 4, paddingHorizontal: 20 }}>
+      <View style={{ marginTop: "auto", marginHorizontal: SPACE.gutter, backgroundColor: SURFACE, borderRadius: RADIUS.panel, paddingVertical: SPACE.tight, paddingHorizontal: SPACE.inset }}>
         {pairs.map((pair, index) => (
           <View key={pair.name} style={{ flexDirection: "row", alignItems: "center", gap: SPACE.block, minHeight: 60, borderTopWidth: index === 0 ? 0 : 0.5, borderTopColor: DIVIDER }}>
             <Text style={{ width: 132, fontSize: TYPE.card, fontWeight: "600", color: INK }}>{pair.name}</Text>
@@ -278,26 +278,26 @@ export function AvoidCard({ active }: { active: StoryActive }) {
         </View>
       </View>
       {/* What to do instead, right under the pair (owner), then the signs that say it's too much. */}
-      <View style={{ marginTop: 20, marginHorizontal: SPACE.gutter, backgroundColor: SURFACE, borderRadius: RADIUS.card, paddingVertical: SPACE.block, paddingHorizontal: SPACE.gutter, flexDirection: "row", alignItems: "center", gap: SPACE.block }}>
+      <View style={{ marginTop: SPACE.inset, marginHorizontal: SPACE.gutter, backgroundColor: SURFACE, borderRadius: RADIUS.card, paddingVertical: SPACE.block, paddingHorizontal: SPACE.gutter, flexDirection: "row", alignItems: "center", gap: SPACE.block }}>
         <SwapIcon color={BUTTON.primary.fill} />
-        <Text style={{ flex: 1, fontSize: TYPE.body, lineHeight: 21, color: INK }}>
+        <Text style={{ flex: 1, fontSize: TYPE.body, lineHeight: LEADING.body, color: INK }}>
           Not in the same routine.{"\n"}Alternate: <Text style={{ fontWeight: "600" }}>morning and evening</Text>, or <Text style={{ fontWeight: "600" }}>different days</Text>.
         </Text>
       </View>
-      <View style={{ paddingTop: 20, paddingHorizontal: SPACE.gutter, flexDirection: "row", gap: SPACE.text }}>
+      <View style={{ paddingTop: SPACE.inset, paddingHorizontal: SPACE.gutter, flexDirection: "row", gap: SPACE.text }}>
         {avoid.signs.map((sign) => (
-          <View key={sign} style={{ flex: 1, minHeight: 96, borderRadius: RADIUS.panel, backgroundColor: SURFACE, alignItems: "center", justifyContent: "center", gap: 6, paddingVertical: SPACE.text }}>
+          <View key={sign} style={{ flex: 1, minHeight: 96, borderRadius: RADIUS.panel, backgroundColor: SURFACE, alignItems: "center", justifyContent: "center", gap: SPACE.text, paddingVertical: SPACE.text }}>
             <Image source={SIGNS[sign].picture} contentFit="contain" accessibilityLabel="" style={{ width: 56, height: 56 }} />
             <Text style={{ fontSize: TYPE.body, fontWeight: "600", textAlign: "center", color: INK }}>{SIGNS[sign].label}</Text>
           </View>
         ))}
       </View>
-      <View style={{ alignItems: "center", paddingVertical: 4 }}>
+      <View style={{ alignItems: "center", paddingVertical: SPACE.tight }}>
         <Svg width={16} height={28} viewBox="0 0 24 40" fill="none">
           <Path d="M12 2v32M5 27l7 7 7-7" stroke={MUTED_FAINT} strokeWidth={2} strokeLinecap="round" strokeLinejoin="round" />
         </Svg>
       </View>
-      <Text style={{ marginHorizontal: 32, fontSize: TYPE.card, lineHeight: 24, fontWeight: "600", textAlign: "center", color: INK }}>See these? Give your skin a few days off.</Text>
+      <Text style={{ marginHorizontal: SPACE.large, fontSize: TYPE.card, lineHeight: 24, fontWeight: "600", textAlign: "center", color: INK }}>See these? Give your skin a few days off.</Text>
     </View>
   );
 }
@@ -315,12 +315,12 @@ export function ShopCard({ active, actions }: { active: StoryActive; /** "Add <a
           {"turn it\naround"}
         </Hand>
       </View>
-      <View style={{ marginTop: SPACE.text, marginHorizontal: SPACE.gutter, backgroundColor: SURFACE, borderRadius: RADIUS.panel, paddingTop: SPACE.gutter, paddingHorizontal: 20, paddingBottom: 4 }}>
-        <Text accessibilityRole="header" style={{ fontSize: TYPE.caption, fontWeight: "600", letterSpacing: 0.78, textTransform: "uppercase", color: MUTED_FAINT }}>
+      <View style={{ marginTop: SPACE.text, marginHorizontal: SPACE.gutter, backgroundColor: SURFACE, borderRadius: RADIUS.panel, paddingTop: SPACE.gutter, paddingHorizontal: SPACE.inset, paddingBottom: SPACE.tight }}>
+        <Text accessibilityRole="header" style={{ fontSize: TYPE.caption, fontWeight: "600", letterSpacing: TRACKING.caption, textTransform: "uppercase", color: MUTED_FAINT }}>
           Look for
         </Text>
         <LookRow icon={<SearchIcon />} first>
-          <View style={{ paddingVertical: 4, paddingHorizontal: 10, borderRadius: 8, backgroundColor: STONE }}>
+          <View style={{ paddingVertical: SPACE.tight, paddingHorizontal: SPACE.block, borderRadius: 8, backgroundColor: STONE }}>
             <Text style={{ fontSize: TYPE.body, fontWeight: "600", letterSpacing: 0.3, color: INK }}>{shopping.look}</Text>
           </View>
           <Text style={{ fontSize: TYPE.caption, color: MUTED_FAINT }}>on the label</Text>
@@ -334,12 +334,12 @@ export function ShopCard({ active, actions }: { active: StoryActive; /** "Add <a
         </LookRow>
       </View>
       {shopping.strength ? (
-        <View style={{ marginTop: 28, marginHorizontal: SPACE.gutter, paddingHorizontal: 4, gap: SPACE.block }}>
+        <View style={{ marginTop: SPACE.section, marginHorizontal: SPACE.gutter, paddingHorizontal: SPACE.tight, gap: SPACE.block }}>
           <View style={{ flexDirection: "row", alignItems: "baseline", justifyContent: "space-between" }}>
-            <Text style={{ fontSize: TYPE.caption, fontWeight: "600", letterSpacing: 0.78, textTransform: "uppercase", color: MUTED_FAINT }}>Product strength</Text>
+            <Text style={{ fontSize: TYPE.caption, fontWeight: "600", letterSpacing: TRACKING.caption, textTransform: "uppercase", color: MUTED_FAINT }}>Product strength</Text>
             <Text style={{ fontSize: TYPE.caption, color: MUTED_FAINT }}>{shopping.strength.range}</Text>
           </View>
-          <View accessibilityLabel={`Product strength: ${shopping.strength.range}. Higher isn't better.`} style={{ flexDirection: "row", gap: 4, height: 36 }}>
+          <View accessibilityLabel={`Product strength: ${shopping.strength.range}. Higher isn't better.`} style={{ flexDirection: "row", gap: SPACE.tight, height: 36 }}>
             {shopping.strength.steps.map((step, index) => (
               <View key={step} style={{ flex: 1, backgroundColor: SKIN_NEEDS.sage, alignItems: "center", justifyContent: "center", borderTopLeftRadius: index === 0 ? 18 : 0, borderBottomLeftRadius: index === 0 ? 18 : 0 }}>
                 <Text style={{ fontSize: TYPE.caption, fontWeight: "600", color: SKIN_NEEDS.chosenInk }}>{step}</Text>
@@ -361,7 +361,7 @@ function LookRow({ icon, first = false, children }: { icon: ReactNode; first?: b
   return (
     <View style={{ flexDirection: "row", alignItems: "center", gap: SPACE.block, minHeight: 52, borderTopWidth: first ? 0 : 0.5, borderTopColor: DIVIDER }}>
       {icon}
-      <View style={{ flex: 1, flexDirection: "row", alignItems: "center", flexWrap: "wrap", columnGap: SPACE.block, rowGap: 2 }}>{children}</View>
+      <View style={{ flex: 1, flexDirection: "row", alignItems: "center", flexWrap: "wrap", columnGap: SPACE.block, rowGap: SPACE.hair }}>{children}</View>
     </View>
   );
 }

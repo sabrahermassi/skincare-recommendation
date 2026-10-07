@@ -48,7 +48,7 @@ export const SearchBar = forwardRef<
         style={{ flex: 1, height: SEARCH_BAR_HEIGHT, fontSize: TYPE.card, color: INK }}
       />
       {value.length > 0 ? (
-        <Pressable onPress={() => onChangeText("")} accessibilityRole="button" accessibilityLabel="Clear search" hitSlop={8} className="active:opacity-70" style={{ padding: 6 }}>
+        <Pressable onPress={() => onChangeText("")} accessibilityRole="button" accessibilityLabel="Clear search" hitSlop={8} className="active:opacity-70" style={{ padding: SPACE.text }}>
           <Svg width={16} height={16} viewBox="0 0 24 24" fill="none">
             <Circle cx={12} cy={12} r={10} fill={ICON_MUTED} />
             <Path d="m15 9-6 6M9 9l6 6" stroke={WHITE} strokeWidth={2.2} strokeLinecap="round" />

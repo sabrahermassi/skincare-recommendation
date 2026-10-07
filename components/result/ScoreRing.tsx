@@ -62,7 +62,7 @@ function ScoreRing({ match }: { match: Pick<MatchResult, "score" | "verdict"> })
           {score ?? "–"}
         </Text>
         {score !== null ? (
-          <Text maxFontSizeMultiplier={1} style={{ fontSize: 10 * scale, fontWeight: "500", opacity: 0.75, color: colours.deep }}>
+          <Text maxFontSizeMultiplier={1} style={{ fontSize: 10 * scale, fontWeight: "500", opacity: 0.75, color: colours.word }}>
             /100
           </Text>
         ) : null}
@@ -117,7 +117,7 @@ export function VerdictLink({ match, onOpen }: { match: Pick<MatchResult, "score
       accessibilityRole="button"
       accessibilityLabel={`${VERDICT_LABEL[match.verdict]}. How scoring works`}
       hitSlop={4}
-      style={{ minHeight: 40, borderRadius: RADIUS.control, paddingLeft: 20, paddingRight: SPACE.block, flexDirection: "row", alignItems: "center", gap: SPACE.text, backgroundColor: colours.deep }}
+      style={{ minHeight: 40, borderRadius: RADIUS.control, paddingLeft: SPACE.inset, paddingRight: SPACE.block, flexDirection: "row", alignItems: "center", gap: SPACE.text, backgroundColor: colours.deep }}
       className="active:opacity-80"
     >
       <Text style={{ flexShrink: 1, fontSize: VERDICT_TEXT_SIZE, lineHeight: 22, fontWeight: "600", letterSpacing: -0.17, color: WHITE }}>{VERDICT_LABEL[match.verdict]}</Text>

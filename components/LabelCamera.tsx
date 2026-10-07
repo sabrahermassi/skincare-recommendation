@@ -410,7 +410,7 @@ export function LabelCamera({
                 than two fragments. The announcement itself is made by
                 `ScreenReaderAnnouncer` above — a live region on this
                 conditionally-rendered block would be silent on iOS and web. */}
-            <View accessible accessibilityLabel={failureSpeech} style={{ alignItems: "center", gap: 2 }}>
+            <View accessible accessibilityLabel={failureSpeech} style={{ alignItems: "center", gap: SPACE.hair }}>
               <Text style={{ textAlign: "center", fontSize: TYPE.label, fontWeight: "600", color: SELECTED }}>
                 {status.message}
               </Text>
@@ -430,7 +430,7 @@ export function LabelCamera({
             ) : null}
           </View>
         ) : status.kind === "reading" ? (
-          <View style={{ alignItems: "center", gap: 2 }}>
+          <View style={{ alignItems: "center", gap: SPACE.hair }}>
             <Text style={{ fontSize: TYPE.label, fontWeight: "600", color: CANVAS }}>{readingCopy.title}</Text>
             <Text style={{ fontSize: TYPE.label - 1, color: withAlpha(CANVAS, 0.8) }}>{readingCopy.line}</Text>
             <QuietLink label={readingCopy.link ?? ""} onPress={cancel} />

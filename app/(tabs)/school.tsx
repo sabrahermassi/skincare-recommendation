@@ -12,7 +12,7 @@ import type { SchoolQuestion } from "@/data/school";
 import { reduceMotionNow } from "@/lib/reduce-motion";
 import { fallbackSuggestions, SCHOOL_CHAT_COPY, SCHOOL_QUESTIONS, searchSchool } from "@/lib/school-chat";
 import { SCAN_BUTTON_LIFT, tabBarClearance, tabRootTop } from "@/lib/tab-bar";
-import { BUTTON, CANVAS, CHOSEN, INK, LINE, MUTED, SPACE, SURFACE, TYPE, RADIUS } from "@/lib/tokens";
+import { BUTTON, CANVAS, CHOSEN, INK, LINE, MUTED, SPACE, SURFACE, TYPE, RADIUS, LEADING } from "@/lib/tokens";
 import { FitScrollView } from "@/components/FitScrollView";
 
 // The School's face: a plain circle with the app's own heart mark, the one
@@ -125,7 +125,7 @@ export default function SkincareSchool() {
           contentContainerStyle={{ paddingHorizontal: SPACE.gutter, paddingTop: SPACE.text, paddingBottom: SPACE.block, gap: SPACE.block }}
         >
           <AppBubble label={`Skincare School says: ${SCHOOL_CHAT_COPY.greeting}`}>
-            <Text style={{ fontSize: TYPE.body, lineHeight: 21, color: INK }}>{SCHOOL_CHAT_COPY.greeting}</Text>
+            <Text style={{ fontSize: TYPE.body, lineHeight: LEADING.body, color: INK }}>{SCHOOL_CHAT_COPY.greeting}</Text>
           </AppBubble>
 
           {messages.map((message) => (
@@ -138,7 +138,7 @@ export default function SkincareSchool() {
                 <>
                   <UserBubble text={message.item.question} />
                   <AppBubble label={`Answer: ${message.item.answer}`}>
-                    <Text style={{ fontSize: TYPE.body, lineHeight: 21, color: INK }}>{message.item.answer}</Text>
+                    <Text style={{ fontSize: TYPE.body, lineHeight: LEADING.body, color: INK }}>{message.item.answer}</Text>
                   </AppBubble>
                 </>
               ) : (
@@ -146,8 +146,8 @@ export default function SkincareSchool() {
                   <UserBubble text={message.text} />
                   {/* Not one accessible block: the cards inside have to stay buttons. */}
                   <AppBubble>
-                    <Text style={{ fontSize: TYPE.body, lineHeight: 21, color: INK }}>{SCHOOL_CHAT_COPY.noAnswer}</Text>
-                    <View style={{ gap: SPACE.text, marginTop: 10 }}>
+                    <Text style={{ fontSize: TYPE.body, lineHeight: LEADING.body, color: INK }}>{SCHOOL_CHAT_COPY.noAnswer}</Text>
+                    <View style={{ gap: SPACE.text, marginTop: SPACE.block }}>
                       {message.suggestions.map((item) => (
                         <QuestionCard key={item.id} item={item} onPress={() => ask(item)} />
                       ))}
@@ -259,7 +259,7 @@ function UserBubble({ text }: { text: string }) {
         borderBottomRightRadius: 6,
       }}
     >
-      <Text style={{ fontSize: TYPE.body, lineHeight: 21, color: INK }}>{text}</Text>
+      <Text style={{ fontSize: TYPE.body, lineHeight: LEADING.body, color: INK }}>{text}</Text>
     </View>
   );
 }
@@ -277,7 +277,7 @@ function Suggestions({ unasked, onAsk }: { unasked: readonly SchoolQuestion[]; o
           showsHorizontalScrollIndicator={false}
           keyboardShouldPersistTaps="handled"
           // Room under the cards for their shade: a scroll view clips what falls outside it.
-          contentContainerStyle={{ gap: SPACE.block, paddingHorizontal: SPACE.gutter, paddingBottom: 4 }}
+          contentContainerStyle={{ gap: SPACE.block, paddingHorizontal: SPACE.gutter, paddingBottom: SPACE.tight }}
         >
           {unasked.map((item) => (
             <QuestionCard key={item.id} item={item} width={CARD_WIDTH} onPress={() => onAsk(item)} />
@@ -292,7 +292,7 @@ function Suggestions({ unasked, onAsk }: { unasked: readonly SchoolQuestion[]; o
 function Matches({ matches, onAsk }: { matches: readonly SchoolQuestion[]; onAsk: (item: SchoolQuestion) => void }) {
   if (matches.length === 0) {
     return (
-      <Text style={{ paddingHorizontal: SPACE.gutter, fontSize: TYPE.caption, lineHeight: 18, color: MUTED }}>
+      <Text style={{ paddingHorizontal: SPACE.gutter, fontSize: TYPE.caption, lineHeight: LEADING.caption, color: MUTED }}>
         {SCHOOL_CHAT_COPY.noMatchWhileTyping}
       </Text>
     );
@@ -301,7 +301,7 @@ function Matches({ matches, onAsk }: { matches: readonly SchoolQuestion[]; onAsk
     <FitScrollView
       style={{ maxHeight: 220 }}
       keyboardShouldPersistTaps="handled"
-      contentContainerStyle={{ gap: SPACE.text, paddingHorizontal: SPACE.gutter, paddingBottom: 6 }}
+      contentContainerStyle={{ gap: SPACE.text, paddingHorizontal: SPACE.gutter, paddingBottom: SPACE.text }}
     >
       {matches.map((item) => (
         <QuestionCard key={item.id} item={item} onPress={() => onAsk(item)} />
@@ -330,7 +330,7 @@ function QuestionCard({ item, width, onPress }: { item: SchoolQuestion; width?: 
       }}
       className="active:opacity-70"
     >
-      <Text style={{ fontSize: TYPE.body, lineHeight: 20.25, color: INK }}>{item.question}</Text>
+      <Text style={{ fontSize: TYPE.body, lineHeight: LEADING.body, color: INK }}>{item.question}</Text>
     </Pressable>
   );
 }

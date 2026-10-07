@@ -68,7 +68,7 @@ export function TopToast({ notice, onDone, top = 4 }: { notice: TopNotice | null
               accessibilityRole="button"
               accessibilityLabel="Undo"
               hitSlop={4}
-              style={{ height: 40, paddingHorizontal: 4, justifyContent: "center" }}
+              style={{ height: 40, paddingHorizontal: SPACE.tight, justifyContent: "center" }}
               className="active:opacity-70"
             >
               <Text style={{ fontSize: TYPE.body, fontWeight: "600", color: BUTTON.primary.fill }}>Undo</Text>

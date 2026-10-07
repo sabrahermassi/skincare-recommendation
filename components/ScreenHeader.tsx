@@ -48,7 +48,7 @@ export function ScreenHeader({
       </View>
 
       {title ? (
-        <Text style={{ maxWidth: 170, textAlign: "center", fontSize: TYPE.card, fontWeight: "600", color: INK }} numberOfLines={1}>
+        <Text style={{ maxWidth: 170, textAlign: "center", fontSize: TYPE.card, fontWeight: "600", color: INK }} numberOfLines={1} adjustsFontSizeToFit minimumFontScale={0.7}>
           {title}
         </Text>
       ) : null}

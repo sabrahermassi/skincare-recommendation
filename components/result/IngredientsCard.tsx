@@ -15,7 +15,7 @@ import { ruleFor, type MatchResult } from "@/lib/matching";
 import { cloggerConfidence, isPoreClogging } from "@/lib/pore-clogging";
 import { isActiveRule } from "@/lib/rules";
 import { isOriginDependent, isVerified } from "@/lib/safety";
-import { BUTTON, INK, MUTED, MUTED_FAINT, SPACE, TYPE, WHITE, RADIUS } from "@/lib/tokens";
+import { BUTTON, INK, MUTED, MUTED_FAINT, SPACE, TYPE, WHITE, RADIUS, LEADING, TRACKING } from "@/lib/tokens";
 import { BUTTON_HEIGHT } from "@/components/PrimaryButton";
 import { useAppStore } from "@/store/useAppStore";
 
@@ -127,9 +127,9 @@ export function IngredientsCard({
   const moreLabel = `${rest.length} more${restIsFine ? ", no concerns" : rest.length === 1 ? " ingredient" : " ingredients"}`;
 
   return (
-    <View style={{ marginTop: SPACE.block, borderRadius: BOX_RADIUS, borderWidth: 1.5, borderColor: BUTTON.primary.fill, backgroundColor: WHITE, paddingTop: SPACE.block, paddingHorizontal: 20, paddingBottom: 20 }}>
+    <View style={{ marginTop: SPACE.block, borderRadius: BOX_RADIUS, borderWidth: 1.5, borderColor: BUTTON.primary.fill, backgroundColor: WHITE, paddingTop: SPACE.block, paddingHorizontal: SPACE.inset, paddingBottom: SPACE.inset }}>
       <View style={{ minHeight: 52, flexDirection: "row", alignItems: "center", justifyContent: "space-between" }}>
-        <Text accessibilityRole="header" style={{ fontSize: TYPE.title, fontWeight: "600", letterSpacing: -0.2, color: INK }}>
+        <Text accessibilityRole="header" style={{ fontSize: TYPE.title, fontWeight: "600", letterSpacing: TRACKING.title, color: INK }}>
           Ingredients
         </Text>
         <FilterDropdown
@@ -150,7 +150,7 @@ export function IngredientsCard({
       </View>
 
       {rows.length === 0 && filter !== "all" ? (
-        <Text style={{ paddingTop: SPACE.block, paddingBottom: 4, fontSize: TYPE.body, color: MUTED }}>{EMPTY[filter]}</Text>
+        <Text style={{ paddingTop: SPACE.block, paddingBottom: SPACE.tight, fontSize: TYPE.body, color: MUTED }}>{EMPTY[filter]}</Text>
       ) : (
         rows.map((ingredient) => {
           const label = labelOf(ingredient);
@@ -185,7 +185,7 @@ export function IngredientsCard({
         </Pressable>
       ) : (
         <>
-          <Text style={{ marginTop: SPACE.block, fontSize: TYPE.caption, lineHeight: 19, color: MUTED_FAINT }}>* Scores for the same product can change, as brands sometimes update their formulas.</Text>
+          <Text style={{ marginTop: SPACE.block, fontSize: TYPE.caption, lineHeight: LEADING.caption, color: MUTED_FAINT }}>* Scores for the same product can change, as brands sometimes update their formulas.</Text>
           {afterAll ? <View style={{ marginTop: SPACE.gutter }}>{afterAll}</View> : null}
         </>
       )}
@@ -227,18 +227,18 @@ function IngredientRow({
           or grey for a row the list gives no word. */}
       <VerdictDot colour={tone.solid} halo={tone.halo} />
       <View style={{ flex: 1, gap: 3 }}>
-        <Text style={{ fontSize: TYPE.card, fontWeight: "500", lineHeight: 21, color: INK }}>{name}</Text>
+        <Text style={{ fontSize: TYPE.card, fontWeight: "500", lineHeight: LEADING.card, color: INK }}>{name}</Text>
         {label ? (
           <>
-            <Text style={{ fontSize: TYPE.label, color: tone.deep }}>{word ?? LABEL_META[label].label}</Text>
+            <Text style={{ fontSize: TYPE.label, color: tone.word }}>{word ?? LABEL_META[label].label}</Text>
             {wordLine ? (
-              <Text numberOfLines={2} style={{ fontSize: TYPE.caption, lineHeight: 17, color: MUTED }}>
+              <Text numberOfLines={2} style={{ fontSize: TYPE.caption, lineHeight: LEADING.caption, color: MUTED }}>
                 {wordLine}
               </Text>
             ) : null}
           </>
         ) : (
-          <Text numberOfLines={2} style={{ fontSize: TYPE.caption, lineHeight: 17, color: MUTED }}>
+          <Text numberOfLines={2} style={{ fontSize: TYPE.caption, lineHeight: LEADING.caption, color: MUTED }}>
             {subtitle}
           </Text>
         )}

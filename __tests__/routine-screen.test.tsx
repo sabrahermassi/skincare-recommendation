@@ -106,6 +106,8 @@ it("lays out the morning steps, and the evening's from the switch", async () => 
   // The week shows with or without actives added from Skin needs (hand-off R1), on today.
   expect(screen.getByText(/^Steps for (Monday|Tuesday|Wednesday|Thursday|Friday|Saturday|Sunday)$/)).toBeTruthy();
   expect(screen.getAllByRole("tab").filter((tab) => /^(Monday|Tuesday|Wednesday|Thursday|Friday|Saturday|Sunday) \d+$/.test(String(tab.props.accessibilityLabel)))).toHaveLength(7);
+  // The switch says which half of the day it is; no caption repeats it.
+  expect(screen.queryByText("good morning")).toBeNull();
   // By day: Cleansing, Serum, Moisturiser, Sunscreen.
   for (const step of ["Cleansing", "Serum", "Moisturiser", "Sunscreen"]) expect(screen.getByText(step)).toBeTruthy();
   await act(async () => fireEvent.press(screen.getByRole("tab", { name: "Evening" })));
@@ -144,6 +146,9 @@ it("names the best match for each step, and opens the product screen from it", a
   await open();
   expect(screen.getByText("Foaming gel")).toBeTruthy();
   expect(screen.getByText("Sun fluid")).toBeTruthy();
+  // The name leads: semibold, over a verdict line one step lighter.
+  expect(screen.getByText("Foaming gel")).toHaveStyle({ fontWeight: "600" });
+  expect(screen.getAllByText(/ match · \d+\/100$/)[0]).toHaveStyle({ fontWeight: "500" });
   // The serum step has nothing gentle to name for acne here: its active leads, in big letters.
   expect(screen.getByText("Azelaic acid")).toBeTruthy();
   expect(screen.getByText("For acne.")).toBeTruthy();

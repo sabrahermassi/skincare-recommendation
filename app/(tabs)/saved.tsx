@@ -32,12 +32,13 @@ import { openScanner } from "@/lib/open-scanner";
 import { matchProduct } from "@/lib/matching";
 import { STEP_LABEL, STEP_ORDER, stepOf, type StepGroup } from "@/lib/routine-step";
 import { tabBarClearance, tabRootTop } from "@/lib/tab-bar";
-import { CANVAS, CANVAS_GLASS, CARD_RADIUS, DISPLAY_FONT, INK, LINK, MUTED, SPACE, SURFACE, TOUCH_TARGET, TYPE, VERDICT_NEUTRAL, RADIUS } from "@/lib/tokens";
+import { CANVAS, CANVAS_GLASS, CARD_RADIUS, DISPLAY_FONT, INK, LINK, MUTED, SPACE, SURFACE, TOUCH_TARGET, TYPE, VERDICT_NEUTRAL, RADIUS, LEADING, TRACKING } from "@/lib/tokens";
 import { useAppStore, type HistoryEntry } from "@/store/useAppStore";
 import { haptic } from "@/lib/haptics";
 import { reduceMotionNow } from "@/lib/reduce-motion";
 import { FitScrollView } from "@/components/FitScrollView";
 import { GlassHeader } from "@/components/GlassHeader";
+import { SAVED_PAGE } from "@/lib/list-page";
 import { noOrphan } from "@/lib/text";
 
 type Tab = "saved" | "history" | "ingredients";
@@ -162,6 +163,8 @@ export default function Saved() {
   });
   const [error, setError] = useState(false);
   const [retryKey, setRetryKey] = useState(0);
+  // How many saved products are drawn: a page at a time (`SAVED_PAGE`).
+  const [savedShown, setSavedShown] = useState(SAVED_PAGE);
 
   // Pairings across the shelf (#233), from the products already loaded here —
   // the shelf lives on this device, so this needs no account.
@@ -265,7 +268,7 @@ export default function Saved() {
   const underHeader = { scrollIndicatorInsets: { top: headerHeight }, scrollEventThrottle: 16 } as const;
   const loadFailed = (what: string) => (
     <View style={{ alignItems: "center", gap: SPACE.block, paddingHorizontal: 40, paddingTop: headerHeight + 96 }}>
-      <Text style={{ textAlign: "center", fontSize: TYPE.body, lineHeight: 21, color: MUTED }}>
+      <Text style={{ textAlign: "center", fontSize: TYPE.body, lineHeight: LEADING.body, color: MUTED }}>
         {noOrphan(`Couldn't load your ${what}. Check your connection and try again.`)}
       </Text>
       <TextLink label="Try again" onPress={() => setRetryKey((k) => k + 1)} />
@@ -312,10 +315,13 @@ export default function Saved() {
       const shown = savedIds.filter((id) => byId[id] && (activeFilter === "all" || groupOf(id) === activeFilter));
       return (
         <FitScrollView ref={live ? listRef : undefined} contentContainerStyle={listStyle} onScroll={onScroll.saved} {...underHeader}>
-          <StepFilter groups={presentGroups} selected={activeFilter} onSelect={setStepFilter} />
-          <GroupLabel title={`${shown.length} ${shown.length === 1 ? "product" : "products"}`} onClearAll={() => setConfirmingClear(t)} />
+          <GroupLabel
+            title={`${shown.length} ${shown.length === 1 ? "product" : "products"}`}
+            onClearAll={() => setConfirmingClear(t)}
+            filter={<StepFilter groups={presentGroups} selected={activeFilter} onSelect={setStepFilter} />}
+          />
           <View style={{ gap: ROW_GAP }}>
-            {shown.map((id) => {
+            {shown.slice(0, savedShown).map((id) => {
               const product = byId[id];
               const note = savedProducts.find((p) => p.id === id)?.note;
               return (
@@ -327,6 +333,11 @@ export default function Saved() {
               );
             })}
           </View>
+          {shown.length > savedShown ? (
+            <View style={{ alignItems: "center", paddingTop: SPACE.gutter }}>
+              <TextLink label={`Show ${Math.min(SAVED_PAGE, shown.length - savedShown)} more`} onPress={() => setSavedShown((n) => n + SAVED_PAGE)} />
+            </View>
+          ) : null}
 
           <ShelfPairings notes={shelfNotes} />
 
@@ -461,7 +472,7 @@ function TextLink({ label, onPress }: { label: string; onPress: () => void }) {
       onPress={onPress}
       accessibilityRole="button"
       accessibilityLabel={label}
-      style={{ minHeight: TOUCH_TARGET, paddingHorizontal: 4, justifyContent: "center" }}
+      style={{ minHeight: TOUCH_TARGET, paddingHorizontal: SPACE.tight, justifyContent: "center" }}
       className="active:opacity-70"
     >
       <Text style={{ fontSize: TYPE.label, color: LINK }}>{label}</Text>
@@ -470,13 +481,20 @@ function TextLink({ label, onPress }: { label: string; onPress: () => void }) {
 }
 
 /** A group's caps label ("3 PRODUCTS", "TODAY"), and "Clear all" beside the first one. */
-function GroupLabel({ title, onClearAll }: { title: string; onClearAll?: () => void }) {
+function GroupLabel({ title, onClearAll, filter }: { title: string; onClearAll?: () => void; filter?: ReactNode }) {
   return (
-    <View style={{ minHeight: TOUCH_TARGET, paddingTop: SPACE.text, paddingBottom: 4, paddingLeft: 4, flexDirection: "row", alignItems: "center", justifyContent: "space-between", gap: SPACE.block }}>
-      <Text accessibilityRole="header" style={{ fontSize: TYPE.caption, fontWeight: "600", letterSpacing: 0.8, textTransform: "uppercase", color: MUTED }}>
+    <View style={{ minHeight: TOUCH_TARGET, paddingTop: SPACE.text, paddingBottom: SPACE.tight, paddingLeft: SPACE.tight, flexDirection: "row", flexWrap: "wrap", alignItems: "center", justifyContent: "space-between", columnGap: SPACE.block }}>
+      <Text accessibilityRole="header" style={{ fontSize: TYPE.caption, fontWeight: "600", letterSpacing: TRACKING.caption, textTransform: "uppercase", color: MUTED }}>
         {title}
       </Text>
-      {onClearAll ? <TextLink label="Clear all" onPress={onClearAll} /> : null}
+      {/* The filter and Clear all share the count's row (a filter row of its own pushed the first product down).
+          Where they do not fit (a long filter name, larger text) they drop to a line of their own. */}
+      {filter || onClearAll ? (
+        <View style={{ marginLeft: "auto", flexDirection: "row", flexWrap: "wrap", alignItems: "center", justifyContent: "flex-end", columnGap: SPACE.block }}>
+          {filter}
+          {onClearAll ? <TextLink label="Clear all" onPress={onClearAll} /> : null}
+        </View>
+      ) : null}
     </View>
   );
 }
@@ -488,7 +506,7 @@ function ClearSheet({ title, line, visible, onCancel, onConfirm }: { title: stri
 
 /** Under a list: how to take something off it, since a swipe can't be seen. */
 function SwipeHint({ line }: { line: string }) {
-  return <Text style={{ paddingTop: SPACE.block, paddingHorizontal: 4, textAlign: "center", fontSize: TYPE.caption, color: MUTED }}>{line}</Text>;
+  return <Text style={{ paddingTop: SPACE.block, paddingHorizontal: SPACE.tight, textAlign: "center", fontSize: TYPE.caption, color: MUTED }}>{line}</Text>;
 }
 
 /**
@@ -523,9 +541,9 @@ function ShelfPairings({ notes }: { notes: PairingNote[] }) {
         Worth knowing about your shelf
       </Text>
       {notes.map((note) => (
-        <View key={note.id} style={{ gap: 2 }}>
+        <View key={note.id} style={{ gap: SPACE.hair }}>
           <Text style={{ fontSize: TYPE.label, fontWeight: "600", color: INK }}>{note.label}</Text>
-          <Text style={{ fontSize: TYPE.label, lineHeight: 21, color: MUTED }}>{note.text}</Text>
+          <Text style={{ fontSize: TYPE.label, lineHeight: LEADING.label, color: MUTED }}>{note.text}</Text>
         </View>
       ))}
     </View>
@@ -576,8 +594,8 @@ function PlainRow({
       <View style={{ width: TILE, height: TILE, borderRadius: TILE_RADIUS, alignItems: "center", justifyContent: "center", backgroundColor: VERDICT_NEUTRAL.tint }}>
         <Ionicons name="document-text-outline" size={22} color={MUTED} />
       </View>
-      <View style={{ flex: 1, gap: 2 }}>
-        <Text numberOfLines={titleLines} style={{ fontSize: TYPE.label, fontWeight: "600", lineHeight: 19, color: INK }}>
+      <View style={{ flex: 1, gap: SPACE.hair }}>
+        <Text numberOfLines={titleLines} style={{ fontSize: TYPE.label, fontWeight: "600", lineHeight: LEADING.label, color: INK }}>
           {title}
         </Text>
         <Text numberOfLines={2} style={{ fontSize: TYPE.caption, color: MUTED }}>
@@ -697,7 +715,7 @@ function EmptyState({ tab, top }: { tab: Tab; /** Room for the screen's fixed he
     // short phone, large text).
     <FitScrollView
       style={{ flex: 1 }}
-      contentContainerStyle={{ flexGrow: 1, paddingTop: top + SPACE.section, paddingHorizontal: 32, paddingBottom: tabBarClearance(insets.bottom) }}
+      contentContainerStyle={{ flexGrow: 1, paddingTop: top + SPACE.section, paddingHorizontal: SPACE.large, paddingBottom: tabBarClearance(insets.bottom) }}
       showsVerticalScrollIndicator={false}
     >
       <View style={{ alignItems: "center", gap: SPACE.text }}>
@@ -712,10 +730,10 @@ function EmptyState({ tab, top }: { tab: Tab; /** Room for the screen's fixed he
           />
         </View>
         <View style={{ alignItems: "center", gap: SPACE.text }}>
-          <Text accessibilityRole="header" style={{ textAlign: "center", fontFamily: DISPLAY_FONT, fontSize: TYPE.heading, lineHeight: 28, letterSpacing: -0.5, color: INK }}>
+          <Text accessibilityRole="header" style={{ textAlign: "center", fontFamily: DISPLAY_FONT, fontSize: TYPE.heading, lineHeight: LEADING.heading, letterSpacing: TRACKING.heading, color: INK }}>
             {noOrphan(title)}
           </Text>
-          <Text style={{ maxWidth: 300, textAlign: "center", fontSize: TYPE.body, lineHeight: 21, color: MUTED }}>{noOrphan(body)}</Text>
+          <Text style={{ maxWidth: 300, textAlign: "center", fontSize: TYPE.body, lineHeight: LEADING.body, color: MUTED }}>{noOrphan(body)}</Text>
           {/* Only Saved offers the first scan (owner). */}
           {tab === "saved" ? (
             <PrimaryButton label="Scan your first product" onPress={openScanner} style={{ width: BUTTON_WIDTH.secondary, marginTop: SPACE.gutter }} />
@@ -813,7 +831,7 @@ function IngredientsTab({
   if (error) {
     return (
       <View style={{ alignItems: "center", gap: SPACE.block, paddingHorizontal: 40, paddingTop: top + 96 }}>
-        <Text style={{ textAlign: "center", fontSize: TYPE.body, lineHeight: 21, color: MUTED }}>
+        <Text style={{ textAlign: "center", fontSize: TYPE.body, lineHeight: LEADING.body, color: MUTED }}>
           {noOrphan("Couldn't load your starred ingredients. Check your connection and try again.")}
         </Text>
         <TextLink label="Try again" onPress={() => setRetryKey((k) => k + 1)} />
@@ -863,10 +881,10 @@ function IngredientRow({ ingredient, label, word, onUnstar }: { ingredient: Ingr
         <Pressable
           accessibilityRole="button"
           accessibilityLabel={`${name}, ${word ?? clear}`}
-          style={{ flex: 1, gap: 3, paddingVertical: SPACE.block, paddingLeft: SPACE.gutter, paddingRight: 4 }}
+          style={{ flex: 1, gap: 3, paddingVertical: SPACE.block, paddingLeft: SPACE.gutter, paddingRight: SPACE.tight }}
           className="active:opacity-70"
         >
-          <Text numberOfLines={2} style={{ fontSize: TYPE.label, fontWeight: "600", lineHeight: 19, color: INK }}>
+          <Text numberOfLines={2} style={{ fontSize: TYPE.label, fontWeight: "600", lineHeight: LEADING.label, color: INK }}>
             {name}
           </Text>
           {label ? <VerdictMarker label={label} text={word ?? undefined} /> : <Text style={{ fontSize: TYPE.caption, color: MUTED }}>{clear}</Text>}
@@ -907,6 +925,7 @@ function StepFilter({
   if (groups.length < 2) return null;
   return (
     <FilterDropdown
+      align="end"
       options={[{ value: "all", label: "All" }, ...groups.map((group) => ({ value: String(group), label: STEP_LABEL[group] }))]}
       selected={String(selected)}
       onSelect={(value) => onSelect(value === "all" ? "all" : (groups.find((g) => String(g) === value) ?? "all"))}

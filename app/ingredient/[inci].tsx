@@ -23,7 +23,7 @@ import type { IngredientRule } from "@/lib/rules";
 import { contraindications, euAllergenFor, isOriginDependent, isVerified, ORIGIN_DEPENDENT_HEADLINE, regulatoryCondition, regulatoryStatus, SAFETY_NOTICE_COPY, safetyNoticeFor } from "@/lib/safety";
 import { saveFromTap } from "@/lib/saving";
 import { useAppStore } from "@/store/useAppStore";
-import { CARD_RADIUS, CHOSEN, DISPLAY_FONT, HAIRLINE, INK, LINE, MUTED, SPACE, STONE, TOUCH_TARGET, TYPE, VERDICT, VERDICT_NEUTRAL } from "@/lib/tokens";
+import { CARD_RADIUS, CHOSEN, DISPLAY_FONT, HAIRLINE, INK, LINE, MUTED, SPACE, STONE, TOUCH_TARGET, TYPE, VERDICT, VERDICT_NEUTRAL, LEADING, TRACKING } from "@/lib/tokens";
 import { goBackOrHome } from "@/lib/go-back";
 import { haptic } from "@/lib/haptics";
 import { useSafetyNoticeEnabled } from "@/lib/features";
@@ -51,7 +51,7 @@ import NotFound from "@/app/+not-found";
  */
 type Fit = IngredientLabel | "none";
 
-type Tone = { solid: string; tint: string; deep: string; wash: string };
+type Tone = { solid: string; tint: string; deep: string; word: string; wash: string };
 const TONE: Record<Fit, Tone> = {
   good: VERDICT.high,
   watch: VERDICT.medium,
@@ -181,6 +181,8 @@ function IngredientDetail({
   // label. Without one, the rule's own targets (`ruleTargets`).
   const helps = match ? fit === "good" : ruleTargets(ingredient, profile).helps;
   const hurts = match ? countedAgainst(ingredient, match) : ruleTargets(ingredient, profile).hurts;
+  // The line at the foot of "For your skin": absent when it would only repeat the headline.
+  const foot = undecided ? "Not in your score" : fitTag(fit, helps, hurts, warning, match);
 
   // The Sources card: the page each claim on this sheet was checked against
   // (the rule's, then each warning's), then the two reference databases for a
@@ -218,8 +220,8 @@ function IngredientDetail({
         // name we don't recognise: starring it would save a string we can say
         // nothing about (#296).
         <View style={{ flexDirection: "row", alignItems: "flex-start", gap: SPACE.block, paddingTop: SPACE.section, paddingHorizontal: SPACE.gutter }}>
-          <View style={{ flex: 1, alignItems: "flex-start", gap: SPACE.text, paddingTop: 4 }}>
-            <Text accessibilityRole="header" style={{ fontFamily: DISPLAY_FONT, fontSize: TYPE.heading, lineHeight: 28, letterSpacing: -0.5, color: INK }}>
+          <View style={{ flex: 1, alignItems: "flex-start", gap: SPACE.text, paddingTop: SPACE.tight }}>
+            <Text accessibilityRole="header" style={{ fontFamily: DISPLAY_FONT, fontSize: TYPE.heading, lineHeight: LEADING.heading, letterSpacing: TRACKING.heading, color: INK }}>
               {displayIngredientName(primary)}
             </Text>
             {kind ? <Text style={{ fontSize: TYPE.label, color: MUTED }}>{kind}</Text> : null}
@@ -255,9 +257,9 @@ function IngredientDetail({
         <ReadingScale>
           <View style={{ paddingHorizontal: SPACE.gutter, gap: SPACE.block }}>
             {/* On the white sheet this one has no fill of its own (v9). */}
-            <View style={{ padding: SPACE.gutter, gap: 4 }}>
+            <View style={{ padding: SPACE.gutter, gap: SPACE.tight }}>
               <CardHeading>What it does</CardHeading>
-              <Text style={{ fontSize: TYPE.body, lineHeight: 22, color: INK }}>{whatItDoes(ingredient, rule?.reason)}</Text>
+              <Text style={{ fontSize: TYPE.body, lineHeight: LEADING.body, color: INK }}>{whatItDoes(ingredient, rule?.reason)}</Text>
             </View>
 
             {/* For your skin, on the verdict's light wash (v7). Left out when
@@ -266,9 +268,9 @@ function IngredientDetail({
                 path, where "For your skin" is left out, it still gets its card
                 (Codex review on #414). */}
             {notice && !forProfile ? (
-              <View style={{ borderRadius: CARD_RADIUS, backgroundColor: tone.wash, padding: SPACE.gutter, gap: 4 }}>
-                <Text style={{ fontSize: TYPE.body, fontWeight: "600", color: tone.deep }}>{SAFETY_NOTICE_COPY.sheetHeadline}</Text>
-                <Text style={{ fontSize: TYPE.body, lineHeight: 22, color: INK }}>
+              <View style={{ borderRadius: CARD_RADIUS, backgroundColor: tone.wash, padding: SPACE.gutter, gap: SPACE.tight }}>
+                <Text style={{ fontSize: TYPE.body, fontWeight: "600", color: tone.word }}>{SAFETY_NOTICE_COPY.sheetHeadline}</Text>
+                <Text style={{ fontSize: TYPE.body, lineHeight: LEADING.body, color: INK }}>
                   {SAFETY_NOTICE_COPY.sheetBody(notice.entry)}
                   {notice.dates ? ` ${notice.dates}` : ""}
                 </Text>
@@ -276,12 +278,12 @@ function IngredientDetail({
             ) : null}
 
             {forProfile ? (
-              <View style={{ borderRadius: CARD_RADIUS, backgroundColor: tone.wash, padding: SPACE.gutter, gap: 4 }}>
+              <View style={{ borderRadius: CARD_RADIUS, backgroundColor: tone.wash, padding: SPACE.gutter, gap: SPACE.tight }}>
                 <CardHeading>For your skin</CardHeading>
-                <Text style={{ fontSize: TYPE.body, fontWeight: "600", color: tone.deep }}>{undecided ? ORIGIN_DEPENDENT_HEADLINE : notice ? SAFETY_NOTICE_COPY.sheetHeadline : fitHeadline(fit, helps, hurts, warning, rule, profile)}</Text>
+                <Text style={{ fontSize: TYPE.body, fontWeight: "600", color: tone.word }}>{undecided ? ORIGIN_DEPENDENT_HEADLINE : notice ? SAFETY_NOTICE_COPY.sheetHeadline : fitHeadline(fit, helps, hurts, warning, rule, profile)}</Text>
                 {/* The EU notice says what the listing is, and for HICC its dates (#404). */}
                 {notice ? (
-                  <Text style={{ fontSize: TYPE.body, lineHeight: 22, color: INK }}>
+                  <Text style={{ fontSize: TYPE.body, lineHeight: LEADING.body, color: INK }}>
                     {SAFETY_NOTICE_COPY.sheetBody(notice.entry)}
                     {notice.dates ? ` ${notice.dates}` : ""}
                   </Text>
@@ -289,25 +291,25 @@ function IngredientDetail({
                 {/* A warning's own sentence is the most specific thing we hold (#347). */}
                 {fit !== "unknown" && otherWarnings.length > 0 ? (
                   otherWarnings.map((w) => (
-                    <View key={w.origin} style={{ gap: 4 }}>
-                      <Text style={{ fontSize: TYPE.body, lineHeight: 22, color: INK }}>{w.reason}</Text>
+                    <View key={w.origin} style={{ gap: SPACE.tight }}>
+                      <Text style={{ fontSize: TYPE.body, lineHeight: LEADING.body, color: INK }}>{w.reason}</Text>
                     </View>
                   ))
                 ) : notice ? null : undecided ? (
-                  <Text style={{ fontSize: TYPE.body, lineHeight: 22, color: INK }}>{DEPENDS_BODY}</Text>
+                  <Text style={{ fontSize: TYPE.body, lineHeight: LEADING.body, color: INK }}>{DEPENDS_BODY}</Text>
                 ) : fit === "none" && !personalized ? (
                   // No skin profile, and nothing about it for everyone: a quiet
                   // way to set one up, not a button (handoff). A fragrance or a
                   // listed pore-clogger still says why, profile or not.
                   <Pressable onPress={openQuiz} accessibilityRole="link" style={{ minHeight: TOUCH_TARGET, justifyContent: "center" }} className="active:opacity-70">
-                    <Text style={{ fontSize: TYPE.body, lineHeight: 22, fontWeight: "600", color: CHOSEN.accent }}>Set up your skin profile to see how this fits you</Text>
+                    <Text style={{ fontSize: TYPE.body, lineHeight: LEADING.body, fontWeight: "600", color: CHOSEN.accent }}>Set up your skin profile to see how this fits you</Text>
                   </Pressable>
                 ) : (
-                  <Text style={{ fontSize: TYPE.body, lineHeight: 22, color: INK }}>
+                  <Text style={{ fontSize: TYPE.body, lineHeight: LEADING.body, color: INK }}>
                     {fitBody(fit, helps, hurts, verified, Boolean(rule), isCommonIrritant(ingredient), euAllergenFor(ingredient) !== null, match !== null, cloggerConfidence(ingredient) === "high")}
                   </Text>
                 )}
-                <Text style={{ marginTop: 4, fontSize: TYPE.caption, fontWeight: "600", color: tone.deep }}>{undecided ? "Not in your score" : fitTag(fit, helps, hurts, warning, match)}</Text>
+                {foot ? <Text style={{ marginTop: SPACE.tight, fontSize: TYPE.caption, fontWeight: "500", color: tone.word }}>{foot}</Text> : null}
               </View>
             ) : null}
 
@@ -318,7 +320,7 @@ function IngredientDetail({
                 its claims were checked against, then the EU's inventory and
                 PubChem for a name we recognise. No card when there is none. */}
             {sources.length > 0 ? (
-              <Card style={{ padding: SPACE.gutter, gap: 4 }}>
+              <Card style={{ padding: SPACE.gutter, gap: SPACE.tight }}>
                 <CardHeading>Sources</CardHeading>
                 {sources.map((source) => (
                   <ReferenceLink key={source.url} label={source.label} url={source.url} />
@@ -327,8 +329,8 @@ function IngredientDetail({
             ) : null}
 
             {/* Good to know: neutral facts, no ticks (handoff). */}
-            <Card style={{ paddingTop: SPACE.gutter, paddingBottom: 4 }}>
-              <View style={{ paddingHorizontal: SPACE.gutter, paddingBottom: 4 }}>
+            <Card style={{ paddingTop: SPACE.gutter, paddingBottom: SPACE.tight }}>
+              <View style={{ paddingHorizontal: SPACE.gutter, paddingBottom: SPACE.tight }}>
                 <CardHeading>Good to know</CardHeading>
               </View>
               {facts.length > 0 ? (
@@ -336,21 +338,21 @@ function IngredientDetail({
                   <View key={fact.key} style={{ paddingHorizontal: SPACE.gutter }}>
                     <View style={{ flexDirection: "row", gap: SPACE.block, paddingVertical: 13, borderTopWidth: i === 0 ? 0 : 1, borderTopColor: HAIRLINE }}>
                       <Text style={{ width: 120, fontSize: TYPE.label, color: MUTED }}>{fact.key}</Text>
-                      <Text style={{ flex: 1, fontSize: TYPE.body, lineHeight: 21, color: INK }}>{fact.value}</Text>
+                      <Text style={{ flex: 1, fontSize: TYPE.body, lineHeight: LEADING.body, color: INK }}>{fact.value}</Text>
                     </View>
                   </View>
                 ))
               ) : (
-                <Text style={{ paddingHorizontal: SPACE.gutter, paddingVertical: SPACE.block, fontSize: TYPE.body, lineHeight: 21, color: INK }}>
+                <Text style={{ paddingHorizontal: SPACE.gutter, paddingVertical: SPACE.block, fontSize: TYPE.body, lineHeight: LEADING.body, color: INK }}>
                   We hold no regulatory record, declared function or pore rating for this name.
                 </Text>
               )}
             </Card>
 
-            <Text style={{ fontSize: TYPE.caption, color: MUTED, paddingHorizontal: 4 }}>Reference data from Open Beauty Facts and EU CosIng.</Text>
+            <Text style={{ fontSize: TYPE.caption, color: MUTED, paddingHorizontal: SPACE.tight }}>Reference data from Open Beauty Facts and EU CosIng.</Text>
 
             {/* A wrong name, reading or claim gets told to us (#327). */}
-            <View style={{ paddingHorizontal: 4 }}>
+            <View style={{ paddingHorizontal: SPACE.tight }}>
               <ReportMistakeLink subject={{ kind: "ingredient", name: ingredient.name }} />
             </View>
           </View>
@@ -413,7 +415,7 @@ function OnThisLabel({ names, index, colour }: { names: string[]; index: number;
         <Text style={{ fontSize: TYPE.caption, color: MUTED }}>More</Text>
         <Text style={{ fontSize: TYPE.caption, color: MUTED }}>Less</Text>
       </View>
-      <Text style={{ fontSize: TYPE.body, lineHeight: 22, color: INK }}>
+      <Text style={{ fontSize: TYPE.body, lineHeight: LEADING.body, color: INK }}>
         {ordered
           ? AMOUNT[weight]
           : "This part of the label is in alphabetical order, so its place doesn't say how much there is."}
@@ -545,7 +547,7 @@ function fitBody(
 }
 
 /** The pill under the verdict: what it does to this person's score, where there is one. */
-function fitTag(fit: Fit, helps: boolean, hurts: boolean, warning: Contraindication | undefined, match: MatchResult | null): string {
+function fitTag(fit: Fit, helps: boolean, hurts: boolean, warning: Contraindication | undefined, match: MatchResult | null): string | null {
   if (fit === "unknown") return "Not in your score";
   // Only a score that exists can be lowered or raised: without a skin profile
   // the match refuses and holds none (#383 review). A pregnancy caution never
@@ -558,5 +560,6 @@ function fitTag(fit: Fit, helps: boolean, hurts: boolean, warning: Contraindicat
   if (helps) return "Good for your goals";
   if (fit === "avoid") return "Best avoided generally";
   if (fit === "watch") return "Worth knowing";
-  return "Neutral for you";
+  // Neutral: the headline above already says so ("Nothing against it"), so no third line.
+  return null;
 }

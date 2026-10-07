@@ -27,7 +27,7 @@ import { rowsFor, type Row } from "@/lib/routine-rows";
 import { activeLine, basicRoutine, placeId, recallRoutine, recommendable, type Routine as BuiltRoutine, type RoutinePick, type RoutineSlot, type TimeOfDay } from "@/lib/routine-builder";
 import { DAY_LETTERS, DAY_NAMES, STEP_LIMITS, today, type RoutineEntry } from "@/lib/skin-needs";
 import { matchProduct } from "@/lib/matching";
-import { CANVAS, CANVAS_GLASS, CARD_RADIUS, CHOSEN, DISPLAY_FONT, INK, LINK, MUTED, MUTED_FAINT, ROUTINE_SWITCH, scoreColours, SKIN_NEEDS, SPACE, SURFACE, TOUCH_TARGET, TYPE, VERDICT_LABEL, WARN, WHITE, RADIUS } from "@/lib/tokens";
+import { CANVAS, CANVAS_GLASS, CARD_RADIUS, CHOSEN, DISPLAY_FONT, INK, LINK, MUTED, MUTED_FAINT, ROUTINE_SWITCH, scoreColours, SKIN_NEEDS, SPACE, SURFACE, TOUCH_TARGET, TYPE, VERDICT_LABEL, WARN, WHITE, RADIUS, LEADING, TRACKING } from "@/lib/tokens";
 import { useOwnProducts } from "@/lib/use-own-products";
 import { useAppStore } from "@/store/useAppStore";
 import { FitScrollView } from "@/components/FitScrollView";
@@ -203,18 +203,17 @@ function Steps({ personalized }: { personalized: boolean }) {
         scrollEventThrottle={16}
         onScroll={onScroll}
       >
-        <View style={{ paddingTop: SPACE.section - SPACE.block, paddingBottom: SPACE.block, paddingHorizontal: 4, flexDirection: "row", alignItems: "baseline", justifyContent: "space-between" }}>
-          <Text accessibilityRole="header" style={{ fontSize: TYPE.caption, fontWeight: "600", letterSpacing: 0.78, textTransform: "uppercase", color: MUTED }}>
+        <View style={{ paddingTop: SPACE.section - SPACE.block, paddingBottom: SPACE.block, paddingHorizontal: SPACE.tight, flexDirection: "row", alignItems: "baseline", justifyContent: "space-between" }}>
+          <Text accessibilityRole="header" style={{ fontSize: TYPE.caption, fontWeight: "600", letterSpacing: TRACKING.caption, textTransform: "uppercase", color: MUTED }}>
             {`Steps for ${DAY_NAMES[day]}`}
           </Text>
-          <Text style={{ fontSize: TYPE.caption, color: MUTED }}>{time === "morning" ? "good morning" : "wind down"}</Text>
         </View>
 
         {/* The catalogue could not be read: say so, and offer another go, rather
             than four steps that look as if nothing suits. */}
         {!testRoutine && !loaded ? (
-          <View style={{ marginBottom: SPACE.block, borderRadius: CARD_RADIUS, backgroundColor: SURFACE, paddingVertical: SPACE.block, paddingHorizontal: SPACE.gutter, gap: 2 }}>
-            <Text style={{ fontSize: TYPE.body, lineHeight: 20, color: INK }}>We couldn&apos;t load products, so the steps have none yet.</Text>
+          <View style={{ marginBottom: SPACE.block, borderRadius: CARD_RADIUS, backgroundColor: SURFACE, paddingVertical: SPACE.block, paddingHorizontal: SPACE.gutter, gap: SPACE.hair }}>
+            <Text style={{ fontSize: TYPE.body, lineHeight: LEADING.body, color: INK }}>We couldn&apos;t load products, so the steps have none yet.</Text>
             <Pressable onPress={retry} accessibilityRole="button" accessibilityLabel="Try loading products again" hitSlop={8} style={{ alignSelf: "flex-start", minHeight: 28, justifyContent: "center" }} className="active:opacity-70">
               <Text style={{ fontSize: TYPE.label, fontWeight: "600", color: LINK }}>Try again</Text>
             </Pressable>
@@ -240,7 +239,7 @@ function Steps({ personalized }: { personalized: boolean }) {
             />
           ))}
         </View>
-        <Text style={{ paddingTop: SPACE.gutter, paddingHorizontal: SPACE.text, textAlign: "center", fontSize: TYPE.caption, lineHeight: 18, color: MUTED }}>
+        <Text style={{ paddingTop: SPACE.gutter, paddingHorizontal: SPACE.text, textAlign: "center", fontSize: TYPE.caption, lineHeight: LEADING.caption, color: MUTED }}>
           {personalized
             ? "Picked from our catalogue for your skin profile. Scan a product to see whether it fits a step, and add your own from its result."
             : "Scan a product to see whether it fits a step, and add your own from its result. Fill in your skin profile and we'll pick products for each step."}
@@ -265,9 +264,9 @@ function Steps({ personalized }: { personalized: boolean }) {
             style={{ marginTop: SPACE.block, minHeight: 64, flexDirection: "row", alignItems: "center", gap: SPACE.block, borderRadius: CARD_RADIUS, backgroundColor: CHOSEN.fill, paddingVertical: SPACE.block, paddingHorizontal: SPACE.gutter }}
             className="active:opacity-80"
           >
-            <View style={{ flex: 1, gap: 2 }}>
+            <View style={{ flex: 1, gap: SPACE.hair }}>
               <Text style={{ fontSize: TYPE.card, fontWeight: "600", color: LINK }}>Your skin profile</Text>
-              <Text style={{ fontSize: TYPE.caption, lineHeight: 18, color: MUTED }}>{personalized ? "Your skincare routine is based on this." : "Fill it in to get products picked for each step."}</Text>
+              <Text style={{ fontSize: TYPE.caption, lineHeight: LEADING.caption, color: MUTED }}>{personalized ? "Your skincare routine is based on this." : "Fill it in to get products picked for each step."}</Text>
             </View>
             <Ionicons name="arrow-forward" size={20} color={LINK} />
           </Pressable>
@@ -343,36 +342,36 @@ function StepCard({
   const outgrown = own !== null && !recommendable(own.product, own.match);
   return (
     <View style={{ flexDirection: "row", alignItems: "stretch", gap: SPACE.block }}>
-      <View style={{ width: 28, alignItems: "center", paddingTop: 14 }}>
-        <View style={{ width: 28, height: 28, borderRadius: 14, backgroundColor: ROUTINE_SWITCH.stepFill, alignItems: "center", justifyContent: "center" }}>
+      <View style={{ width: 28, alignItems: "center", paddingTop: SPACE.gutter }}>
+        <View style={{ width: 28, height: 28, borderRadius: RADIUS.control, backgroundColor: ROUTINE_SWITCH.stepFill, alignItems: "center", justifyContent: "center" }}>
           <Text maxFontSizeMultiplier={1} style={{ fontSize: TYPE.caption, fontWeight: "700", color: LINK }}>
             {number}
           </Text>
         </View>
-        {last ? null : <DottedLine color={ROUTINE_SWITCH.stepLine} style={{ flex: 1, minHeight: 12, marginTop: 6 }} />}
+        {last ? null : <DottedLine color={ROUTINE_SWITCH.stepLine} style={{ flex: 1, minHeight: 12, marginTop: SPACE.tight }} />}
       </View>
       <View style={{ flex: 1, minHeight: 72, marginBottom: last ? 0 : SPACE.block, flexDirection: "row", alignItems: "center", gap: SPACE.block, borderRadius: CARD_RADIUS, backgroundColor: SURFACE, paddingVertical: SPACE.block, paddingHorizontal: SPACE.gutter }}>
-        <View style={{ flex: 1, gap: 2 }}>
-          <Text accessibilityRole="header" style={{ fontSize: TYPE.caption, fontWeight: "600", letterSpacing: 0.78, textTransform: "uppercase", color: MUTED }}>
+        <View style={{ flex: 1, gap: SPACE.hair }}>
+          <Text accessibilityRole="header" style={{ fontSize: TYPE.caption, fontWeight: "600", letterSpacing: TRACKING.caption, textTransform: "uppercase", color: MUTED }}>
             {label}
           </Text>
-          {note ? <Text style={{ fontSize: TYPE.caption, lineHeight: 18, color: MUTED }}>{note}</Text> : null}
+          {note ? <Text style={{ fontSize: TYPE.caption, lineHeight: LEADING.caption, color: MUTED }}>{note}</Text> : null}
           {active ? (
-            <View style={{ paddingTop: 2, paddingBottom: SPACE.text, gap: 2 }}>
-              <Text style={{ fontFamily: DISPLAY_FONT, fontSize: TYPE.heading, lineHeight: 28, letterSpacing: -0.5, color: INK }}>{active.name}</Text>
-              <Text style={{ fontSize: TYPE.caption, lineHeight: 18, color: MUTED }}>{activeLine(active)}</Text>
+            <View style={{ paddingTop: SPACE.hair, paddingBottom: SPACE.text, gap: SPACE.hair }}>
+              <Text style={{ fontFamily: DISPLAY_FONT, fontSize: TYPE.heading, lineHeight: LEADING.heading, letterSpacing: TRACKING.heading, color: INK }}>{active.name}</Text>
+              <Text style={{ fontSize: TYPE.caption, lineHeight: LEADING.caption, color: MUTED }}>{activeLine(active)}</Text>
               {/* The profile does not say whether they are pregnant, and this active is one to check first. */}
-              {active.caution ? <Text style={{ fontSize: TYPE.caption, lineHeight: 18, fontWeight: "600", color: WARN }}>{active.caution}</Text> : null}
+              {active.caution ? <Text style={{ fontSize: TYPE.caption, lineHeight: LEADING.caption, fontWeight: "600", color: WARN }}>{active.caution}</Text> : null}
             </View>
           ) : null}
           {rest ? null : pick ? (
             <PickRow pick={pick} own={own !== null} />
           ) : ownPick ? (
-            <Text style={{ fontSize: TYPE.body, lineHeight: 20, color: INK }}>Your pick for this step can&apos;t be shown right now.</Text>
+            <Text style={{ fontSize: TYPE.body, lineHeight: LEADING.body, color: INK }}>Your pick for this step can&apos;t be shown right now.</Text>
           ) : (
-            <Text style={{ fontSize: TYPE.body, lineHeight: 20, color: INK }}>{active ? "No product to suggest yet." : "No product picked yet."}</Text>
+            <Text style={{ fontSize: TYPE.body, lineHeight: LEADING.body, color: INK }}>{active ? "No product to suggest yet." : "No product picked yet."}</Text>
           )}
-          {outgrown ? <Text style={{ fontSize: TYPE.caption, lineHeight: 18, fontWeight: "600", color: WARN }}>We wouldn&apos;t pick this for your skin profile as it is now.</Text> : null}
+          {outgrown ? <Text style={{ fontSize: TYPE.caption, lineHeight: LEADING.caption, fontWeight: "600", color: WARN }}>We wouldn&apos;t pick this for your skin profile as it is now.</Text> : null}
           {rest ? null : (
           <View style={{ flexDirection: "row", flexWrap: "wrap", alignItems: "center", columnGap: SPACE.gutter }}>
             {onRemoveActive && active ? (
@@ -415,7 +414,7 @@ function DayStrip({ day, onDay, entries }: { day: number; onDay: (day: number) =
   const now = new Date();
   const monday = new Date(now.getFullYear(), now.getMonth(), now.getDate() - today(now));
   return (
-    <View accessibilityRole="tablist" style={{ marginTop: SPACE.text, flexDirection: "row", gap: 4 }}>
+    <View accessibilityRole="tablist" style={{ marginTop: SPACE.text, flexDirection: "row", gap: SPACE.tight }}>
       {DAY_LETTERS.map((letter, index) => {
         const date = new Date(monday.getFullYear(), monday.getMonth(), monday.getDate() + index).getDate();
         const on = index === day;
@@ -450,9 +449,9 @@ function StepLimitRow() {
   const entries = useAppStore((s) => s.routineActives);
   const setRoutineActives = useAppStore((s) => s.setRoutineActives);
   return (
-    <View style={{ marginTop: SPACE.section, paddingHorizontal: 4, flexDirection: "row", alignItems: "center", justifyContent: "space-between", gap: SPACE.block }}>
-      <Text style={{ flex: 1, fontSize: TYPE.caption, lineHeight: 18, color: MUTED }}>Steps per routine, at most</Text>
-      <View style={{ flexDirection: "row", gap: 6 }}>
+    <View style={{ marginTop: SPACE.section, paddingHorizontal: SPACE.tight, flexDirection: "row", alignItems: "center", justifyContent: "space-between", gap: SPACE.block }}>
+      <Text style={{ flex: 1, fontSize: TYPE.caption, lineHeight: LEADING.caption, color: MUTED }}>Steps per routine, at most</Text>
+      <View style={{ flexDirection: "row", gap: SPACE.text }}>
         {STEP_LIMITS.map((value) => (
           <Pressable
             key={value}
@@ -494,11 +493,11 @@ function PickRow({ pick, own = false }: { pick: RoutinePick; own?: boolean }) {
         <Text numberOfLines={1} style={{ fontSize: TYPE.caption, color: MUTED_FAINT }}>
           {own ? `Your pick · ${product.brand}` : product.brand}
         </Text>
-        <Text numberOfLines={2} style={{ fontSize: TYPE.body, fontWeight: "600", lineHeight: 20, color: INK }}>
+        <Text numberOfLines={2} style={{ fontSize: TYPE.body, fontWeight: "600", lineHeight: LEADING.body, color: INK }}>
           {product.name}
         </Text>
-        <View style={{ flexDirection: "row", alignItems: "center", gap: 6 }}>
-          <Text style={{ fontSize: TYPE.caption, fontWeight: "600", color: scoreColours(match.verdict).deep }}>{verdict}</Text>
+        <View style={{ flexDirection: "row", alignItems: "center", gap: SPACE.text }}>
+          <Text style={{ fontSize: TYPE.caption, fontWeight: "500", color: scoreColours(match.verdict).word }}>{verdict}</Text>
           {notice ? <SafetyShield size={16} /> : null}
         </View>
       </View>

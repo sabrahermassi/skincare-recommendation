@@ -58,7 +58,7 @@ the 40pt icon circles).
 | `MUTED` | `#524D48` | secondary text, group labels (8.35:1 on white) |
 | `MUTED_FAINT` | `#5E5954` | brand line, meta (6.9:1) |
 | `TAB_INACTIVE` | `#5E5954` | unselected tab icons and names |
-| `PLACEHOLDER` | `#7A746E` | input placeholder |
+| `PLACEHOLDER` | `#77716B` | input placeholder |
 | `ICON_MUTED` | `#ADA7A1` | search magnifier, decorative icons |
 | `ROW_CHEVRON` | `#B9A79E` | row chevrons |
 | `HAIRLINE` / `LINE` | `#E3DFDA` | dividers inside a card, unchosen outlines |
@@ -68,7 +68,7 @@ the 40pt icon circles).
 
 | Token | Value | Use |
 |---|---|---|
-| `BUTTON.primary` | fill `#767A5C`, pressed `#62664B`, label white | every filled button, tick and progress |
+| `BUTTON.primary` | fill `#757959`, pressed `#62664B`, label white | every filled button, tick and progress |
 | `BUTTON.secondary` | fill `#EEEFE7`, label `INK` | a less important action |
 | `BUTTON.tertiary` | outline `#62664B` | a low-emphasis action |
 | `BUTTON.disabled` | `#C9CCB8` | any disabled button |
@@ -125,13 +125,18 @@ Everything is the system font (SF Pro) except these, loaded in `app/_layout.tsx`
 | Face | Token | Where |
 |---|---|---|
 | PT Serif Bold, upright | `DISPLAY_FONT` | one big title per screen, ingredient names, the score number, the onboarding headline |
-| Kalam Bold / Regular | `HAND_FONT_BOLD` / `HAND_FONT` | Home's "Hi there!" (34), the skincare tip, Find your actives' notes |
+| Kalam Bold / Regular | `HAND_FONT_BOLD` / `HAND_FONT` | Home's "Hi there!" (34), the skincare tip, Find your actives' notes, a person's own notes on a product (the one handwriting face; `lib/note-font.ts` falls back to the system font for Hangul, Cyrillic, emoji, larger text and Bold Text) |
 | Figtree SemiBold | `MENU_FONT` | the soft profile menu's row names |
-| Caveat Medium | `NOTE_FONT` | a person's own notes; loaded after first paint (`lib/note-font.ts`) |
-| Montserrat Light / Regular | none | the quiz shell's Skip (`components/shell/shared.tsx`) |
 
 `TYPE` scale: caption 13, label 15, body 15, card 17, title 20, heading 24,
-large 30, display 34 (the score). Title levels, all PT Serif in ink, never a
+large 30, display 34 (the score). Each size has its line height in `LEADING`
+(caption 18, label 20, body 21, card 22, title 24, heading 28, large 34) and the
+serif and capital roles their tracking in `TRACKING` (display and large -0.6,
+heading -0.5, title -0.2, card -0.17, small capitals +0.8). A style that gives a
+size and a line height on one line uses them; the 7 October 2026 typeset moved
+161 near-misses onto them (body had been 20, 21 and 22, caption 17 to 19).
+Other multi-line styles keep their own numbers, and the display sizes 34 and
+40+ (Home's greeting, the story cards) keep theirs. Title levels, all PT Serif in ink, never a
 coloured word:
 
 | Level | Size / line | Where | Component |
@@ -165,11 +170,16 @@ once text is above its normal size, since a pair kept together can be too wide.
 
 ## Spacing
 
-`SPACE` (`lib/tokens.ts`): text 8, block 12, gutter 16, section 24; 32 appears in
-a few layouts. 16pt page margins and card padding, 12pt between cards in a group,
-24pt between sections. Write these as `SPACE.*` in `gap`, `padding` and `margin`,
-never as bare numbers. Minimum tap target `TOUCH_TARGET`: 44 on iOS (48 on
-Android).
+`SPACE` (`lib/tokens.ts`) is a 4pt grid with eight named steps: hair 2, tight 4,
+text 8, block 12, gutter 16, inset 20, section 24, large 32. 16pt page margins,
+20pt (`inset`) inside a card or panel, 12pt between cards in a group, 24pt
+between sections. Write these as `SPACE.*` in `gap`, `padding` and `margin`,
+never as bare numbers. On 7 October 2026 the off-grid values were rounded onto
+the grid (6 to 4 or 8, 10 to 8 or 12, 14 to 16, 22 and 28 to 24 or 32); what is
+left are hairlines and borders (1, 3), a few fixed sizes (40 to 144) and negative
+pulls (-4 to -16). Minimum tap target `TOUCH_TARGET`: 44 on iOS (48 on Android);
+a smaller mark gets `hitSlop` to reach it (the routine's 28pt Remove and Scan
+buttons carry 8 on each side).
 
 ## Corners
 
@@ -245,7 +255,7 @@ once (`hasLiquidGlass`); nothing else should call the native glass directly
 (`GlassButton`, the scanner's round buttons, is the one older exception).
 
 - **Where:** the navigation and control layer that floats over content: the fixed
-  header (`GlassHeader`), the tab bar capsule, the round nav buttons
+  header (`GlassHeader`), the tab bar capsule (a faint `GLASS_BAR` white, 22%), the round nav buttons
   (`IconCircle`, interactive), the raised scan button (tinted sage, interactive),
   the segmented switch's thumb on the page looks, and the things
   that float over a screen: floating pop-ups (`BottomSheet` floating), the filter
@@ -258,6 +268,10 @@ once (`hasLiquidGlass`); nothing else should call the native glass directly
   and glass is never put on glass (the glass thumb inside the plain switch track
   is the one nesting, as in iOS 26's own segmented control). A round button on a
   glass pop-up keeps its white disc (`OnGlass`).
+- Reduce Transparency: the real glass adapts by itself; the blur fallback draws
+  a solid surface instead (`useReduceTransparency`, `Glass`'s `solid`). The
+  sheets' dim-and-blur scrim and the scanner's blur are not glass and are left
+  as they are.
 - Light only (`colorScheme="light"`). Never set opacity 0 on glass or a parent of
   it: the glass stops drawing.
 
@@ -284,7 +298,7 @@ once (`hasLiquidGlass`); nothing else should call the native glass directly
   small score ring, the heart. 12pt between cards. Search, Saved, History and
   the finder's results all use it.
 - **Score beside a product** (`ScorePill`): a 30pt ring, 2pt in the band's
-  `solid`, the number 12 bold in `deep`, no fill. A safety shield sits beside it
+  `solid`, the number 12 bold in `word` (it is small text), no fill. A safety shield sits beside it
   when the EU notice applies.
 - **Big score** (`ScoreRing` in `components/result/`): a 96pt ring on a 108pt
   white disc, over the result sheet's edge. Under it the verdict pill
@@ -370,10 +384,12 @@ the scanner, How scoring works and the ingredient sheet slide up.
   button on its own bar at the foot, disabled until a choice is made.
 - **Find your actives** (`app/journey`, `app/journey-story`): one scrolling
   screen of questions (chips and answer cards), a pinned "Show what helps"
-  button, then a deck of cards that opens a story of tappable cards.
+  button, then a deck of cards that opens a story of tappable cards. Sensitivity
+  and pregnancy start from the skin profile (tagged "From your profile" until
+  changed); the goal shows six of thirteen with "+ 7 more".
 - **Routine**: skin profile card, the tinted Morning | Evening switch, the day
   strip, numbered discs on a dotted rail beside white step cards.
-- **Saved, School, Profile**: Large titles; Saved uses its three tabs; School is
+- **Saved, School, Profile**: Large titles; Saved uses its three tabs, with the count, the step filter and Clear all on one row under them; Profile's avatar is 96pt; School is
   a chat with prompt chips and a search bar; Profile is settings lists.
 - **Account, Support, Privacy, Skin profile, sign-in**: lists and plain text on
   `CANVAS`; the sign-in sheet is a floating sheet.
@@ -385,24 +401,62 @@ the scanner, How scoring works and the ingredient sheet slide up.
   (no slide, zero-length animations).
 - Tap targets follow `TOUCH_TARGET` (44). One known exception: `ReferenceLink`
   is 36pt tall. Icon buttons carry a spoken label.
-- Contrast ratios are noted beside tokens in `lib/tokens.ts`. Below 4.5:1
-  today: Good's word 3.1, Poor's word 4.39, and the white label on
-  `BUTTON.primary.fill` 4.46 (see Known gaps).
+- Contrast ratios are noted beside tokens in `lib/tokens.ts`. Nothing computed is
+  below 4.5:1 for small text today.
+  A small verdict word takes `VERDICT[tone].word`, never `deep` (a ring, pill or
+  big number keeps `deep`).
 
 ## Known gaps
 
-- **Good's word is 3.1:1, Poor's is 4.39:1 on white, and the white label on the
-  sage button is 4.46:1**, all under 4.5:1 for small text. They are the
-  hand-off's colours; Good is the brand olive. Left for the owner.
+- **The small-text contrast gaps are closed.** The sage button went from
+  `#767A5C` (4.46) to `#757959` (4.53), a step the eye does not see. Good's and
+  Poor's small words use `VERDICT[tone].word` (5.39 and 5.31 on white); their
+  rings, pills and big numbers keep the hand-off's colours. The placeholder went
+  from `#7A746E` to `#736D67` (5.11 on white, 4.83 on the page, 4.57 on stone). `MUTED_FAINT`
+  is `#5E5954`, 6.92:1; an earlier note here that it was 4.2:1 came from a stale
+  comment in `lib/tokens.ts`, now fixed. Icons and decorative marks are held to
+  3:1, not 4.5.
+- **Largest text size** (iOS Accessibility XXXL), checked on the iPhone 17
+  simulator for the result and Find your actives: both hold, with the score ring
+  fixed and everything else growing within `FONT_SCALE`'s caps. A long screen
+  title shrinks (`ScreenHeader`, down to 0.7) rather than ending in "…". Not
+  checked: a smaller phone (the simulators here start at the 17e, 6.1 inch) and
+  the other screens at that size.
+- **Weight has two steps for small text (7 October 2026).** Semibold (600) is for
+  names, headings, titles, choices and actions (links, buttons, Remove, Change);
+  medium (500) is for the status and meta line that sits with them: the routine's
+  and result's verdict line, the risk level (Low, Moderate), "In your routine",
+  the ingredient sheet's "Neutral for you", Find your actives' tags ("Pick one",
+  "From your profile") and quick-cards line, and the story's page counter. Body
+  text is regular. Left semibold on purpose: caps section labels (tracking sets
+  them apart), warnings (`WARN`), text on fills and over the camera, and the
+  Skin needs story cards, which follow the hand-off. Reviewed and unchanged:
+  Home, School, Saved, Profile, Skin profile, Scoring, Quiz, Onboarding, Sign-in,
+  Account, Support, Privacy, Scanner.
+- **Distilled 7 October 2026:** the routine's steps header lost its "good morning" /
+  "wind down" caption (the Morning | Evening switch above already says which),
+  and the ingredient sheet's "For your skin" card no longer closes with "Neutral
+  for you" under a headline that already says "Nothing against it". Every other
+  foot line stays. A search for unused tokens, components and `lib` files found
+  none, so there was no dead code to remove.
+- **Icons are two sets, not SF Symbols:** Ionicons (`@expo/vector-icons`: menu rows,
+  routine, scoring sheet, camera, saved) and the app's own SVG marks (tab bar,
+  hearts, stars, ticks, shield). Each screen keeps to one. Moving to SF Symbols
+  would be a visual change for every menu row and is not planned.
 - **Colour lives in three files** (`tokens.ts`, `colors.ts`, `tailwind.config.js`)
   and is kept in step by hand.
-- **About 40 font sizes are written inline** rather than from `TYPE`.
-- **The app icon is a terracotta heart** while the interface is sage and olive.
+- **Five font sizes are written inline** (10 to 14, inside rings and badges, below
+  `TYPE`'s smallest) and **33 radius literals** remain (dots, bars, half-height
+  pills and a few odd sizes such as 13, 18, 24). The ones that matched
+  `RADIUS` now use it.
+- **The app icon is a plain leaf-sage heart on cream** (`#757959`, the button
+  fill; recoloured from terracotta on 7 October 2026 to match the interface):
+  `icon.png`, `favicon.png` and the Android foreground. It is the simplest
+  possible mark, not a designed one; a real icon is the owner's artwork to
+  supply. The Android monochrome icon was not touched.
 - **Two header patterns** (see Headers) and the result's glass header, whose text
   shows through the tab pills while scrolling, are known and deliberate or
   undecided, not accidents.
-- **Find your actives does not read the quiz's sensitivity and pregnancy
-  answers**, so it can say "skipped" after a quiz.
 
 ## Provenance
 

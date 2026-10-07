@@ -110,11 +110,17 @@ describe("the ingredient page, opened from a product", () => {
     await open("cannabidiol", profile, { ...PRODUCT, ingredientIds: [...PRODUCT.ingredientIds, cbd.id], ingredients: [...INGREDIENTS, cbd] });
     // Under the name, in "For your skin", and as its EU status.
     expect(screen.getAllByText("Depends on how it's made").length).toBeGreaterThanOrEqual(3);
-    expect(screen.getByText("Not in your score")).toBeTruthy();
+    expect(screen.getByText("Not in your score")).toHaveStyle({ fontWeight: "500" });
     expect(screen.getByText(/depend on how it is made, which a label can't show/)).toBeTruthy();
     for (const allClear of ["No known concerns", "Nothing against it", "Neutral for you", "Safe", "No restriction", /no concerns/i]) {
       expect(screen.queryByText(allClear)).toBeNull();
     }
+  });
+
+  it("says a neutral ingredient is neutral once, not in a headline and again at the foot", async () => {
+    await open("butylene glycol", { baseSkinType: "dry" as const });
+    expect(screen.getByText("Nothing against it")).toBeTruthy();
+    expect(screen.queryByText("Neutral for you")).toBeNull();
   });
 
   it("with no skin profile, doesn't call a plain ingredient Good, as the list gives it no word", async () => {

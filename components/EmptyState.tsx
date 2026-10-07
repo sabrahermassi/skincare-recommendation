@@ -4,7 +4,7 @@ import { View } from "react-native";
 
 import { Text } from "@/components/Text";
 import { noOrphan } from "@/lib/text";
-import { DISPLAY_FONT, INK, MUTED, SPACE, TYPE } from "@/lib/tokens";
+import { DISPLAY_FONT, INK, MUTED, SPACE, TYPE, LEADING, TRACKING } from "@/lib/tokens";
 
 /** The picture's widest (v7: 220, 280 for the larger scenes). */
 const ART_WIDTH = 220;
@@ -53,11 +53,11 @@ export function EmptyState({
         ]}
       />
       {title ? (
-        <Text accessibilityRole="header" style={{ marginTop: artFull ? SPACE.gutter : 8, textAlign: "center", fontFamily: DISPLAY_FONT, fontSize: TYPE.heading, lineHeight: 28, letterSpacing: -0.5, color: INK }}>
+        <Text accessibilityRole="header" style={{ marginTop: artFull ? SPACE.gutter : 8, textAlign: "center", fontFamily: DISPLAY_FONT, fontSize: TYPE.heading, lineHeight: LEADING.heading, letterSpacing: TRACKING.heading, color: INK }}>
           {noOrphan(title)}
         </Text>
       ) : null}
-      <Text style={{ marginTop: SPACE.text, maxWidth: 300, textAlign: "center", fontSize: TYPE.body, lineHeight: 21, color: MUTED }}>{noOrphan(line)}</Text>
+      <Text style={{ marginTop: SPACE.text, maxWidth: 300, textAlign: "center", fontSize: TYPE.body, lineHeight: LEADING.body, color: MUTED }}>{noOrphan(line)}</Text>
       {action ? <View style={{ marginTop: SPACE.section, alignItems: "center" }}>{action}</View> : null}
     </View>
   );

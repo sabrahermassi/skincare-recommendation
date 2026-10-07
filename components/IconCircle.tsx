@@ -3,7 +3,7 @@ import { Pressable, StyleSheet } from "react-native";
 import Svg, { Path } from "react-native-svg";
 
 import { Glass, hasLiquidGlass, OnGlass } from "@/components/Glass";
-import { ICON_SHADOW, INK, SURFACE } from "@/lib/tokens";
+import { ICON_SHADOW, INK, SURFACE, SPACE } from "@/lib/tokens";
 
 /** The circle's size (v7): the nav bar's back, close, heart, share and star. */
 const ICON_CIRCLE = 40;
@@ -47,7 +47,7 @@ export function IconCircle({
 /** The back arrow in its circle: an arrow only, never a word beside it (v7). */
 export function BackChevron({ color = INK }: { color?: string }) {
   return (
-    <Svg width={10} height={17} viewBox="0 0 12 20" fill="none" style={{ marginRight: 2 }}>
+    <Svg width={10} height={17} viewBox="0 0 12 20" fill="none" style={{ marginRight: SPACE.hair }}>
       <Path d="M10 2 2 10l8 8" stroke={color} strokeWidth={2.6} strokeLinecap="round" strokeLinejoin="round" />
     </Svg>
   );

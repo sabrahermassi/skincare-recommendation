@@ -19,7 +19,7 @@ import { prepareRoutine } from "@/lib/routine-build";
 import { basicRoutine, recallRoutine, type Routine } from "@/lib/routine-builder";
 import { today as weekday } from "@/lib/skin-needs";
 import { tabBarClearance, tabRootTop } from "@/lib/tab-bar";
-import { CANVAS, HAND_FONT_BOLD, HOME_TILE, INK, MUTED, SPACE, TYPE, RADIUS } from "@/lib/tokens";
+import { CANVAS, HAND_FONT_BOLD, HOME_TILE, INK, MUTED, SPACE, TYPE, RADIUS, LEADING } from "@/lib/tokens";
 import { useAppStore } from "@/store/useAppStore";
 
 // The two tiles' watercolours (transparent ground).
@@ -86,7 +86,7 @@ export default function Home() {
         contentContainerStyle={{ paddingTop: tabRootTop(insets.top), paddingHorizontal: SPACE.gutter, paddingBottom: tabBarClearance(insets.bottom) }}
         showsVerticalScrollIndicator={false}
       >
-        <Text accessibilityRole="header" style={{ paddingHorizontal: 4, fontFamily: HAND_FONT_BOLD, fontSize: TYPE.display, lineHeight: 44, color: INK }}>
+        <Text accessibilityRole="header" style={{ paddingHorizontal: SPACE.tight, fontFamily: HAND_FONT_BOLD, fontSize: TYPE.display, lineHeight: 44, color: INK }}>
           Hi there!
         </Text>
 
@@ -185,15 +185,15 @@ function Tile({ label, description, art, fill, onPress }: { label: string; descr
       pressedScale={0.94}
       accessibilityLabel={label}
       grow
-      style={{ aspectRatio: 1, borderRadius: TILE_RADIUS, backgroundColor: fill, paddingBottom: 14, overflow: "hidden" }}
+      style={{ aspectRatio: 1, borderRadius: TILE_RADIUS, backgroundColor: fill, paddingBottom: SPACE.gutter, overflow: "hidden" }}
     >
-      <View style={{ flex: 1, paddingTop: 10, paddingHorizontal: 10 }}>
+      <View style={{ flex: 1, paddingTop: SPACE.block, paddingHorizontal: SPACE.block }}>
         <Image source={art} contentFit="contain" accessibilityLabel="" style={{ flex: 1 }} />
       </View>
-      <Text numberOfLines={1} adjustsFontSizeToFit minimumFontScale={0.85} style={{ paddingTop: 6, paddingHorizontal: 14, fontSize: TYPE.card, fontWeight: "600", color: INK }}>
+      <Text numberOfLines={1} adjustsFontSizeToFit minimumFontScale={0.85} style={{ paddingTop: SPACE.text, paddingHorizontal: SPACE.gutter, fontSize: TYPE.card, fontWeight: "600", color: INK }}>
         {label}
       </Text>
-      <Text numberOfLines={1} adjustsFontSizeToFit minimumFontScale={0.85} style={{ paddingHorizontal: 14, fontSize: TYPE.caption, lineHeight: 17.5, color: MUTED }}>
+      <Text numberOfLines={1} adjustsFontSizeToFit minimumFontScale={0.85} style={{ paddingHorizontal: SPACE.gutter, fontSize: TYPE.caption, lineHeight: LEADING.caption, color: MUTED }}>
         {description}
       </Text>
     </BounceCard>

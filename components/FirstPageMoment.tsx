@@ -4,7 +4,7 @@ import { AccessibilityInfo, Platform, Pressable, View } from "react-native";
 
 import { Text } from "@/components/Text";
 import { FIRST_PAGE_COPY, dismissFirstPage, useFirstPage } from "@/lib/first-page";
-import { CARD_SHADOW, INK, MUTED, SPACE, SURFACE, TOUCH_TARGET, TYPE, RADIUS } from "@/lib/tokens";
+import { CARD_SHADOW, INK, MUTED, SPACE, SURFACE, TOUCH_TARGET, TYPE, RADIUS, LEADING } from "@/lib/tokens";
 
 /**
  * "The first page of your journal" (#230), under the product screen's header,
@@ -49,7 +49,7 @@ function Card() {
       <Text className="font-display-medium" style={{ fontSize: TYPE.title, color: INK }}>
         {FIRST_PAGE_COPY.heading}
       </Text>
-      <Text style={{ fontSize: TYPE.label, lineHeight: 20, color: MUTED }}>{FIRST_PAGE_COPY.body}</Text>
+      <Text style={{ fontSize: TYPE.label, lineHeight: LEADING.label, color: MUTED }}>{FIRST_PAGE_COPY.body}</Text>
       <Pressable
         onPress={dismissFirstPage}
         accessibilityRole="button"

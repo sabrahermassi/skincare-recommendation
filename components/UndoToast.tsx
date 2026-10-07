@@ -46,7 +46,7 @@ export function UndoToast({ notice, onDone }: { notice: UndoNotice | null; onDon
             height: HEIGHT,
             borderRadius: HEIGHT / 2,
             ...(hasLiquidGlass ? null : { backgroundColor: TOAST.fill, ...TOAST.shadow }),
-            paddingLeft: 20,
+            paddingLeft: SPACE.inset,
             paddingRight: SPACE.text,
             flexDirection: "row",
             alignItems: "center",

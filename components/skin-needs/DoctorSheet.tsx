@@ -12,7 +12,7 @@ import type { Ingredient } from "@/data/types";
 import type { Need } from "@/lib/journey";
 import { phoneRegion } from "@/lib/region";
 import { activeOf, encodeAnswers, familyOf, prescriptionIn } from "@/lib/skin-needs";
-import { BUTTON, DISPLAY_FONT, INK, MUTED, MUTED_FAINT, STONE, VERDICT, TYPE, RADIUS, SPACE } from "@/lib/tokens";
+import { BUTTON, DISPLAY_FONT, INK, MUTED, MUTED_FAINT, STONE, VERDICT, TYPE, RADIUS, SPACE, LEADING, TRACKING } from "@/lib/tokens";
 
 /**
  * "Talk to a doctor first" (design_handoff "october 3d", D and Dp): a product
@@ -57,17 +57,17 @@ export function DoctorSheet({ ingredients, need }: { ingredients: readonly Pick<
         </IconCircle>
       }
     >
-      <View style={{ alignItems: "center", gap: SPACE.block, paddingTop: SPACE.text, paddingHorizontal: 6 }}>
+      <View style={{ alignItems: "center", gap: SPACE.block, paddingTop: SPACE.text, paddingHorizontal: SPACE.text }}>
         <View style={{ width: 48, height: 48, borderRadius: 24, backgroundColor: VERDICT.medium.tint, alignItems: "center", justifyContent: "center" }}>
           <Svg width={24} height={24} viewBox="0 0 24 24" fill="none">
             <Path d="M5 3v6a5 5 0 0 0 10 0V3M10 14v2a5 5 0 0 0 10 0v-3" stroke={VERDICT.medium.deep} strokeWidth={2.2} strokeLinecap="round" strokeLinejoin="round" />
             <Circle cx={20} cy={11} r={2} stroke={VERDICT.medium.deep} strokeWidth={2.2} />
           </Svg>
         </View>
-        <Text accessibilityRole="header" style={{ textAlign: "center", fontFamily: DISPLAY_FONT, fontSize: TYPE.heading, lineHeight: 28, letterSpacing: -0.5, color: INK }}>
+        <Text accessibilityRole="header" style={{ textAlign: "center", fontFamily: DISPLAY_FONT, fontSize: TYPE.heading, lineHeight: LEADING.heading, letterSpacing: TRACKING.heading, color: INK }}>
           Talk to a doctor first
         </Text>
-        <Text style={{ textAlign: "center", fontSize: TYPE.body, lineHeight: 21, color: MUTED }}>
+        <Text style={{ textAlign: "center", fontSize: TYPE.body, lineHeight: LEADING.body, color: MUTED }}>
           {pregnant
             ? `This has ${found.name}, ${found.what}. It's usually avoided while pregnant or breastfeeding. Ask your doctor before using it.`
             : `This has ${found.name}, ${found.what}. A doctor should guide how you use it.`}
@@ -84,7 +84,7 @@ export function DoctorSheet({ ingredients, need }: { ingredients: readonly Pick<
               className="active:opacity-80"
             >
               <Image source={familyOf(alternative).picture} contentFit="contain" accessibilityLabel="" style={{ width: 44, height: 44 }} />
-              <View style={{ flex: 1, gap: 2 }}>
+              <View style={{ flex: 1, gap: SPACE.hair }}>
                 <Text style={{ fontSize: TYPE.caption, color: MUTED_FAINT }}>Over-the-counter option</Text>
                 <Text style={{ fontSize: TYPE.body, fontWeight: "600", color: INK }}>{alternative.key === "retinoids" ? "Retinol" : alternative.name}</Text>
               </View>

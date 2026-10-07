@@ -33,22 +33,59 @@ afterEach(() => {
   jest.mocked(router.push).mockClear();
 });
 
-const pick = (name: string) => fireEvent.press(screen.getByRole("radio", { name }));
+// A goal past the first few sits behind "more": open it as a person would.
+const pick = async (name: string) => {
+  if (!screen.queryByRole("radio", { name })) {
+    const more = screen.queryByRole("button", { name: /more goals$/ });
+    if (more) await fireEvent.press(more);
+  }
+  await fireEvent.press(screen.getByRole("radio", { name }));
+};
 const tick = (name: string) => fireEvent.press(screen.getByRole("checkbox", { name }));
 const show = () => fireEvent.press(screen.getByRole("button", { name: "Show what helps" }));
 const card = (name: string) => screen.getByRole("button", { name: new RegExp(`^${name}, `) });
 
-// Its own path (owner): nothing from the profile is filled in or carried over.
-it("asks fresh, whatever the skin profile says", async () => {
+// Owner, 7 October 2026: asked once. Sensitivity and pregnancy start from the profile; the goal never does.
+it("starts sensitivity and pregnancy from the skin profile, and the goal fresh", async () => {
   useAppStore.setState({ profile: { ...EMPTY_PROFILE, concerns: ["acne-prone"], sensitivity: "high", pregnancyStatus: "pregnant" } });
   await render(<Journey />);
   expect(screen.getByRole("radio", { name: "Clear pimples" }).props.accessibilityState.checked).toBe(false);
-  expect(screen.getByRole("radio", { name: "Sensitive skin: Very" }).props.accessibilityState.checked).toBe(false);
+  expect(screen.getByRole("radio", { name: "Sensitive skin: Very" }).props.accessibilityState.checked).toBe(true);
+  expect(screen.getByRole("radio", { name: "Pregnant or breastfeeding: Yes" }).props.accessibilityState.checked).toBe(true);
+  expect(screen.getAllByText("From your profile")).toHaveLength(2);
   await pick("Lines and wrinkles");
-  await pick("Pregnant or breastfeeding: No");
   await show();
-  // The profile's pregnancy is not carried in: retinoids still show.
-  expect(card("Retinoids")).toBeTruthy();
+  // The profile's pregnancy is carried in: retinoids are left out.
+  expect(screen.queryByRole("button", { name: /^Retinoids, / })).toBeNull();
+});
+
+it("lets a profile answer be changed, and then it no longer says it came from the profile", async () => {
+  useAppStore.setState({ profile: { ...EMPTY_PROFILE, sensitivity: "high", pregnancyStatus: "neither" } });
+  await render(<Journey />);
+  await pick("Sensitive skin: Somewhat");
+  expect(screen.getByRole("radio", { name: "Sensitive skin: Somewhat" }).props.accessibilityState.checked).toBe(true);
+  expect(screen.getAllByText("From your profile")).toHaveLength(1);
+  // Picking the profile's answer again does not bring the tag back: it was chosen here.
+  await pick("Sensitive skin: Very");
+  expect(screen.getByRole("radio", { name: "Sensitive skin: Very" }).props.accessibilityState.checked).toBe(true);
+  expect(screen.getAllByText("From your profile")).toHaveLength(1);
+});
+
+it("asks everything when the profile is empty", async () => {
+  await render(<Journey />);
+  // A question's tag is a meta line: medium, not semibold.
+  expect(screen.getByText("Pick one")).toHaveStyle({ fontWeight: "500" });
+  expect(screen.queryByText("From your profile")).toBeNull();
+  expect(screen.getByRole("radio", { name: "Sensitive skin: Very" }).props.accessibilityState.checked).toBe(false);
+});
+
+it("shows the first goals and the rest a tap away, open at once for a goal in the rest", async () => {
+  await render(<Journey />);
+  expect(screen.getByRole("radio", { name: GOALS[0].label })).toBeTruthy();
+  expect(screen.queryByRole("radio", { name: GOALS[GOALS.length - 1].label })).toBeNull();
+  await fireEvent.press(screen.getByRole("button", { name: /more goals$/ }));
+  expect(GOALS.every((goal) => screen.getByRole("radio", { name: goal.label }))).toBe(true);
+  expect(screen.queryByRole("button", { name: /more goals$/ })).toBeNull();
 });
 
 // The title sits beside its tag, so the pair kept together only applies while text is at its normal size.
@@ -64,7 +101,6 @@ it("keeps the last two words of a question together, until the text size grows",
 it("keeps Show what helps off until a goal is picked (Q0), and takes one goal only", async () => {
   await render(<Journey />);
   expect(screen.getByRole("button", { name: "Show what helps" }).props.accessibilityState.disabled).toBe(true);
-  expect(GOALS.every((goal) => screen.getByRole("radio", { name: goal.label }))).toBe(true);
   await pick("Clear pimples");
   await pick("Calm redness");
   expect(screen.getByRole("radio", { name: "Clear pimples" }).props.accessibilityState.checked).toBe(false);

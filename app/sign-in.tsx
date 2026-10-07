@@ -18,7 +18,7 @@ import {
   type Provider,
   type SignInResult,
 } from "@/lib/auth";
-import { CANVAS, DISPLAY_FONT, INK, MUTED, SPACE, TYPE } from "@/lib/tokens";
+import { CANVAS, DISPLAY_FONT, INK, MUTED, SPACE, TYPE, LEADING, TRACKING } from "@/lib/tokens";
 import { noOrphan } from "@/lib/text";
 
 /** The same height as every other button (v7: 48). */
@@ -99,11 +99,11 @@ export default function SignIn() {
     // a shelf picture above the title; at half height it would push both
     // buttons below the fold, so the sheet leaves it out.
     <View style={{ flex: 1, backgroundColor: CANVAS }}>
-      <View style={{ paddingHorizontal: SPACE.section, paddingTop: 32, paddingBottom: insets.bottom + 32, gap: SPACE.text }}>
-        <Text accessibilityRole="header" style={{ textAlign: "center", fontFamily: DISPLAY_FONT, fontSize: TYPE.heading, lineHeight: 28, letterSpacing: -0.5, color: INK }}>
+      <View style={{ paddingHorizontal: SPACE.section, paddingTop: SPACE.large, paddingBottom: insets.bottom + 32, gap: SPACE.text }}>
+        <Text accessibilityRole="header" style={{ textAlign: "center", fontFamily: DISPLAY_FONT, fontSize: TYPE.heading, lineHeight: LEADING.heading, letterSpacing: TRACKING.heading, color: INK }}>
           Keep your shelf
         </Text>
-        <Text style={{ alignSelf: "center", maxWidth: 300, textAlign: "center", fontSize: TYPE.body, lineHeight: 21, color: MUTED }}>{noOrphan(ACCOUNT_PITCH)}</Text>
+        <Text style={{ alignSelf: "center", maxWidth: 300, textAlign: "center", fontSize: TYPE.body, lineHeight: LEADING.body, color: MUTED }}>{noOrphan(ACCOUNT_PITCH)}</Text>
 
         <View style={{ gap: SPACE.block, paddingTop: SPACE.gutter, alignItems: "center" }}>
           {appleAvailable ? (
@@ -123,12 +123,12 @@ export default function SignIn() {
         </View>
 
         {failure ? (
-          <Text accessibilityLiveRegion="polite" style={{ textAlign: "center", fontSize: TYPE.label, lineHeight: 21, color: INK }}>
+          <Text accessibilityLiveRegion="polite" style={{ textAlign: "center", fontSize: TYPE.label, lineHeight: LEADING.label, color: INK }}>
             {failure}
           </Text>
         ) : null}
 
-        <Text style={{ paddingTop: SPACE.text, textAlign: "center", fontSize: TYPE.caption, lineHeight: 18, color: MUTED }}>
+        <Text style={{ paddingTop: SPACE.text, textAlign: "center", fontSize: TYPE.caption, lineHeight: LEADING.caption, color: MUTED }}>
           {anyProvider ? HIDE_MY_EMAIL_NOTE : UNAVAILABLE}
         </Text>
       </View>

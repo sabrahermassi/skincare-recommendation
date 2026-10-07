@@ -102,3 +102,7 @@ start-expo.ps1
 # personal override beside it: a permissive allow-list for unattended runs is
 # a property of one machine, not of the repo.
 .claude/settings.local.json
+
+# Impeccable design-review screenshots: simulator captures, regenerated each run.
+.impeccable/screens/
+.impeccable/screens-*/

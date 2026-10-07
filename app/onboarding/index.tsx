@@ -140,7 +140,7 @@ export default function Onboarding() {
             top: insets.top + 12,
             flexDirection: "row",
             alignItems: "center",
-            gap: 10,
+            gap: SPACE.text,
             borderRadius: RADIUS.control,
             paddingHorizontal: SPACE.gutter,
             paddingVertical: SPACE.block,

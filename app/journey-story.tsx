@@ -226,7 +226,7 @@ function Story({ active, answers }: { active: StoryActive; answers: NeedAnswers 
   );
 
   const checkLink = (
-    <Pressable onPress={checkProduct} accessibilityRole="button" accessibilityLabel="Have one in mind? Check a product" style={{ height: 48, flexDirection: "row", alignItems: "center", justifyContent: "center", gap: 4 }} className="active:opacity-70">
+    <Pressable onPress={checkProduct} accessibilityRole="button" accessibilityLabel="Have one in mind? Check a product" style={{ height: 48, flexDirection: "row", alignItems: "center", justifyContent: "center", gap: SPACE.tight }} className="active:opacity-70">
       <Text style={{ fontSize: TYPE.body, color: MUTED }}>Have one in mind?</Text>
       <Text style={{ fontSize: TYPE.body, fontWeight: "600", color: BUTTON.primary.fill }}>Check a product</Text>
     </Pressable>
@@ -282,7 +282,7 @@ function Story({ active, answers }: { active: StoryActive; answers: NeedAnswers 
     <Animated.View {...responder.panHandlers} style={{ flex: 1, backgroundColor: CANVAS, transform: [{ translateY: drag }], opacity }}>
       <View style={{ paddingTop: insets.top + 4, paddingHorizontal: SPACE.gutter, gap: SPACE.block }}>
         {/* Where you are: one bar a card, filled up to this one. */}
-        <View accessibilityLabel={`Card ${index + 1} of ${total}`} style={{ flexDirection: "row", gap: 4 }}>
+        <View accessibilityLabel={`Card ${index + 1} of ${total}`} style={{ flexDirection: "row", gap: SPACE.tight }}>
           {cards.map((key, i) => (
             <View key={key} style={{ flex: 1, height: 3, borderRadius: 2, backgroundColor: i <= index ? INK : SKIN_NEEDS.line }} />
           ))}
@@ -293,7 +293,7 @@ function Story({ active, answers }: { active: StoryActive; answers: NeedAnswers 
           <Text numberOfLines={1} style={{ flexShrink: 1, fontSize: TYPE.caption, color: MUTED_FAINT }}>
             {active.sub}
           </Text>
-          <Text style={{ marginLeft: "auto", fontSize: TYPE.caption, fontWeight: "600", color: MUTED_FAINT }}>
+          <Text style={{ marginLeft: "auto", fontSize: TYPE.caption, fontWeight: "500", color: MUTED_FAINT }}>
             {index + 1} / {total}
           </Text>
           <Pressable

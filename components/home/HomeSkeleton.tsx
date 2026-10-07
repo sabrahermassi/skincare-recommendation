@@ -43,11 +43,11 @@ function Bar({ width, height = 14, style }: { width: number | `${number}%`; heig
 /** The routine card: its two title lines, the time line, the active, and a row of pills. */
 function CardShape() {
   return (
-    <View style={{ height: SKELETON_CARD_HEIGHT, borderRadius: CARD_RADIUS, backgroundColor: DIVIDER, padding: 20, justifyContent: "space-between" }}>
-      <View style={{ gap: 10 }}>
+    <View style={{ height: SKELETON_CARD_HEIGHT, borderRadius: CARD_RADIUS, backgroundColor: DIVIDER, padding: SPACE.inset, justifyContent: "space-between" }}>
+      <View style={{ gap: SPACE.text }}>
         <Bar width="52%" height={22} />
         <Bar width="40%" height={14} />
-        <Bar width="34%" height={18} style={{ marginTop: 6 }} />
+        <Bar width="34%" height={18} style={{ marginTop: SPACE.tight }} />
       </View>
       <View style={{ flexDirection: "row", gap: SPACE.text }}>
         {[0, 1, 2].map((i) => (
@@ -63,7 +63,7 @@ function TipShape() {
   return (
     <View style={{ height: SKELETON_TIP_HEIGHT, flexDirection: "row", alignItems: "center", gap: SPACE.gutter }}>
       <View style={{ width: 120, height: 120, borderRadius: RADIUS.panel, backgroundColor: DIVIDER }} />
-      <View style={{ flex: 1, gap: 10 }}>
+      <View style={{ flex: 1, gap: SPACE.text }}>
         <Bar width="62%" height={22} />
         <Bar width="86%" height={14} />
         <Bar width="40%" height={14} />
