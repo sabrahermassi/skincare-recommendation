@@ -166,6 +166,22 @@ describe("every table row is accounted for", () => {
     expect(parsed.warnings.some((w) => /not accounted for/.test(w))).toBe(false);
   });
 
+  it("does not fold a row with an unrecognised reference into the entry above it", () => {
+    const row = '<tr><td><p class="tbl-norm">X-9</p></td><td><p class="tbl-norm">A substance under a new kind of number</p></td><td><p class="tbl-norm">1-1-1</p></td><td><p class="tbl-norm"> </p></td></tr>';
+    const at = FIXTURE.lastIndexOf("<tr>", FIXTURE.indexOf('<p class="tbl-norm">1397</p>'));
+    const odd = parseAnnexes(FIXTURE.slice(0, at) + row + FIXTURE.slice(at));
+    expect(odd.warnings.some((w) => /"X-9" is not an entry number/.test(w))).toBe(true);
+    expect(odd.warnings.some((w) => /Annex II: 1 table row\(s\) are not accounted for/.test(w))).toBe(true);
+    expect(odd.entries.some((e) => JSON.stringify(e).includes("new kind of number"))).toBe(false);
+  });
+
+  it("keeps the letters a member's CAS cell prints beside the number", () => {
+    const qualified = parseAnnexes(FIXTURE.replace("12008-41-2 [1]", "12008-41-2 HCl [1]"));
+    const octaborate = qualified.entries.find((e) => e.annex === "II" && e.entry === "1396")!.members.find((m) => /octaborate anhydrous/.test(m.name))!;
+    expect(octaborate.cas).toEqual(["12008-41-2"]);
+    expect(octaborate.unparsed?.cas).toMatch(/HCl/);
+  });
+
   it("names the numbers the text does not print, so a gap is visible", () => {
     expect(parsed.missingNumbers.II).toContain(2);
     expect(parsed.missingNumbers.II).not.toContain(1);
@@ -262,7 +278,7 @@ const FULL = process.env.EU_ANNEX_FILE;
 
   it("returns every row of both annexes and accounts for each", () => {
     expect(whole!.stats.II).toMatchObject({ tableRows: 1945, headerRows: 3, markerRows: 47, footnoteRows: 1, entryRows: 1762, continuationRows: 132, entries: 1762, deleted: 25, blank: 0 });
-    expect(whole!.stats.III).toMatchObject({ tableRows: 740, headerRows: 3, markerRows: 136, footnoteRows: 0, entryRows: 379, continuationRows: 222, entries: 379, deleted: 3, blank: 4, irregularRows: 0 });
+    expect(whole!.stats.III).toMatchObject({ tableRows: 740, headerRows: 3, markerRows: 136, footnoteRows: 1, entryRows: 379, continuationRows: 221, entries: 379, deleted: 3, blank: 4, irregularRows: 0 });
   });
 
   it("lists the numbers the text does not print", () => {

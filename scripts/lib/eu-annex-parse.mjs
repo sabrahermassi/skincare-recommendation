@@ -35,7 +35,7 @@
  * `warnings` rather than dropped.
  */
 
-/** @typedef {{ name: string, inciName: string | null, cas: string[], ec: string[] }} AnnexMember */
+/** @typedef {{ name: string, inciName: string | null, cas: string[], ec: string[], unparsed?: { cas?: string, ec?: string } }} AnnexMember */
 
 /**
  * @typedef {object} AnnexConditions The Annex III columns f to i, for one row of an entry.
@@ -289,8 +289,17 @@ function parseAnnexTable(annex, tableHtml, amendments) {
     }
 
     // The footnotes close the table: one row holding the whole list.
-    if (/^\(\d+\)/.test(first)) {
+    // (Annex III's list opens with an amendment mark, so it is read without the marks.)
+    if (/^\(\d+\)/.test(ref)) {
       stats.footnoteRows += 1;
+      return;
+    }
+
+    // A row that prints a reference of its own which is not an entry number is something this parser
+    // has not seen. It is not folded into the entry above (that would write it under the wrong entry):
+    // it stays out of the count, so the accounting check below stops the run.
+    if (current && row[0]?.own && number) {
+      warnings.push(`${label}: a row with the reference "${number.slice(0, 40)}" is not an entry number and not a continuation, not read`);
       return;
     }
 
@@ -304,8 +313,8 @@ function parseAnnexTable(annex, tableHtml, amendments) {
       const cas = identifiers(ownAt(row, idCol), CAS);
       const ec = identifiers(ownAt(row, idCol + 1), EC);
       if (name || inci || cas.numbers.length > 0 || ec.numbers.length > 0) {
-        current.members.push({ name: name || inci, inciName: inci || null, cas: cas.numbers, ec: ec.numbers });
-        unparsedOf(cas, ec, `${label} (entry ${current.entry}, member)`, warnings);
+        const unparsed = unparsedOf(cas, ec, `${label} (entry ${current.entry}, member)`, warnings);
+        current.members.push({ name: name || inci, inciName: inci || null, cas: cas.numbers, ec: ec.numbers, ...(unparsed ? { unparsed } : {}) });
       }
       if (annex === "III" && current.status === "active") current.conditions.push(conditionsOf(row));
       return;
