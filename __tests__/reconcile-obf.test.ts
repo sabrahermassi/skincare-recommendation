@@ -446,7 +446,7 @@ describe("replaceArgs", () => {
     const product = (photographedAt?: string | null) => (replaceArgs(row, fresh, "refresh", photographedAt) as { p_product: Record<string, unknown> }).p_product;
     expect(product("2018-04-08T17:29:34.000Z").ingredients_photographed_at).toBe("2018-04-08T17:29:34.000Z");
     expect(product(null)).toHaveProperty("ingredients_photographed_at", null);
-    // No key: the function keeps the date already stored (migration 0033).
+    // No key: the function keeps the date already stored (migration 0034).
     expect("ingredients_photographed_at" in product()).toBe(false);
   });
 });

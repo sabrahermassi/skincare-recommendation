@@ -82,7 +82,7 @@ in the #419 PR.
 **How old an ingredient list is, is when it was photographed (7 October 2026, #446).** A
 barcode result shows Open Beauty Facts' copy of the list. `fetched_at` is when we last read the
 row, and OBF's `last_modified_t` moves whenever one of its bots touches a product, so neither
-says how old the formula is. `products.ingredients_photographed_at` (migration 0033) is the
+says how old the formula is. `products.ingredients_photographed_at` (migration 0034) is the
 upload time of the photo OBF has selected as the ingredients picture, the newest across
 languages, read by one shared function (`supabase/functions/_shared/ingredients-photo-date.mjs`)
 in the import, the reconcile job and `product-lookup`. Null means OBF has no photo of the list.

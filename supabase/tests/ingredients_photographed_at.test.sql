@@ -1,4 +1,4 @@
--- Migration 0033 (#446): the date an ingredient list was photographed goes
+-- Migration 0034 (#446): the date an ingredient list was photographed goes
 -- through replace_product_with_ingredients, and a writer that did not look at
 -- the photos cannot wipe it.
 

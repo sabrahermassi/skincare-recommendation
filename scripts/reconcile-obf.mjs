@@ -373,7 +373,7 @@ export function replaceArgs(row, fresh, action, photographedAt) {
   const base = {
     p_product: {
       id, barcode, brand, name, type, area, description, image_url, volume, in_stock, suitable_for, targets, source, attribution, expires_at,
-      // When the ingredient list was photographed (#446, migration 0033). Left out when this
+      // When the ingredient list was photographed (#446, migration 0034). Left out when this
       // read did not look, and the function then keeps the date already stored.
       ...(photographedAt !== undefined ? { ingredients_photographed_at: photographedAt } : {}),
     },

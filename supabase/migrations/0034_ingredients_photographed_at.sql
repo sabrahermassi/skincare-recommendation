@@ -11,7 +11,13 @@
 -- Nullable, no default, no backfill, like `formula_changed_at` (0017): null is
 -- "OBF has no ingredient photo" or "not read yet", and the screen treats both
 -- as "we don't know how old this list is".
-alter table products add column ingredients_photographed_at timestamptz;
+--
+-- "if not exists", because this file was first pushed as 0033, the same number
+-- as 0033_annex_boron_followup, and staging applied it under that number. The
+-- runner tracks migrations by number alone, so renamed to 0034 it runs there
+-- once more, and must find its own column without failing. Anywhere else it
+-- runs once, as written.
+alter table products add column if not exists ingredients_photographed_at timestamptz;
 
 -- Every writer goes through this function, and it names its columns, so a new
 -- one is dropped silently unless it is listed. This is 0022's function with
