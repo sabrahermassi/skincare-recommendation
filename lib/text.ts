@@ -4,7 +4,10 @@
  * balanced wrapping, so the last space becomes a non-breaking one. A text of one
  * or two words is left alone: there is nothing to keep it from.
  */
-export function noOrphan(text: string): string {
+export function noOrphan(text: string): string;
+export function noOrphan(text: string | undefined): string | undefined;
+export function noOrphan(text: string | undefined): string | undefined {
+  if (text === undefined) return undefined;
   const words = text.trim().split(/\s+/);
   if (words.length < 3) return text;
   const at = text.lastIndexOf(" ");

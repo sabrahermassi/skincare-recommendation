@@ -69,6 +69,7 @@ import {
   RADIUS,
 } from "@/lib/tokens";
 import { TAB_BAR_HEIGHT } from "@/lib/tab-bar";
+import { noOrphan } from "@/lib/text";
 
 /**
  * The front door — screen 2a of the Skin Match Scanner design.
@@ -706,9 +707,9 @@ function NoMatchSheet({
         accessibilityRole="header"
         style={{ marginTop: SPACE.block, textAlign: "center", fontFamily: DISPLAY_FONT, fontSize: TYPE.heading, lineHeight: 28, letterSpacing: -0.5, color: INK }}
       >
-        {copy.title}
+        {noOrphan(copy.title)}
       </Text>
-      <Text style={{ marginTop: SPACE.text, maxWidth: 300, textAlign: "center", fontSize: TYPE.body, lineHeight: 21, color: MUTED }}>{copy.line}</Text>
+      <Text style={{ marginTop: SPACE.text, maxWidth: 300, textAlign: "center", fontSize: TYPE.body, lineHeight: 21, color: MUTED }}>{noOrphan(copy.line)}</Text>
       <PrimaryButton label={primaryLabel} onPress={onPrimary} style={{ width: BUTTON_WIDTH.secondary, marginTop: SPACE.section }} />
     </ScanPopup>
   );

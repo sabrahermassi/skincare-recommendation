@@ -7,6 +7,7 @@ import { useSafeAreaInsets } from "react-native-safe-area-context";
 import { PrimaryButton } from "@/components/PrimaryButton";
 import { Text } from "@/components/Text";
 import { CANVAS, DISPLAY_FONT, INK, MUTED, SPACE, TYPE } from "@/lib/tokens";
+import { noOrphan } from "@/lib/text";
 
 /** What the screen says. Exported for the tests. */
 export const ROUTE_ERROR_COPY = {
@@ -44,9 +45,9 @@ export function RouteErrorScreen({ error, retry }: ErrorBoundaryProps) {
       }}
     >
       <Text accessibilityRole="header" style={{ fontFamily: DISPLAY_FONT, fontSize: TYPE.heading, color: INK, textAlign: "center" }}>
-        {ROUTE_ERROR_COPY.heading}
+        {noOrphan(ROUTE_ERROR_COPY.heading)}
       </Text>
-      <Text style={{ fontSize: TYPE.body, lineHeight: 22, color: MUTED, textAlign: "center" }}>{ROUTE_ERROR_COPY.body}</Text>
+      <Text style={{ fontSize: TYPE.body, lineHeight: 22, color: MUTED, textAlign: "center" }}>{noOrphan(ROUTE_ERROR_COPY.body)}</Text>
       <PrimaryButton label={ROUTE_ERROR_COPY.retry} onPress={() => void retry()} style={{ alignSelf: "stretch" }} />
     </View>
   );

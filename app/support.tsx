@@ -10,6 +10,7 @@ import { Text } from "@/components/Text";
 import { supportEmail } from "@/lib/support-email";
 import { CANVAS, CARD_RADIUS, HAIRLINE, INK, LINK, MUTED, SPACE, SURFACE, TYPE } from "@/lib/tokens";
 import { FitScrollView } from "@/components/FitScrollView";
+import { noOrphan } from "@/lib/text";
 
 // Where to write to. Until it is set, the screen shows the help below and no
 // contact button rather than a made-up address.
@@ -98,7 +99,7 @@ export default function Support() {
             />
             {mailFailed ? (
               <Text style={{ textAlign: "center", fontSize: TYPE.body, lineHeight: 21, color: MUTED }}>
-                {`We couldn't open a mail app on this phone. You can write to ${SUPPORT_EMAIL} instead.`}
+                {noOrphan(`We couldn't open a mail app on this phone. You can write to ${SUPPORT_EMAIL} instead.`)}
               </Text>
             ) : null}
           </View>
