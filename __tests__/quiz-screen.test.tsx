@@ -90,5 +90,5 @@ it("outlines an unchosen answer and rings a chosen one", async () => {
   await render(<QuizFrame><ConcernsStep /></QuizFrame>);
   const border = (name: string) => StyleSheet.flatten(screen.getByRole("checkbox", { name }).props.style).borderColor;
   expect(border("Dullness")).toBe(OPTION_LINE);
-  expect(border("Acne or pimples")).toBe(BUTTON.primary.fill);
+  expect(border("Breakouts")).toBe(BUTTON.primary.fill);
 });

@@ -83,15 +83,15 @@ it("names a serum or treatment only when it holds an active for the concern, and
   expect(names(slot(routine, "morning", "serum"))).toEqual(["Azelaic serum"]);
   expect(names(slot(routine, "evening", "treatment"))).toEqual(["BHA serum"]);
   // The step's headline is the active itself, best first, with the others that would do.
-  expect(slot(routine, "morning", "serum").active).toEqual({ name: "Azelaic acid", why: "For acne.", alternatives: [], caution: null });
+  expect(slot(routine, "morning", "serum").active).toEqual({ name: "Azelaic acid", why: "For breakouts.", alternatives: [], caution: null });
   // It is the active the suggested product holds, so the big letters and the
   // bottle under them never name two different things.
   const treatment = slot(routine, "evening", "treatment").active!;
-  expect(treatment).toMatchObject({ name: "Salicylic acid", why: "For acne.", alternatives: ["Benzoyl peroxide", "Retinoids"] });
-  expect(activeLine(treatment)).toBe("For acne. Benzoyl peroxide or Retinoids would do too.");
+  expect(treatment).toMatchObject({ name: "Salicylic acid", why: "For breakouts.", alternatives: ["Benzoyl peroxide", "Retinoids"] });
+  expect(activeLine(treatment)).toBe("For breakouts. Benzoyl peroxide or Retinoids would do too.");
   // With no product to suggest, it is the best active for the profile.
-  expect(slot(buildRoutine([], ACNE), "evening", "treatment").active).toEqual({ name: "Benzoyl peroxide", why: "For acne.", alternatives: ["Retinoids", "Salicylic acid"], caution: null });
-  expect(activeLine(slot(routine, "morning", "serum").active!)).toBe("For acne.");
+  expect(slot(buildRoutine([], ACNE), "evening", "treatment").active).toEqual({ name: "Benzoyl peroxide", why: "For breakouts.", alternatives: ["Retinoids", "Salicylic acid"], caution: null });
+  expect(activeLine(slot(routine, "morning", "serum").active!)).toBe("For breakouts.");
 });
 
 it("suggests the product with the better active first, whatever the two score", () => {

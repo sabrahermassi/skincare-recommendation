@@ -76,7 +76,7 @@ export const EVENING_TIPS: Partial<Record<ActiveKey, Tip>> = {
   calming: { tip: "Press it in gently.", why: "Centella is there to keep skin calm. Pressing instead of rubbing keeps it that way." },
   zinc: { tip: "A little goes a long way.", why: "Zinc helps with shine. A thin layer is enough, then your moisturiser." },
   sulfur: { tip: "Only where you need it.", why: "Sulfur can be drying. Using it on spots alone keeps the rest of your skin comfortable." },
-  oat: { tip: "A soft night for your skin.", why: "Oat soothes and softens. It's a good pick on nights your skin feels tight." },
+  oat: { tip: "A soft night for your skin.", why: "Oat feels soft and comforting. It's a good pick on nights your skin feels tight." },
   panthenol: { tip: "Layer it under moisturiser.", why: "Panthenol draws in water and softens. Your moisturiser then keeps it there." },
   glycerin: { tip: "Seal it in.", why: "Glycerin pulls water into your skin. A moisturiser on top keeps it from drying off." },
   squalane: { tip: "A few drops, last.", why: "Squalane is a light oil. Two or three drops after moisturiser soften without feeling greasy." },

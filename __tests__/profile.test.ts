@@ -119,7 +119,7 @@ describe("profileHeadline", () => {
     const h = profileHeadline(profile({ baseSkinType: "oily", sensitivity: "high", concerns: ["acne-prone", "redness"] }));
     expect(h.title).toBe("Oily skin");
     // The quiz's own words, so a chip can't rename an answer (#294).
-    expect(h.tags).toEqual(["Very sensitive", "Acne or pimples", "Redness or rosacea"]);
+    expect(h.tags).toEqual(["Very sensitive", "Breakouts", "Redness"]);
   });
 
   it("tags some sensitivity in the quiz's words", () => {
