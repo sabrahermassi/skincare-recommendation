@@ -1,7 +1,7 @@
 import AsyncStorage from "@react-native-async-storage/async-storage";
 import { AppState, Platform } from "react-native";
 
-import { unknownIngredient, type Ingredient, type ProductType, type ProductWithIngredients } from "./types";
+import { unknownIngredient, type Ingredient, type ProductType, type ProductWithIngredients, type RegulatoryMark, type RegulatorySnapshot } from "./types";
 
 /** A product as it is written to disk: the formula lives in the dictionary. */
 type PersistedProduct = Omit<ProductWithIngredients, "ingredients">;
@@ -52,10 +52,17 @@ type PersistedCatalogue = {
  * definition into every product that contained it, so they are both a
  * different shape and several times larger.
  */
-const SCHEMA_VERSION = 5;
+const SCHEMA_VERSION = 6;
 
 const PRODUCTS_KEY = `forme-catalogue-v${SCHEMA_VERSION}`;
 const META_KEY = `forme-catalogue-meta-v${SCHEMA_VERSION}`;
+
+/**
+ * The official Annex II and III entries and the ingredient links (#456): public reference text, so
+ * it belongs in this file. One value, with the mark it was read under; about a megabyte, which an
+ * iPhone holds without chunking (the platform this MVP ships on).
+ */
+const REGULATORY_KEY = `forme-regulatory-v${SCHEMA_VERSION}`;
 
 /**
  * Where a chunked Android payload records how to put itself back together.
@@ -158,6 +165,10 @@ function nextGeneration(): string {
  * has no key for it, and the product screen reads a missing key as "nobody
  * asked", so a device left on v3 would never show how old a list is.
  *
+ * v5 -> v6 (#456): the regulatory tables get a cache key of their own beside the catalogue's. The
+ * catalogue's shape did not change, but the version is shared by every key here, so the v5 blobs
+ * are swept as legacy and the catalogue is read once more.
+ *
  * v4 -> v5 (#458): the same again for `ingredientMatches`. A v4 blob has no key for it, and a
  * missing key reads as "not known", so a device left on v4 would show every name as low confidence
  * until each product happened to be read again.
@@ -174,6 +185,10 @@ const LEGACY_KEYS = [
   "forme-catalogue-v4",
   "forme-catalogue-meta-v4",
   "forme-catalogue-manifest-v4",
+  "forme-catalogue-v5",
+  "forme-catalogue-meta-v5",
+  "forme-catalogue-manifest-v5",
+  "forme-regulatory-v5",
 ];
 
 let legacyDropped = false;
@@ -1781,10 +1796,41 @@ export async function resetCatalogueCache(): Promise<void> {
   legacyDropped = false;
   scanned.clear();
   try {
-    await AsyncStorage.multiRemove([PRODUCTS_KEY, META_KEY, MANIFEST_KEY]);
+    await AsyncStorage.multiRemove([PRODUCTS_KEY, META_KEY, MANIFEST_KEY, REGULATORY_KEY]);
     await clearChunks();
   } catch {
     // Nothing to do — the memory layer is already gone, which is what callers
     // actually depend on.
   }
+}
+
+const isCount = (value: unknown): value is number => typeof value === "number" && Number.isInteger(value) && value >= 0;
+const isMarkPart = (value: unknown): value is { count: number; newest: string | null } =>
+  typeof value === "object" && value !== null && isCount((value as { count?: unknown }).count) && ((value as { newest?: unknown }).newest === null || typeof (value as { newest?: unknown }).newest === "string");
+
+/** What the device holds of the regulatory tables, or null when nothing usable is stored (nothing, or a shape this version did not write). */
+export async function readRegulatory(): Promise<RegulatorySnapshot | null> {
+  try {
+    const raw = await AsyncStorage.getItem(REGULATORY_KEY);
+    if (!raw) return null;
+    const parsed = JSON.parse(raw) as Partial<RegulatorySnapshot> | null;
+    if (!parsed || !parsed.mark || !isMarkPart(parsed.mark.entries) || !isMarkPart(parsed.mark.links) || !Array.isArray(parsed.entries) || !Array.isArray(parsed.links)) return null;
+    return parsed as RegulatorySnapshot;
+  } catch {
+    return null;
+  }
+}
+
+/** Keeps a read. A failed write costs the next launch one more read and nothing else. */
+export async function writeRegulatory(snapshot: RegulatorySnapshot): Promise<void> {
+  try {
+    await AsyncStorage.setItem(REGULATORY_KEY, JSON.stringify(snapshot));
+  } catch {
+    // Not worth reporting: the snapshot in hand is still what the caller uses.
+  }
+}
+
+/** Whether nothing changed between two reads of the regulatory tables: both counts and both newest stamps. */
+export function regulatoryMarksMatch(a: RegulatoryMark, b: RegulatoryMark): boolean {
+  return a.entries.count === b.entries.count && a.entries.newest === b.entries.newest && a.links.count === b.links.count && a.links.newest === b.links.newest;
 }
