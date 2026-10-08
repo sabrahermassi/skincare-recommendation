@@ -79,6 +79,24 @@ function recordFor(recordsByName, name) {
 
 const sharesAny = (a, b) => a.some((x) => b.has(x));
 
+/** The records the matcher reads: ingredient records that have an INCI name. A substance record is not a dictionary lookup. */
+export const usableRecords = (records) => records.filter((r) => r.inci_name && (!r.kind || r.kind === "ingredient"));
+
+/** A prune that would delete more than this share of the automatic rows stored is a bad read, not a change. */
+export const MAX_STALE_SHARE = 0.5;
+
+/** Whether `--prune` may go ahead: not when it would delete most of the automatic rows there are. */
+export function pruneIsSane(stored, plan) {
+  const automatic = stored.filter((r) => !r.reviewed_by && r.matched_by !== "manual").length;
+  return automatic < 20 || plan.stale.length <= automatic * MAX_STALE_SHARE;
+}
+
+/** The numbers of `kind` ("cas" or "ec") in `own` that neither the entry nor any of its listed members carries. */
+function unlisted(entry, kind, own) {
+  const listed = new Set([...(entry[kind === "cas" ? "cas_numbers" : "ec_numbers"] ?? []), ...(entry.members ?? []).flatMap((m) => m[kind] ?? [])]);
+  return own.filter((id) => !listed.has(id));
+}
+
 /**
  * @param {{
  *   entries: Array<{ annex: string, entry: string, wording?: string, cas_numbers?: string[], ec_numbers?: string[], members?: Array<{ cas?: string[], ec?: string[] }>, status?: string }>,
@@ -90,8 +108,7 @@ const sharesAny = (a, b) => a.some((x) => b.has(x));
 export function matchRegulatory({ entries, records, ingredients, productCounts = new Map() }) {
   const idx = index(entries);
   const recordsByName = new Map();
-  for (const record of records) {
-    if (!record.inci_name || (record.kind && record.kind !== "ingredient")) continue;
+  for (const record of usableRecords(records)) {
     const name = fold(record.inci_name);
     recordsByName.set(name, [...(recordsByName.get(name) ?? []), record]);
   }
@@ -112,21 +129,25 @@ export function matchRegulatory({ entries, records, ingredients, productCounts =
 
     if (rec) {
       // CAS and EC. A record that lists numbers the entry does not is a disagreement, not a match.
-      for (const [how, own, byId, field] of [
-        ["cas", rec.cas, idx.cas, "cas_numbers"],
-        ["ec", rec.ec, idx.ec, "ec_numbers"],
+      for (const [how, own, byId] of [
+        ["cas", rec.cas, idx.cas],
+        ["ec", rec.ec, idx.ec],
       ]) {
         const hits = unique(own.flatMap((id) => [...(byId.get(id) ?? [])]));
         for (const k of hits) {
-          const theirs = new Set(idx.byKey.get(k)[field] ?? []);
-          const extra = own.filter((id) => !theirs.has(id));
+          const extra = unlisted(idx.byKey.get(k), how, own);
           if (extra.length > 0) blocked.set(k, `CosIng lists ${how.toUpperCase()} numbers the entry does not: ${extra.join(", ")}`);
           else note(k, how);
         }
       }
-      // A class the entry names: the record's CAS or EC is one of the entry's listed members.
-      for (const id of rec.cas) for (const k of idx.memberCas.get(id) ?? []) note(k, "class");
-      for (const id of rec.ec) for (const k of idx.memberEc.get(id) ?? []) note(k, "class");
+      // A class the entry names: the record's CAS or EC is one of the entry's listed members, and every
+      // number the record lists is one the entry (or a member) lists.
+      const viaMembers = new Set([...rec.cas.flatMap((id) => [...(idx.memberCas.get(id) ?? [])]), ...rec.ec.flatMap((id) => [...(idx.memberEc.get(id) ?? [])])]);
+      for (const k of viaMembers) {
+        const extra = [...unlisted(idx.byKey.get(k), "cas", rec.cas), ...unlisted(idx.byKey.get(k), "ec", rec.ec)];
+        if (extra.length > 0) blocked.set(k, `CosIng lists CAS or EC numbers the entry and its members do not: ${extra.join(", ")}`);
+        else note(k, "class");
+      }
     }
 
     // CosIng's own annex references.

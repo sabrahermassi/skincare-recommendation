@@ -1,4 +1,4 @@
-import { borateClass, matchRegulatory, parseAnnexRef, planRegulatoryWrites, toCsv } from "../scripts/lib/regulatory-match.mjs";
+import { borateClass, matchRegulatory, parseAnnexRef, planRegulatoryWrites, pruneIsSane, toCsv, usableRecords } from "../scripts/lib/regulatory-match.mjs";
 
 /**
  * #457: which dictionary ingredient an Annex entry is about. The order is CAS, EC, CosIng's own link, a named
@@ -103,6 +103,21 @@ describe("where CosIng disagrees with the regulation, the pair is held back", ()
     expect(r.held).toHaveLength(1);
     expect(r.held[0]).toMatchObject({ annex: "II", entry: "1396" });
     expect(r.held[0].reason).toMatch(/not among the entry's listed members/);
+  });
+
+  it("holds a class match whose record lists a number no member lists (review)", () => {
+    // 1330-43-4 is a member of 1396; 9999-99-9 is nobody's.
+    const r = run([record("20", "Sodium Borate", ["1330-43-4", "9999-99-9"])], ["Sodium Borate"]);
+    expect(r.matches).toEqual([]);
+    expect(r.held).toHaveLength(1);
+    expect(r.held[0]).toMatchObject({ annex: "II", entry: "1396" });
+    expect(r.held[0].reason).toMatch(/9999-99-9/);
+  });
+
+  it("does not hold a record that lists the parent's number and a salt's: both are the entry's", () => {
+    const r = run([record("21", "Isobutylparaben", ["4247-02-3", "84930-15-4"])], ["Isobutylparaben"]);
+    expect(pairs(r)).toEqual(["Isobutylparaben -> II/1375 (cas)"]);
+    expect(r.held).toEqual([]);
   });
 
   it("matches a borate by the class name when CosIng gives it no numbers to contradict it", () => {
@@ -228,5 +243,26 @@ describe("CosIng's way of citing an entry", () => {
     expect(parseAnnexRef("V/12")).toBeNull();
     expect(parseAnnexRef("")).toBeNull();
     expect(parseAnnexRef(null)).toBeNull();
+  });
+});
+
+describe("what counts as the CosIng copy, and when a prune is a bad read", () => {
+  it("counts ingredient records with an INCI name, not substance rows or nameless ones", () => {
+    const rows = [record("1", "A"), { ...record("2", "B"), kind: "substance" }, { ...record("3", ""), inci_name: null }, { ...record("4", "C"), kind: undefined }];
+    expect(usableRecords(rows).map((r: { cosing_ref: string }) => r.cosing_ref)).toEqual(["1", "4"]);
+  });
+
+  it("refuses a prune that would delete most of the automatic rows, and allows a small one", () => {
+    const stored = Array.from({ length: 100 }, (_, i) => ({ inci_name: `n${i}`, annex: "II", entry: "1", matched_by: "cas", reviewed_by: null }));
+    expect(pruneIsSane(stored, { stale: stored.slice(0, 60) } as never)).toBe(false);
+    expect(pruneIsSane(stored, { stale: stored.slice(0, 5) } as never)).toBe(true);
+  });
+
+  it("does not count reviewed or hand-made rows toward the automatic ones", () => {
+    const stored = [
+      ...Array.from({ length: 20 }, (_, i) => ({ inci_name: `n${i}`, annex: "II", entry: "1", matched_by: "cas", reviewed_by: null })),
+      ...Array.from({ length: 80 }, (_, i) => ({ inci_name: `m${i}`, annex: "II", entry: "2", matched_by: "manual", reviewed_by: null })),
+    ];
+    expect(pruneIsSane(stored, { stale: stored.slice(0, 15) } as never)).toBe(false);
   });
 });

@@ -23,10 +23,10 @@ import { fileURLToPath } from "node:url";
 
 import { connect } from "./lib/db.mjs";
 import { paginateByKey, paginateOrdered } from "./lib/paginate.mjs";
-import { matchRegulatory, planRegulatoryWrites, toCsv } from "./lib/regulatory-match.mjs";
+import { matchRegulatory, planRegulatoryWrites, pruneIsSane, toCsv, usableRecords } from "./lib/regulatory-match.mjs";
 
 export const DEFAULT_OUT = ".regulatory-review.csv";
-/** A CosIng copy with fewer records than this is not the copy: the real one has some 36,000 (7 October 2026). */
+/** A CosIng copy with fewer ingredient records than this is not the copy: the real one has some 33,000 (7 October 2026). */
 export const MIN_RECORDS = 20000;
 const BATCH = 500;
 
@@ -75,7 +75,10 @@ async function main(args) {
   const entries = await paginateByKey(db, "regulatory_entries", { select: "annex,entry,wording,cas_numbers,ec_numbers,members,status", orderColumns: ["annex", "entry"] }).then((rows) => rows.filter((r) => r.status === "active"));
   const records = cosingFile ? JSON.parse(readFileSync(cosingFile, "utf8")) : await readAll(db, "cosing_records", "cosing_ref,kind,inci_name,cas_numbers,ec_numbers,annex_refs", "cosing_ref");
   if (records.length === 0) throw new Error("There is no CosIng copy (cosing_records is empty). Nothing was matched; run the import first.");
-  if (!cosingFile && records.length < MIN_RECORDS) throw new Error(`The CosIng copy has ${records.length} records, fewer than the ${MIN_RECORDS} that make it the copy. Nothing was matched.`);
+  // Counted as the matcher will use them: ingredient records with an INCI name. A copy of 20,000 substance
+  // records would pass a plain row count and match nothing.
+  const usable = usableRecords(records).length;
+  if (!cosingFile && usable < MIN_RECORDS) throw new Error(`The CosIng copy has ${usable} usable ingredient records (${records.length} rows), fewer than the ${MIN_RECORDS} that make it the copy. Nothing was matched.`);
   if (entries.length === 0) throw new Error("There are no active regulatory entries. Run import:eu-annexes first.");
 
   const ingredients = (await readAll(db, "ingredients", "inci_name", "inci_name")).map((r) => r.inci_name);
@@ -102,6 +105,7 @@ async function main(args) {
     return;
   }
 
+  if (prune && !pruneIsSane(stored, plan)) throw new Error(`--prune would delete ${plan.stale.length} of the automatic rows stored. That is a bad read, not a change; nothing was written.`);
   const before = await newestDictionaryStamp(db);
   for (let i = 0; i < plan.upserts.length; i += BATCH) {
     const { error } = await db.from("ingredient_regulatory").upsert(plan.upserts.slice(i, i + BATCH), { onConflict: "inci_name,annex,entry" });
