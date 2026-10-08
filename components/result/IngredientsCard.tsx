@@ -19,6 +19,9 @@ import { BUTTON, INK, MUTED, MUTED_FAINT, SPACE, TYPE, WHITE, RADIUS, LEADING, T
 import { BUTTON_HEIGHT } from "@/components/PrimaryButton";
 import { useAppStore } from "@/store/useAppStore";
 
+/** Said once under the rows whenever one of them is marked Unknown (owner, 8 October 2026). */
+export const UNKNOWN_LINE = "Unknown: not in our ingredient dictionary yet, so we could not check it.";
+
 const DISPUTED_CLOGGER = "Disputed: sources disagree on whether it clogs pores";
 
 export type IngredientFilter = "all" | "watch" | "actives" | "pore" | "unknown";
@@ -169,6 +172,12 @@ export function IngredientsCard({
           );
         })
       )}
+
+      {rows.some((i) => labelOf(i) === "unknown") ? (
+        <Text testID="unknown-line" style={{ marginTop: SPACE.block, fontSize: TYPE.caption, lineHeight: LEADING.caption, color: MUTED }}>
+          {UNKNOWN_LINE}
+        </Text>
+      ) : null}
 
       {truncated ? (
         <Pressable

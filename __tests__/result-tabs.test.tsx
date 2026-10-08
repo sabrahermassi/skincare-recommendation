@@ -8,6 +8,7 @@ jest.mock("react-native/Libraries/Utilities/useWindowDimensions", () => ({
 }));
 
 
+import { UNKNOWN_LINE } from "@/components/result/IngredientsCard";
 import { reasonOrder, ResultTabs } from "@/components/result/ResultTabs";
 import { Text } from "@/components/Text";
 import type { Ingredient, SkinProfile } from "@/data/types";
@@ -370,5 +371,29 @@ describe("a pore-clogger on Skin match", () => {
       await openMatch();
       expect(screen.queryByText(/can clog pores/)).toBeNull();
     });
+  });
+});
+
+// Owner, 8 October 2026: "Unknown" is explained where it appears, once, and only then.
+describe("the line that explains Unknown", () => {
+  const profile = { ...EMPTY_PROFILE, baseSkinType: "dry" as const };
+
+  async function showWith(extra: Ingredient[]) {
+    const ingredients = [...BASE.map(ingredient), ...extra];
+    await render(<ResultTabs header={null} ingredients={ingredients} type="serum" match={matchProduct({ type: "serum", ingredients }, profile)} profile={profile} onIngredientPress={jest.fn()} />);
+    await act(async () => {});
+    await putTeaserAway();
+    await openIngredients();
+  }
+
+  it("sits under the list when a row is marked Unknown", async () => {
+    await showWith([{ ...ingredient("mystery extract"), verified: false }]);
+    expect(screen.getByText("Unknown")).toBeTruthy();
+    expect(screen.getAllByText(UNKNOWN_LINE)).toHaveLength(1);
+  });
+
+  it("is absent when every ingredient is recognised", async () => {
+    await showWith([]);
+    expect(screen.queryByText(UNKNOWN_LINE)).toBeNull();
   });
 });

@@ -1,6 +1,7 @@
 import { act, fireEvent, render, screen, within } from "@testing-library/react-native";
 
 import SkinProfileScreen from "@/app/skin-profile";
+import { LINK } from "@/lib/tokens";
 import { EMPTY_PROFILE, useAppStore } from "@/store/useAppStore";
 
 /**
@@ -92,6 +93,13 @@ it("says how to swap once three concerns are chosen", async () => {
   await render(<SkinProfileScreen />);
   await act(async () => fireEvent.press(screen.getByRole("button", { name: /^Skin concerns: / })));
   expect(screen.getByText("3 chosen. Untick one to swap.")).toBeTruthy();
+});
+
+// Owner, 8 October 2026: Reset can be undone, so it is link green, not the red kept for what cannot.
+it("writes Reset in the link green", async () => {
+  useAppStore.setState({ profile: { concerns: ["acne-prone"], baseSkinType: "oily", sensitivity: "some", pregnancyStatus: "neither" } });
+  await render(<SkinProfileScreen />);
+  expect(screen.getByText("Reset")).toHaveStyle({ color: LINK });
 });
 
 // Owner: one tap puts every answer back to not set, and Undo brings them back.

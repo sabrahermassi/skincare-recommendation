@@ -10,7 +10,7 @@ import { Text } from "@/components/Text";
 import type { Concern } from "@/data/types";
 import { haptic } from "@/lib/haptics";
 import { CONCERN_TITLE, PREGNANCY_QUESTION, pregnancyLabel, sensitivityLabel } from "@/lib/profile";
-import { CANVAS, CARD_RADIUS, DANGER, INK, LINK, SPACE, SURFACE, TYPE, LEADING } from "@/lib/tokens";
+import { CANVAS, CARD_RADIUS, INK, LINK, SPACE, SURFACE, TYPE, LEADING } from "@/lib/tokens";
 import { EMPTY_PROFILE, MAX_CONCERNS, useAppStore, visibleConcernCount } from "@/store/useAppStore";
 import { FitScrollView } from "@/components/FitScrollView";
 
@@ -112,7 +112,7 @@ export default function SkinProfileScreen() {
           </View>
           {hasAnswers ? (
             <Pressable onPress={reset} accessibilityRole="button" accessibilityLabel="Reset skin profile" hitSlop={12} style={{ paddingRight: SPACE.gutter, justifyContent: "center" }} className="active:opacity-70">
-              <Text style={{ fontSize: TYPE.label, fontWeight: "600", color: DANGER }}>Reset</Text>
+              <Text style={{ fontSize: TYPE.label, fontWeight: "600", color: LINK }}>Reset</Text>
             </Pressable>
           ) : null}
         </View>

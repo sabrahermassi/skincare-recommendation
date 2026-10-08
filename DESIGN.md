@@ -97,7 +97,8 @@ right set; never pick by hand.
 
 - `WARN` is `VERDICT.medium.deep` (cautions that are not a verdict). `DANGER` is
   `VERDICT.low.deep`: the red words of a text action that takes something away
-  (Skin profile's Reset, a note's Delete). Nothing else is written in red.
+  (a note's Delete). Nothing else is written in red. Skin profile's Reset can be
+  undone, so it is `LINK` green (owner, 8 October 2026).
 - **Fair's `deep` is `#A85A14`, not the hand-off's `#C26E1E`.** Computed on 6
   October 2026: the hand-off's read 3.4 to 3.8:1 on white, the page and the
   tint; `#A85A14` reads 5.1:1 on white and 4.55:1 on the tint. White on it as a
