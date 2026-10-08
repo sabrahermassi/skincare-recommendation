@@ -1,6 +1,6 @@
 import type { Ingredient, ProductWithIngredients } from "@/data/types";
 import { matchProduct } from "@/lib/matching";
-import { PREGNANCY_CAUTION } from "@/lib/pregnancy-caution";
+import { PREGNANCY_CAUTION, pregnancyCautionHits } from "@/lib/pregnancy-caution";
 import { INGREDIENT_RULES, type IngredientRule, type RuleSource } from "@/lib/rules";
 import { EMPTY_PROFILE } from "@/store/useAppStore";
 
@@ -75,11 +75,11 @@ const UNSOURCED_RULES = [
 ];
 
 /** Pregnancy cautions still waiting for a checked source. Never add to this list. */
-const UNSOURCED_PREGNANCY = ["retinoid", "salicylic-acid", "essential-oil"];
+const UNSOURCED_PREGNANCY: string[] = [];
 
 // Lower these as sources land; raising one is how an unsourced claim sneaks in.
 const MAX_UNSOURCED_RULES = 47;
-const MAX_UNSOURCED_PREGNANCY = 3;
+const MAX_UNSOURCED_PREGNANCY = 0;
 
 function expectWellFormed(source: RuleSource) {
   expect(source.label.trim()).not.toBe("");
@@ -106,6 +106,26 @@ describe("rule sources", () => {
   it("only ever shrinks the list", () => {
     expect(new Set(UNSOURCED_RULES).size).toBe(UNSOURCED_RULES.length);
     expect(UNSOURCED_RULES.length).toBeLessThanOrEqual(MAX_UNSOURCED_RULES);
+  });
+
+  // #475: each caution says only what its source says. The AAD page covers pregnancy and nothing on
+  // breastfeeding; only hydroquinone, whose MotherSafe source says to avoid it while breastfeeding, says so.
+  it("words each pregnancy caution for what its source says, and keeps all four groups sourced", () => {
+    expect(PREGNANCY_CAUTION.map((entry) => entry.category)).toEqual(["retinoid", "salicylic-acid", "salicylic-acid", "hydroquinone", "essential-oil"]);
+    for (const entry of PREGNANCY_CAUTION) {
+      expect(entry.source).toBeDefined();
+      expect(/breastfeeding/i.test(entry.reason)).toBe(entry.category === "hydroquinone");
+    }
+    expect(PREGNANCY_CAUTION.find((entry) => entry.category === "salicylic-acid")?.reason).toMatch(/limit strengths above 2%/);
+    // The AAD page names salicylic acid only: its relatives are never called salicylic acid, and still warn.
+    for (const name of ["betaine salicylate", "sodium salicylate", "potassium salicylate", "salix alba bark extract", "willow bark extract"]) {
+      const [hit] = pregnancyCautionHits([{ name } as Ingredient]);
+      expect(hit.reason).toMatch(/^Related to salicylic acid — guidance is to limit salicylic acid above 2%/);
+      expect(hit.level).toBe("limit");
+    }
+    expect(pregnancyCautionHits([{ name: "salicylic acid" } as Ingredient])[0].reason).toMatch(/^Salicylic acid — /);
+    // "limit how often you use them", not "avoid": the essential-oil line must not say advised against.
+    expect(PREGNANCY_CAUTION.find((entry) => entry.category === "essential-oil")?.reason).not.toMatch(/advised against/);
   });
 
   it("gives every pregnancy caution a source, or lists it, and only shrinks that list", () => {

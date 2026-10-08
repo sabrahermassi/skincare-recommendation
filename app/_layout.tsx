@@ -9,6 +9,7 @@ import * as SplashScreen from "expo-splash-screen";
 import { useEffect, useState } from "react";
 import { AppState } from "react-native";
 
+import { ConsentGate } from "@/components/ConsentGate";
 import { startAuth } from "@/lib/auth";
 import { COLORS } from "@/lib/colors";
 import { startFirstPage } from "@/lib/first-page";
@@ -189,6 +190,7 @@ export default function RootLayout() {
         <Stack.Screen name="scanner" options={{ headerShown: false, presentation: "fullScreenModal" }} />
         <Stack.Screen name="label-result" options={{ headerShown: false }} />
       </Stack>
+      <ConsentGate />
     </>
   );
 }

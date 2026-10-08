@@ -202,6 +202,43 @@ writes `.eu-annexes.json` with `--apply`. It writes no database row: step 3 adds
   © European Union, https://eur-lex.europa.eu/, 1998-2026. A documentation tool with no legal effect: only
   the Official Journal text is authentic." It is written into the output file and nowhere in the app yet.
 
+**The official text, stored (7 October 2026, #456, step 3 of 9).** Migration 0038 adds
+`regulatory_entries` (one row per Annex II or III entry, with the text's version, SHA-256 and
+consolidation date on every row) and `ingredient_regulatory` (which dictionary ingredient an entry is
+about; filled in step 4). Public read, service-role write, their own `updated_at` bumped by their own
+trigger, and nothing written to either touches `ingredients`, so the dictionary's watermark does not move.
+
+- **`import:eu-annexes --apply` writes the database** (through `connect({ write })`, so it needs
+  `SUPABASE_ENV`, and `--prod` for production), after the JSON file. It upserts only rows that differ, so a
+  second run of the same text writes nothing, and an entry a newer text no longer lists is marked `deleted`, never
+  removed. A moved, deleted or blank number is stored as `deleted`.
+- **`last_verified` is the date of the consolidated text, not the day of the run,** so the same text gives the
+  same row. `effective_date` stays null: the consolidated text does not print it per entry.
+- **Columns beyond the issue's list:** `inci_name` (Annex III's glossary name, which step 4 matches on), `members`
+  (the substances under a class entry such as the borates) and `mark` (the amendment mark), so the parsed text
+  is kept whole.
+- **The app has its own freshness mark for these tables** (an exact count and the newest `updated_at` of each),
+  apart from the catalogue's watermark and the dictionary's, so importing the regulation never makes a device
+  refetch the catalogue. `loadRegulatory` in `data/api.ts` reads the mark, then the rows, and
+  `data/catalogue-cache.ts` keeps them as one value (about a megabyte). Nothing on a screen reads them yet.
+  `SCHEMA_VERSION` went to 6, which sweeps the v5 blobs and makes every device read the catalogue once more.
+
+**Pregnancy notes match what the sources say (7 October 2026, #475).** The scan's pregnancy cautions
+say what their source says and no more. The American Academy of Dermatology page (read 7 October 2026)
+covers pregnancy and has nothing on breastfeeding, so the retinoid line, the Skin needs line and the
+Frequently-asked answer no longer say "and while breastfeeding". Hydroquinone keeps it: its MotherSafe source
+says "hydroquinone should be avoided [while breastfeeding] as the absorption is high". Salicylic acid is worded as
+the AAD words it, limit strengths above 2%. Its relatives (betaine salicylate, sodium and potassium salicylate,
+willow bark) still warn, but as "Related to salicylic acid", since the page names salicylic acid only. The quiz still asks one question, "pregnant or breastfeeding?", so
+the cards that follow it say "If you're pregnant or breastfeeding and unsure, ask your doctor or midwife."
+
+- **Essential oils stay, softened, with the AAD page as their source.** It lists essential oils, including rosemary,
+  basil, jasmine and sage, among the ingredients to discuss with a dermatologist and limit during pregnancy. It says
+  limit, not avoid, so the line says "best limited". An earlier version of this change removed the group for lack of
+  a source; a review found the AAD page already held one.
+- **Arbutin is unchanged:** hidden from pregnant users in Skin needs, no warning on a scan, until an expert
+  answers (the reason is written beside both in the code).
+
 ## Routing
 
 **Never navigate from a layout file.** This is not theoretical caution —
@@ -792,6 +829,32 @@ charges it by its own weight.
   (`irritants`), and pine, fir and cypress oils (the essential-oil rule).
   Stearalkonium and steartrimonium chloride were left out: no source supports
   them.
+
+### The skin quiz asks first (#471, 8 October 2026)
+
+The quiz opens on "Before we ask about your skin", not on question 1: what is
+asked (pregnancy included), that the answers only score products, that they
+stay on the phone, where to change or delete them, a privacy link, and "You
+must be 16 or older to use for.me." (the owner's wording; a lawyer may change
+it). "I agree, continue" records the time (`profileConsentAt`, store v11).
+
+- **Not now means no profile.** Scanning and the ingredient list need none, so
+  they carry on; the score does not, so it is not made. The Skin profile
+  editor sends anyone with no answers and no agreement to the same screen, so
+  it is not a way round.
+- **Existing profiles see it once, on the next open** (owner): answers with no
+  agreement recorded redirect to the screen from the root layout (`ConsentGate`), so a link into a product or the Skin profile editor is held too, not only a launch onto the tabs. Agreeing keeps them (the gate sends `?from=launch`; opening the quiz yourself, after closing the gate, starts question 1 instead);
+  Not now clears them and the routine built from them. Either way the
+  condition stops being true, so it is not shown twice. Closing it without a
+  choice (Close, or a swipe down) records nothing and defers it to the next
+  launch (`consentDeferred`, session only): the redirect replaces the tabs, so
+  without that, Close would land straight back on it.
+- **No question without it.** The quiz's layout redirects any step reached
+  without an agreement (a link to /quiz/concerns, say) to the screen, not just
+  `openQuiz`.
+- Erasing everything also forgets the agreement: the next quiz asks again.
+- Line 4 ("change or delete them any time in Profile") holds: Profile has Skin
+  profile (change, Reset) and Account (Delete my profile).
 
 ## SDK and platform history
 

@@ -19,7 +19,10 @@ import {
   readExpiredCatalogue,
   readScanned,
   touchCatalogue,
+  readRegulatory,
+  regulatoryMarksMatch,
   watermarksMatch,
+  writeRegulatory,
   type CatalogueWatermark,
 } from "./catalogue-cache";
 import { INGREDIENTS } from "./ingredients";
@@ -31,6 +34,10 @@ import {
   type Product,
   type ProductType,
   type ProductWithIngredients,
+  type IngredientRegulatory,
+  type RegulatoryEntry,
+  type RegulatoryMark,
+  type RegulatorySnapshot,
   type SafetyLevel,
 } from "./types";
 import { defaultPackagingType } from "./packaging";
@@ -1796,5 +1803,137 @@ export async function deleteAccount(appleAuthorizationCode?: string): Promise<De
     }
   } catch {
     return { ok: false, reason: "network" };
+  }
+}
+
+// ── The official Annex II and III text (#456) ──────────────────────────────
+
+type RegulatoryEntryRow = {
+  annex: "II" | "III";
+  entry: string;
+  wording: string;
+  inci_name: string | null;
+  cas_numbers: string[] | null;
+  ec_numbers: string[] | null;
+  conditions: unknown[] | null;
+  members: unknown[] | null;
+  mark: string | null;
+  amended_by: string | null;
+  effective_date: string | null;
+  source_url: string | null;
+  source_version: string;
+  source_hash: string;
+  last_verified: string;
+  status: "active" | "deleted";
+};
+
+type IngredientRegulatoryRow = {
+  inci_name: string;
+  annex: "II" | "III";
+  entry: string;
+  matched_by: IngredientRegulatory["matchedBy"];
+  reviewed_by: string | null;
+  reviewed_at: string | null;
+};
+
+const REGULATORY_ENTRY_COLUMNS =
+  "annex, entry, wording, inci_name, cas_numbers, ec_numbers, conditions, members, mark, amended_by, effective_date, source_url, source_version, source_hash, last_verified, status";
+const REGULATORY_LINK_COLUMNS = "inci_name, annex, entry, matched_by, reviewed_by, reviewed_at";
+
+function toRegulatoryEntry(row: RegulatoryEntryRow): RegulatoryEntry {
+  return {
+    annex: row.annex,
+    entry: row.entry,
+    wording: row.wording,
+    inciName: row.inci_name,
+    casNumbers: row.cas_numbers ?? [],
+    ecNumbers: row.ec_numbers ?? [],
+    conditions: row.conditions,
+    members: row.members ?? [],
+    mark: row.mark,
+    amendedBy: row.amended_by,
+    effectiveDate: row.effective_date,
+    sourceUrl: row.source_url,
+    sourceVersion: row.source_version,
+    sourceHash: row.source_hash,
+    lastVerified: row.last_verified,
+    status: row.status,
+  };
+}
+
+function toIngredientRegulatory(row: IngredientRegulatoryRow): IngredientRegulatory {
+  return { inciName: row.inci_name, annex: row.annex, entry: row.entry, matchedBy: row.matched_by, reviewedBy: row.reviewed_by, reviewedAt: row.reviewed_at };
+}
+
+/** The freshness mark of both regulatory tables: an exact count and the newest `updated_at` of each, in one round trip each. */
+async function fetchRegulatoryMark(): Promise<RegulatoryMark> {
+  const read = (table: "regulatory_entries" | "ingredient_regulatory") =>
+    withTimeout(
+      (signal) =>
+        supabase!
+          .from(table)
+          .select("updated_at", { count: "exact" })
+          .order("updated_at", { ascending: false, nullsFirst: false })
+          .limit(1)
+          .abortSignal(signal),
+      `fetchRegulatoryMark:${table}`,
+    );
+  const [entries, links] = await Promise.all([read("regulatory_entries"), read("ingredient_regulatory")]);
+  if (entries.error) throw new Error(`fetchRegulatoryMark: ${entries.error.message}`);
+  if (links.error) throw new Error(`fetchRegulatoryMark: ${links.error.message}`);
+  const newest = (data: unknown) => ((data ?? []) as { updated_at: string | null }[])[0]?.updated_at ?? null;
+  return { entries: { count: entries.count ?? 0, newest: newest(entries.data) }, links: { count: links.count ?? 0, newest: newest(links.data) } };
+}
+
+/** Every row of one table, in a fixed order so no row lands on two pages or none, and never a silently cut-off read. */
+async function fetchAllRegulatoryRows<Row>(table: "regulatory_entries" | "ingredient_regulatory", columns: string, order: string[]): Promise<Row[]> {
+  const rows: Row[] = [];
+  for (let page = 0; page < MAX_CATALOGUE_PAGES; page++) {
+    const from = page * CATALOGUE_PAGE_SIZE;
+    const { data, error } = await withTimeout(
+      (signal) => {
+        let query = supabase!.from(table).select(columns);
+        for (const column of order) query = query.order(column);
+        return query.range(from, from + CATALOGUE_PAGE_SIZE - 1).abortSignal(signal);
+      },
+      `fetchRegulatory:${table}`,
+    );
+    if (error) throw new Error(`fetchRegulatory ${table}: ${error.message}`);
+    const batch = (data ?? []) as unknown as Row[];
+    rows.push(...batch);
+    if (batch.length < CATALOGUE_PAGE_SIZE) return rows;
+  }
+  throw new Error(`fetchRegulatory ${table}: exceeded ${MAX_CATALOGUE_PAGES} pages; refusing to keep a partial read`);
+}
+
+const NO_REGULATORY: RegulatorySnapshot = {
+  mark: { entries: { count: 0, newest: null }, links: { count: 0, newest: null } },
+  entries: [],
+  links: [],
+};
+
+/**
+ * The official Annex II and III entries and the links to dictionary ingredients, kept on the device under
+ * a mark of their own (#456). The mark is read first, then the rows, so a write between the two is caught
+ * by the next check rather than hidden by it. Offline, or on any failure, what the device already holds is
+ * returned; with nothing held, and with no Supabase at all (the sample catalogue), an empty snapshot.
+ *
+ * Nothing on a screen reads this yet.
+ */
+export async function loadRegulatory(): Promise<RegulatorySnapshot> {
+  const held = await readRegulatory();
+  if (!supabase) return held ?? NO_REGULATORY;
+  try {
+    const mark = await fetchRegulatoryMark();
+    if (held && regulatoryMarksMatch(held.mark, mark)) return held;
+    const [entries, links] = await Promise.all([
+      fetchAllRegulatoryRows<RegulatoryEntryRow>("regulatory_entries", REGULATORY_ENTRY_COLUMNS, ["annex", "entry"]),
+      fetchAllRegulatoryRows<IngredientRegulatoryRow>("ingredient_regulatory", REGULATORY_LINK_COLUMNS, ["inci_name", "annex", "entry"]),
+    ]);
+    const snapshot: RegulatorySnapshot = { mark, entries: entries.map(toRegulatoryEntry), links: links.map(toIngredientRegulatory) };
+    await writeRegulatory(snapshot);
+    return snapshot;
+  } catch {
+    return held ?? NO_REGULATORY;
   }
 }

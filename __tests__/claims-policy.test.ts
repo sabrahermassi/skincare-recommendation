@@ -9,6 +9,7 @@ import { sensitivityNote, startLine } from "@/lib/skin-needs";
 import { ACTIVES, ACTIVES_IN_USE, FAMILIES, GOAL_OPTIONS, PRESCRIPTION, SIGNS } from "@/lib/skin-needs-data";
 import { pairingNotesFor, shelfPairingNotes } from "@/lib/active-pairings";
 import { claimPolicyViolations } from "@/lib/claims-policy";
+import { CONSENT_COPY } from "@/lib/consent-copy";
 import { goalNudgesFor, nudgesFor } from "@/lib/context-nudges";
 import { PORE_CLOGGERS, PORE_COUNTS_TEXT } from "@/lib/pore-clogging";
 import { PREGNANCY_CAUTION } from "@/lib/pregnancy-caution";
@@ -161,6 +162,15 @@ const SCORING_CLAIMS: OwnedClaim[] = [
 // The skincare tip on Home (handoff_home_and_tip): every tip and its reason, said in the app's own voice.
 const TIP_CLAIMS: OwnedClaim[] = stringsIn({ GENERAL_TIPS, MORNING_TIPS, EVENING_TIPS, EVENING_FALLBACK, REST_NIGHT_TIP }, "skin-tips");
 
+// #471: the screen before the quiz.
+const CONSENT_CLAIMS: OwnedClaim[] = [
+  { source: "CONSENT_COPY.title", text: CONSENT_COPY.title },
+  ...CONSENT_COPY.lines.map((text, i) => ({ source: `CONSENT_COPY.lines.${i}`, text })),
+  { source: "CONSENT_COPY.privacyLink", text: CONSENT_COPY.privacyLink },
+  { source: "CONSENT_COPY.agree", text: CONSENT_COPY.agree },
+  { source: "CONSENT_COPY.notNow", text: CONSENT_COPY.notNow },
+];
+
 const SCHOOL_CHAT_CLAIMS: OwnedClaim[] = Object.entries(SCHOOL_CHAT_COPY).map(([key, text]) => ({
   source: `SCHOOL_CHAT_COPY.${key}`,
   text,
@@ -237,6 +247,7 @@ const OWNED_CLAIMS: OwnedClaim[] = [
   ...PAIRING_CLAIMS,
   ...SCHOOL_CLAIMS,
   ...SCHOOL_CHAT_CLAIMS,
+  ...CONSENT_CLAIMS,
   ...TIP_CLAIMS,
   ...SCORING_CLAIMS,
   // Audited directly (#261 review): `WARNINGS` below comes from the sample

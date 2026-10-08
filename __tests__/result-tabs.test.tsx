@@ -105,7 +105,24 @@ it("shows the pregnancy card, with no source on it", async () => {
   await show(["hydroquinone"], { ...EMPTY_PROFILE, pregnancyStatus: "pregnant" });
   await openIngredients();
   expect(screen.getByText("Best avoided while pregnant")).toBeTruthy();
+  // #475: worded for the one question the quiz asks, pregnant or breastfeeding.
+  expect(screen.getByText(/If you're pregnant or breastfeeding and unsure, ask your doctor or midwife\./)).toBeTruthy();
   expect(screen.queryByLabelText(/^Source:/)).toBeNull();
+});
+
+// #475: the AAD page says to limit essential oils and salicylic acid above 2%, not to avoid them.
+it("says 'best limited' when every pregnancy ingredient is one the sources say to limit", async () => {
+  await show(["lavandula angustifolia oil", "salicylic acid"], { ...EMPTY_PROFILE, pregnancyStatus: "pregnant" });
+  await openIngredients();
+  expect(screen.getByText("Best limited while pregnant")).toBeTruthy();
+  expect(screen.queryByText("Best avoided while pregnant")).toBeNull();
+});
+
+it("keeps 'best avoided' when one of them is to be avoided", async () => {
+  await show(["lavandula angustifolia oil", "retinol"], { ...EMPTY_PROFILE, pregnancyStatus: "pregnant" });
+  await openIngredients();
+  expect(screen.getByText("Best avoided while pregnant")).toBeTruthy();
+  expect(screen.queryByText("Best limited while pregnant")).toBeNull();
 });
 
 it("marks a layering note as a caution and leaves the evening note plain", async () => {

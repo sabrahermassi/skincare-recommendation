@@ -5,6 +5,7 @@ import { createJSONStorage, persist, type StateStorage } from "zustand/middlewar
 
 import { forgetScannedBarcodes } from "@/data/catalogue-cache";
 import { resetScoreCache } from "@/lib/matching";
+import { hasAnswers } from "@/lib/profile";
 import type { RoutineStep } from "@/lib/routine-step";
 import { DEFAULT_STEP_LIMIT, type RoutineEntry, type StepLimit } from "@/lib/skin-needs";
 import type { ActiveKey } from "@/lib/skin-needs-data";
@@ -134,6 +135,23 @@ type AppState = {
    * list falls back to unpersonalised, unsorted results.
    */
   hasSeenOnboarding: boolean;
+
+  /**
+   * When the person agreed to being asked about their skin, as an ISO time
+   * (#471): the "Before we ask about your skin" screen records it, and the
+   * quiz does not open without it. `null` is "not asked yet", or "said Not
+   * now", or the answers were deleted; a profile with answers and no mark is
+   * one from before the screen existed, and it is shown the screen once.
+   * Device only, like the profile it is about.
+   */
+  profileConsentAt: string | null;
+  /**
+   * The consent screen was closed without a choice, so it is not shown again
+   * until the next launch (#471): the tabs send answers with no agreement
+   * there, and Close would otherwise land straight back on it. Session only,
+   * like `justFinishedQuiz`, so it is not persisted.
+   */
+  consentDeferred: boolean;
 
   /**
    * Set only by actually finishing the quiz's 4th question — not by
@@ -289,6 +307,17 @@ type AppState = {
 
   completeOnboarding: () => void;
 
+  /** "I agree, continue" on the screen before the quiz: records when. */
+  agreeToProfile: () => void;
+  /** The consent screen was left without a choice: not again until the next launch. */
+  deferConsent: () => void;
+  /**
+   * "Not now": the answers given so far go, and so does the routine built from
+   * them, so there is no skin profile and no match score (#471). Scanning and
+   * the ingredient list do not need a profile and carry on.
+   */
+  declineProfile: () => void;
+
   /** Called only from the quiz's real finish — see `justFinishedQuiz`. */
   markQuizJustFinished: () => void;
   /** Clears `justFinishedQuiz` — the scanner's acknowledgement banner calls
@@ -385,6 +414,7 @@ type AppState = {
 export const PERSISTED_KEYS = [
   "profile",
   "hasSeenOnboarding",
+  "profileConsentAt",
   "savedProducts",
   "savedIngredients",
   "history",
@@ -410,6 +440,7 @@ export function partializeState(state: AppState): PersistedState {
   return {
     profile: state.profile,
     hasSeenOnboarding: state.hasSeenOnboarding,
+    profileConsentAt: state.profileConsentAt,
     savedProducts: state.savedProducts,
     savedIngredients: state.savedIngredients,
     history: state.history,
@@ -433,6 +464,8 @@ export function partializeState(state: AppState): PersistedState {
 const INITIAL_STATE = {
   profile: EMPTY_PROFILE,
   hasSeenOnboarding: false,
+  profileConsentAt: null as string | null,
+  consentDeferred: false,
   justFinishedQuiz: false,
   savedProducts: [] as SavedProduct[],
   savedIngredients: [] as string[],
@@ -525,13 +558,21 @@ function queued(state: { shelfOwner: string | null; shelfQueue: ShelfOp[] }, ...
  * that write puts the profile in the Keychain and drops the plain-text copy,
  * on the first launch after the update rather than whenever something next
  * changes.
+ *
+ * v10 -> v11 adds `profileConsentAt` (#471). Nobody who already has answers
+ * agreed to anything on the screen that records it, so every install starts at
+ * `null`; a profile with answers and no mark is exactly what sends the person
+ * to that screen, once, on their next open. Said out loud here rather than left
+ * to `persist`'s shallow merge, so a migrated install holds the key in the
+ * blob it writes straight back.
  */
 export function migratePersisted(persisted: unknown, version: number): PersistedState | undefined {
   const migrated = migrateProfile(persisted, version);
   if (!migrated) return migrated;
   const { legacyShelfMigrated, ...rest } = migrated as PersistedState & { legacyShelfMigrated?: boolean };
   const shelf = version >= 8 ? migrated : legacyShelfMigrated && rest.shelfOwner == null ? { ...rest, savedProducts: [], savedIngredients: [] } : rest;
-  return version >= 10 ? shelf : routineBuiltFor(shelf);
+  const built = version >= 10 ? shelf : routineBuiltFor(shelf);
+  return version >= 11 ? built : { ...built, profileConsentAt: built.profileConsentAt ?? null };
 }
 
 /**
@@ -610,16 +651,6 @@ function parseProfile(raw: string | null): SkinProfile | null {
   } catch {
     return null;
   }
-}
-
-/** Nothing answered: what a first run, a skipped quiz and "Delete my profile" all leave. */
-function isEmptyProfile(profile: SkinProfile): boolean {
-  return (
-    profile.concerns.length === 0 &&
-    profile.baseSkinType == null &&
-    profile.sensitivity == null &&
-    profile.pregnancyStatus == null
-  );
 }
 
 /**
@@ -712,8 +743,8 @@ export function formeStorageFor(os: typeof Platform.OS): FormeStorage {
     // Keychain alone rather than overwrite it with a first-run profile.
     if (!hydrated) return true;
     // Never replace or delete a value this launch couldn't read.
-    if (unreadable) return isEmptyProfile(profile);
-    if (isEmptyProfile(profile)) {
+    if (unreadable) return !hasAnswers(profile);
+    if (!hasAnswers(profile)) {
       if (known === null) return true;
       if (!(await removeSecureProfile())) return false;
       known = null;
@@ -798,6 +829,11 @@ export const useAppStore = create<AppState>()(
         }),
 
       completeOnboarding: () => set({ hasSeenOnboarding: true }),
+
+      agreeToProfile: () => set({ profileConsentAt: new Date().toISOString() }),
+      deferConsent: () => set({ consentDeferred: true }),
+      declineProfile: () =>
+        set({ profile: EMPTY_PROFILE, routineBuilt: false, justFinishedQuiz: false, profileConsentAt: null }),
 
       markQuizJustFinished: () => set({ justFinishedQuiz: true }),
       dismissQuizAcknowledgement: () => set({ justFinishedQuiz: false }),
@@ -1079,7 +1115,7 @@ export const useAppStore = create<AppState>()(
     }),
     {
       name: NEW_STORAGE_KEY,
-      version: 10,
+      version: 11,
       storage: createJSONStorage(() => formeStorage),
       partialize: partializeState,
       migrate: migratePersisted,
@@ -1114,7 +1150,7 @@ connectClaimFlag({
  */
 async function recoverProfile(): Promise<void> {
   const recovered = await formeStorage.recoverProfile();
-  if (recovered && isEmptyProfile(useAppStore.getState().profile)) useAppStore.setState({ profile: recovered });
+  if (recovered && !hasAnswers(useAppStore.getState().profile)) useAppStore.setState({ profile: recovered });
 }
 
 useAppStore.persist.onFinishHydration(() => {

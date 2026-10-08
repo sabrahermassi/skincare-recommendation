@@ -55,10 +55,10 @@ function product(id: string, type: ProductWithIngredients["type"]): ProductWithI
 
 const WATERMARK: CatalogueWatermark = { count: 3, newest: "2026-09-14T00:00:00Z", ingredientCount: 0, ingredientNewest: null };
 
-const PRODUCTS_KEY = "forme-catalogue-v5";
-const META_KEY = "forme-catalogue-meta-v5";
-const MANIFEST_KEY = "forme-catalogue-manifest-v5";
-const CHUNK_PREFIX = "forme-catalogue-chunk-v5-";
+const PRODUCTS_KEY = "forme-catalogue-v6";
+const META_KEY = "forme-catalogue-meta-v6";
+const MANIFEST_KEY = "forme-catalogue-manifest-v6";
+const CHUNK_PREFIX = "forme-catalogue-chunk-v6-";
 
 /**
  * Run a test body as a given platform.
@@ -229,6 +229,19 @@ describe("disk layer", () => {
     expect(await AsyncStorage.getItem("forme-catalogue-meta-v3")).toBeNull();
     expect(await AsyncStorage.getItem("forme-catalogue-manifest-v3")).toBeNull();
     expect(await AsyncStorage.getItem("forme-catalogue-chunk-v3-abc-0")).toBeNull();
+  });
+
+  /** v5 -> v6 (#456): the regulatory tables got a key of their own, so the shared version moved. */
+  it("deletes the v5 blobs the regulatory schema bump left behind", async () => {
+    for (const key of ["forme-catalogue-v5", "forme-catalogue-meta-v5", "forme-catalogue-manifest-v5", "forme-regulatory-v5", "forme-catalogue-chunk-v5-abc-0"]) {
+      await AsyncStorage.setItem(key, "{}");
+    }
+
+    await dropLegacyBlobs();
+
+    for (const key of ["forme-catalogue-v5", "forme-catalogue-meta-v5", "forme-catalogue-manifest-v5", "forme-regulatory-v5", "forme-catalogue-chunk-v5-abc-0"]) {
+      expect(await AsyncStorage.getItem(key)).toBeNull();
+    }
   });
 
   /** v4 -> v5 (#458): a v4 blob has no key for `ingredientMatches`, so every name would read as low confidence. */

@@ -32,9 +32,10 @@ function findRuleNames(anchorName: string): Pattern[] {
 }
 
 function findPregnancyNames(category: "retinoid" | "salicylic-acid"): Pattern[] {
-  const entry = PREGNANCY_CAUTION.find((e) => e.category === category);
-  if (!entry) throw new Error(`No PREGNANCY_CAUTION entry for category "${category}"`);
-  return entry.names;
+  // Salicylic acid and its relatives are two entries, each worded for what the source says (#475).
+  const entries = PREGNANCY_CAUTION.filter((e) => e.category === category);
+  if (entries.length === 0) throw new Error(`No PREGNANCY_CAUTION entry for category "${category}"`);
+  return entries.flatMap((e) => e.names);
 }
 
 // Names deliberately on one side only, with the reason why. Every key here
