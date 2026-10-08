@@ -1,3 +1,4 @@
+import { Redirect } from "expo-router";
 import { useCallback, useState } from "react";
 import { Pressable, View } from "react-native";
 
@@ -9,7 +10,7 @@ import { SectionLabel } from "@/components/SectionLabel";
 import { Text } from "@/components/Text";
 import type { Concern } from "@/data/types";
 import { haptic } from "@/lib/haptics";
-import { CONCERN_TITLE, PREGNANCY_QUESTION, pregnancyLabel, sensitivityLabel } from "@/lib/profile";
+import { CONCERN_TITLE, CONSENT_ROUTE, PREGNANCY_QUESTION, hasAnswers, pregnancyLabel, sensitivityLabel } from "@/lib/profile";
 import { CANVAS, CARD_RADIUS, DANGER, INK, LINK, SPACE, SURFACE, TYPE, LEADING } from "@/lib/tokens";
 import { EMPTY_PROFILE, MAX_CONCERNS, useAppStore, visibleConcernCount } from "@/store/useAppStore";
 import { FitScrollView } from "@/components/FitScrollView";
@@ -37,6 +38,7 @@ const ORDER: Question[] = ["concerns", "skinType", "sensitivity", "pregnancy"];
 export default function SkinProfileScreen() {
   const profile = useAppStore((s) => s.profile);
   const setProfile = useAppStore((s) => s.setProfile);
+  const consentAt = useAppStore((s) => s.profileConsentAt);
   const routineBuilt = useAppStore((s) => s.routineBuilt);
   const setRoutineBuilt = useAppStore((s) => s.setRoutineBuilt);
   const [open, setOpen] = useState<Question | null>(null);
@@ -62,7 +64,7 @@ export default function SkinProfileScreen() {
   // puts them all back, like taking something off a list on Saved.
   const [notice, setNotice] = useState<UndoNotice | null>(null);
   const clearNotice = useCallback(() => setNotice(null), []);
-  const hasAnswers = profile.concerns.length > 0 || profile.baseSkinType !== null || profile.sensitivity !== null || profile.pregnancyStatus !== null;
+  const answersGiven = hasAnswers(profile);
   const reset = () => {
     const before = profile;
     const builtBefore = routineBuilt;
@@ -97,6 +99,9 @@ export default function SkinProfileScreen() {
     pregnancy: profile.pregnancyStatus ? pregnancyLabel(profile.pregnancyStatus) : "Not set",
   };
 
+  // No profile without agreeing to one (#471): someone who said Not now, or
+  // never saw the screen, is sent to it rather than let fill the answers in here.
+  if (consentAt === null && !answersGiven) return <Redirect href={CONSENT_ROUTE} />;
 
   return (
     <View style={{ flex: 1, backgroundColor: CANVAS }}>
@@ -110,7 +115,7 @@ export default function SkinProfileScreen() {
           <View style={{ flex: 1 }}>
             <PageTitle title="Skin profile" />
           </View>
-          {hasAnswers ? (
+          {answersGiven ? (
             <Pressable onPress={reset} accessibilityRole="button" accessibilityLabel="Reset skin profile" hitSlop={12} style={{ paddingRight: SPACE.gutter, justifyContent: "center" }} className="active:opacity-70">
               <Text style={{ fontSize: TYPE.label, fontWeight: "600", color: DANGER }}>Reset</Text>
             </Pressable>

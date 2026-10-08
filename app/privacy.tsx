@@ -14,6 +14,7 @@ const SECTIONS: { title: string; lines: string[] }[] = [
     lines: [
       "Your skin profile — your concerns, skin type, sensitivity and pregnancy answer — and your scan history never leave this phone, whether or not you have an account.",
       "They can be included in your phone's own backups. Delete my profile, at the foot of the Account screen, erases them, along with your shelf.",
+      "Before the quiz asks, you agree on a screen of its own, and the date you agreed is kept on this phone. If you choose Not now, the quiz isn't asked and you get no skin profile or match score; scanning and the ingredient list still work.",
     ],
   },
   {

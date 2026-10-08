@@ -92,7 +92,7 @@ beforeEach(() => {
   clockOffset += 10_000;
   jest.spyOn(Date, "now").mockImplementation(() => realNow() + clockOffset);
   mockCanGoBack = true;
-  useAppStore.setState({ hasSeenOnboarding: false, profile: EMPTY_PROFILE });
+  useAppStore.setState({ hasSeenOnboarding: false, profile: EMPTY_PROFILE, profileConsentAt: null });
 });
 
 describe("first launch", () => {
@@ -122,9 +122,35 @@ describe("first launch", () => {
     await render(<TabsLayout />);
     expect(mockRedirect).not.toHaveBeenCalled();
   });
+
+  // #471: answers from before the consent screen existed are shown it once.
+  it("sends answers with no agreement to the consent screen, and not again once it is settled", async () => {
+    useAppStore.setState({ hasSeenOnboarding: true, profile: { ...EMPTY_PROFILE, concerns: ["dullness"] }, profileConsentAt: null });
+    await render(<TabsLayout />);
+    expect(mockRedirect).toHaveBeenCalledWith({ href: "/quiz/before" });
+
+    mockRedirect.mockClear();
+    useAppStore.getState().agreeToProfile();
+    await render(<TabsLayout />);
+    expect(mockRedirect).not.toHaveBeenCalled();
+
+    // Not now clears the answers, which ends it just the same.
+    useAppStore.setState({ profile: { ...EMPTY_PROFILE, concerns: ["dullness"] }, profileConsentAt: null });
+    useAppStore.getState().declineProfile();
+    await render(<TabsLayout />);
+    expect(mockRedirect).not.toHaveBeenCalled();
+  });
+
+  it("does not ask someone with no answers to agree before they have been asked anything", async () => {
+    useAppStore.setState({ hasSeenOnboarding: true, profile: EMPTY_PROFILE, profileConsentAt: null });
+    await render(<TabsLayout />);
+    expect(mockRedirect).not.toHaveBeenCalled();
+  });
 });
 
 describe("the quiz, as a modal", () => {
+  beforeEach(() => useAppStore.setState({ profileConsentAt: "2026-10-08T10:00:00.000Z" }));
+
   it("opens on its first step", () => {
     openQuiz();
     expect(mockRouter.push).toHaveBeenCalledWith("/quiz/concerns");

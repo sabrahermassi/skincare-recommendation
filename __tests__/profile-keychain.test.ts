@@ -125,7 +125,7 @@ describe("upgrading from the version before", () => {
 
     expect(store.getState().profile).toEqual(PROFILE);
     expect(keychainProfile()).toEqual(PROFILE);
-    expect(file()?.version).toBe(10);
+    expect(file()?.version).toBe(11);
     expect(file()?.state).not.toHaveProperty("profile");
     expect(file()?.state.hasSeenOnboarding).toBe(true);
     expect(mockFiles.get(KEY)).not.toContain("pregnant");

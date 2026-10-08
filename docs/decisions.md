@@ -793,6 +793,27 @@ charges it by its own weight.
   Stearalkonium and steartrimonium chloride were left out: no source supports
   them.
 
+### The skin quiz asks first (#471, 8 October 2026)
+
+The quiz opens on "Before we ask about your skin", not on question 1: what is
+asked (pregnancy included), that the answers only score products, that they
+stay on the phone, where to change or delete them, a privacy link, and "You
+must be 16 or older to use for.me." (the owner's wording; a lawyer may change
+it). "I agree, continue" records the time (`profileConsentAt`, store v11).
+
+- **Not now means no profile.** Scanning and the ingredient list need none, so
+  they carry on; the score does not, so it is not made. The Skin profile
+  editor sends anyone with no answers and no agreement to the same screen, so
+  it is not a way round.
+- **Existing profiles see it once, on the next open** (owner): answers with no
+  agreement recorded redirect from the tabs to the screen. Agreeing keeps them;
+  Not now clears them and the routine built from them. Either way the
+  condition stops being true, so it is not shown twice. Swiping it away
+  records nothing, so it comes back next open until a button is pressed.
+- Erasing everything also forgets the agreement: the next quiz asks again.
+- Line 4 ("change or delete them any time in Profile") holds: Profile has Skin
+  profile (change, Reset) and Account (Delete my profile).
+
 ## SDK and platform history
 
 **iOS is the only release target for this MVP, decided 19 September 2026.**

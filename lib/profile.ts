@@ -9,6 +9,19 @@ export function isPersonalized(profile: SkinProfile): boolean {
   return profile.baseSkinType !== null || profile.concerns.length > 0;
 }
 
+/** Any answer at all, including ones that give nothing to score with ("I don't know" is stored as no answer). */
+export function hasAnswers(profile: SkinProfile): boolean {
+  return profile.concerns.length > 0 || profile.baseSkinType !== null || profile.sensitivity !== null || profile.pregnancyStatus !== null;
+}
+
+/**
+ * Answers on this phone with no record of agreeing to give them (#471): a
+ * profile from before the screen that records it. It is shown that screen once.
+ */
+export function needsConsent(profile: SkinProfile, consentAt: string | null): boolean {
+  return consentAt === null && hasAnswers(profile);
+}
+
 /**
  * Someone who went through the quiz but gave it nothing to score with — "I
  * don't know", "I don't have any concerns", "Prefer not to say" — as opposed
@@ -170,6 +183,9 @@ const STEPS = [
 ] as const;
 
 export type QuizRoute = (typeof STEPS)[number];
+
+/** The screen shown once before the first question (#471). Not a step: it has no count and no answers. */
+export const CONSENT_ROUTE = "/quiz/before" as const;
 
 /** Ordered onboarding routes. Single source of truth for the flow. */
 export function quizRoutes(): readonly QuizRoute[] {
