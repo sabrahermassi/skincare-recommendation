@@ -856,6 +856,26 @@ it). "I agree, continue" records the time (`profileConsentAt`, store v11).
 - Line 4 ("change or delete them any time in Profile") holds: Profile has Skin
   profile (change, Reset) and Account (Delete my profile).
 
+### Tying ingredients to Annex entries: CosIng for the numbers, the regulation for the answer (#457, 8 October 2026)
+
+An Annex entry names a substance and a label names an INCI ingredient, so the two are tied through the
+numbers: a dictionary name is looked up in a current CosIng copy (`cosing_records`, migration 0039) and its CAS
+and EC numbers are compared with the entries in `regulatory_entries`. The order is CAS, EC, CosIng's own annex
+reference, then a class the entry names (borates, 1396 and 1397); `ingredient_regulatory.matched_by` says which.
+
+- **The regulation text is the authority, CosIng is not.** Where they disagree the pair is held back and goes to
+  the owner's review list, not to the table: an old entry number (lilial is cited as III/83, which the text no
+  longer has), a record that lists a CAS the entry does not (Damascenone, #443), CosIng citing one entry while
+  the numbers point at another, and a borate whose CAS is not among the entry's listed members (potassium borate).
+- **A match that is made can still need a look**, and says why: one CAS shared by several dictionary names, a
+  match by CosIng's link alone, an entry with no CAS or EC to check it against.
+- **Nothing here fires a notice.** `reviewed_by` stays empty until the owner marks a row, and only reviewed rows
+  may ever fire it. A run never rewrites a reviewed or hand-made row; it only reports a disagreement.
+- **The CosIng copy is not public.** RLS on, no grant: the app has no reason to read it, and CosIng's reuse terms
+  are the owner's to confirm. It never touches `ingredients`, so the dictionary's `updated_at` does not move.
+- **No copy, no match.** With `cosing_records` empty or far smaller than the real thing the matcher stops
+  rather than read "nothing is regulated" into a missing table.
+
 ## SDK and platform history
 
 **iOS is the only release target for this MVP, decided 19 September 2026.**

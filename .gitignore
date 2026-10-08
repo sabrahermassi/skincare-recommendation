@@ -38,6 +38,9 @@ web-build/
 .eu-annexes.json
 .eu-annexes.json.tmp
 
+# The owner's review list, written by `match:regulatory` (#457).
+.regulatory-review.csv
+
 # An unfinished `import:obf` run's progress — see CHECKPOINT_FILE in scripts/import-obf.mjs.
 .import-obf-checkpoint.json
 .import-obf-checkpoint.json.tmp
