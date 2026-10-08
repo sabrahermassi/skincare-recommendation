@@ -40,7 +40,7 @@ jest.mock("react-native-safe-area-context", () => ({
 const ANSWERED = { ...EMPTY_PROFILE, concerns: ["dullness" as const], sensitivity: "some" as const };
 
 beforeEach(() => {
-  useAppStore.setState({ profile: EMPTY_PROFILE, profileConsentAt: null, routineBuilt: false });
+  useAppStore.setState({ profile: EMPTY_PROFILE, profileConsentAt: null, consentDeferred: false, routineBuilt: false });
   mockGoBack.mockClear();
   mockRouter.back.mockClear();
   mockRouter.push.mockClear();
@@ -64,6 +64,21 @@ it("says what is asked, what it is for, where it stays and the age line, with a 
 
   await fireEvent.press(screen.getByRole("link", { name: "Read the privacy policy" }));
   expect(mockRouter.push).toHaveBeenCalledWith("/privacy");
+});
+
+describe("closing without a choice", () => {
+  it("defers the screen to the next launch and keeps everything as it was", async () => {
+    useAppStore.setState({ profile: ANSWERED });
+    const { unmount } = await renderScreen();
+    expect(useAppStore.getState().consentDeferred).toBe(false);
+    await fireEvent.press(screen.getByRole("button", { name: "Close" }));
+    expect(mockGoBack).toHaveBeenCalledTimes(1);
+    // Leaving the screen, by Close or a swipe down, is what defers it.
+    await act(async () => unmount());
+    expect(useAppStore.getState().consentDeferred).toBe(true);
+    expect(useAppStore.getState().profile).toEqual(ANSWERED);
+    expect(useAppStore.getState().profileConsentAt).toBeNull();
+  });
 });
 
 describe("a new person", () => {

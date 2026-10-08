@@ -947,10 +947,12 @@ describe("consent before the skin profile (#471)", () => {
     expect(s().savedProducts.map((p) => p.id)).toEqual(["keep-me"]);
   });
 
-  it("forgets the agreement when everything is erased", () => {
+  it("forgets the agreement, and any deferral, when everything is erased", () => {
     s().agreeToProfile();
+    s().deferConsent();
     s().resetApp();
     expect(s().profileConsentAt).toBeNull();
+    expect(s().consentDeferred).toBe(false);
   });
 
   it("migrates v10 with the answers kept and no agreement recorded", () => {

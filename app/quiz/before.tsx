@@ -1,5 +1,5 @@
 import { router, useFocusEffect } from "expo-router";
-import { useCallback } from "react";
+import { useCallback, useEffect } from "react";
 import { Pressable, View } from "react-native";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 
@@ -24,13 +24,19 @@ import { useAppStore } from "@/store/useAppStore";
  * on to question 1, Not now closes the quiz. Someone who already has answers
  * (from before this screen existed) is sent here once by the tabs: agreeing
  * records it and closes, Not now clears the answers, so there is no profile and
- * no score until they choose to take the quiz.
+ * no score until they choose to take the quiz. Closing it without a choice
+ * leaves everything as it was and asks again on the next launch.
  */
 export default function BeforeWeAsk() {
   const insets = useSafeAreaInsets();
   const { setFooter, releaseFooter, close } = useQuizFrame();
   const agreeToProfile = useAppStore((s) => s.agreeToProfile);
   const declineProfile = useAppStore((s) => s.declineProfile);
+  const deferConsent = useAppStore((s) => s.deferConsent);
+
+  // Leaving without a choice (Close, a swipe down) is "ask me next time".
+  // Leaving by a choice has already settled the question, so this is harmless then.
+  useEffect(() => deferConsent, [deferConsent]);
 
   const agree = useCallback(() => {
     // Read when pressed, not at render: this is about answers already on the phone.

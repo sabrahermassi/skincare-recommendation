@@ -92,7 +92,7 @@ beforeEach(() => {
   clockOffset += 10_000;
   jest.spyOn(Date, "now").mockImplementation(() => realNow() + clockOffset);
   mockCanGoBack = true;
-  useAppStore.setState({ hasSeenOnboarding: false, profile: EMPTY_PROFILE, profileConsentAt: null });
+  useAppStore.setState({ hasSeenOnboarding: false, profile: EMPTY_PROFILE, profileConsentAt: null, consentDeferred: false });
 });
 
 describe("first launch", () => {
@@ -137,6 +137,12 @@ describe("first launch", () => {
     // Not now clears the answers, which ends it just the same.
     useAppStore.setState({ profile: { ...EMPTY_PROFILE, concerns: ["dullness"] }, profileConsentAt: null });
     useAppStore.getState().declineProfile();
+    await render(<TabsLayout />);
+    expect(mockRedirect).not.toHaveBeenCalled();
+
+    // Closed without a choice: not again until the next launch, or Close would land straight back on it.
+    useAppStore.setState({ profile: { ...EMPTY_PROFILE, concerns: ["dullness"] }, profileConsentAt: null });
+    useAppStore.getState().deferConsent();
     await render(<TabsLayout />);
     expect(mockRedirect).not.toHaveBeenCalled();
   });

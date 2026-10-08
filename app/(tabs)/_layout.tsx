@@ -119,6 +119,7 @@ export default function TabsLayout() {
   const hasSeenOnboarding = useAppStore((s) => s.hasSeenOnboarding);
   const profile = useAppStore((s) => s.profile);
   const consentAt = useAppStore((s) => s.profileConsentAt);
+  const consentDeferred = useAppStore((s) => s.consentDeferred);
   const insets = useSafeAreaInsets();
 
   /*
@@ -138,10 +139,11 @@ export default function TabsLayout() {
   /*
     Answers from before the consent screen existed: shown it once, on the next
     open (#471, owner). Agreeing records the date; Not now clears the answers,
-    so either way this stops being true and it is not shown again. Declarative
-    for the same reason as the gate above.
+    so either way this stops being true and it is not shown again. Closing it
+    without a choice defers it to the next launch, or Close would land back
+    here and redirect again. Declarative for the same reason as the gate above.
   */
-  if (needsConsent(profile, consentAt)) {
+  if (needsConsent(profile, consentAt) && !consentDeferred) {
     return <Redirect href={CONSENT_ROUTE} />;
   }
 

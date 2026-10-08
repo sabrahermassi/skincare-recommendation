@@ -145,6 +145,13 @@ type AppState = {
    * Device only, like the profile it is about.
    */
   profileConsentAt: string | null;
+  /**
+   * The consent screen was closed without a choice, so it is not shown again
+   * until the next launch (#471): the tabs send answers with no agreement
+   * there, and Close would otherwise land straight back on it. Session only,
+   * like `justFinishedQuiz`, so it is not persisted.
+   */
+  consentDeferred: boolean;
 
   /**
    * Set only by actually finishing the quiz's 4th question — not by
@@ -302,6 +309,8 @@ type AppState = {
 
   /** "I agree, continue" on the screen before the quiz: records when. */
   agreeToProfile: () => void;
+  /** The consent screen was left without a choice: not again until the next launch. */
+  deferConsent: () => void;
   /**
    * "Not now": the answers given so far go, and so does the routine built from
    * them, so there is no skin profile and no match score (#471). Scanning and
@@ -456,6 +465,7 @@ const INITIAL_STATE = {
   profile: EMPTY_PROFILE,
   hasSeenOnboarding: false,
   profileConsentAt: null as string | null,
+  consentDeferred: false,
   justFinishedQuiz: false,
   savedProducts: [] as SavedProduct[],
   savedIngredients: [] as string[],
@@ -821,6 +831,7 @@ export const useAppStore = create<AppState>()(
       completeOnboarding: () => set({ hasSeenOnboarding: true }),
 
       agreeToProfile: () => set({ profileConsentAt: new Date().toISOString() }),
+      deferConsent: () => set({ consentDeferred: true }),
       declineProfile: () =>
         set({ profile: EMPTY_PROFILE, routineBuilt: false, justFinishedQuiz: false, profileConsentAt: null }),
 

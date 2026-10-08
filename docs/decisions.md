@@ -808,8 +808,13 @@ it). "I agree, continue" records the time (`profileConsentAt`, store v11).
 - **Existing profiles see it once, on the next open** (owner): answers with no
   agreement recorded redirect from the tabs to the screen. Agreeing keeps them;
   Not now clears them and the routine built from them. Either way the
-  condition stops being true, so it is not shown twice. Swiping it away
-  records nothing, so it comes back next open until a button is pressed.
+  condition stops being true, so it is not shown twice. Closing it without a
+  choice (Close, or a swipe down) records nothing and defers it to the next
+  launch (`consentDeferred`, session only): the redirect replaces the tabs, so
+  without that, Close would land straight back on it.
+- **No question without it.** The quiz's layout redirects any step reached
+  without an agreement (a link to /quiz/concerns, say) to the screen, not just
+  `openQuiz`.
 - Erasing everything also forgets the agreement: the next quiz asks again.
 - Line 4 ("change or delete them any time in Profile") holds: Profile has Skin
   profile (change, Reset) and Account (Delete my profile).
