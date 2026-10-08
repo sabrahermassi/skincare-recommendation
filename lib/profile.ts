@@ -187,6 +187,13 @@ export type QuizRoute = (typeof STEPS)[number];
 /** The screen shown once before the first question (#471). Not a step: it has no count and no answers. */
 export const CONSENT_ROUTE = "/quiz/before" as const;
 
+/**
+ * The same screen, sent there by the launch gate (`ConsentGate`) rather than
+ * by someone opening the quiz: agreeing then keeps the answers they already
+ * have and closes, instead of starting question 1.
+ */
+export const CONSENT_LAUNCH_HREF = `${CONSENT_ROUTE}?from=launch` as const;
+
 /** Ordered onboarding routes. Single source of truth for the flow. */
 export function quizRoutes(): readonly QuizRoute[] {
   return STEPS;

@@ -806,7 +806,7 @@ it). "I agree, continue" records the time (`profileConsentAt`, store v11).
   editor sends anyone with no answers and no agreement to the same screen, so
   it is not a way round.
 - **Existing profiles see it once, on the next open** (owner): answers with no
-  agreement recorded redirect to the screen from the root layout (`ConsentGate`), so a link into a product or the Skin profile editor is held too, not only a launch onto the tabs. Agreeing keeps them;
+  agreement recorded redirect to the screen from the root layout (`ConsentGate`), so a link into a product or the Skin profile editor is held too, not only a launch onto the tabs. Agreeing keeps them (the gate sends `?from=launch`; opening the quiz yourself, after closing the gate, starts question 1 instead);
   Not now clears them and the routine built from them. Either way the
   condition stops being true, so it is not shown twice. Closing it without a
   choice (Close, or a swipe down) records nothing and defers it to the next

@@ -1,4 +1,4 @@
-import { router, useFocusEffect } from "expo-router";
+import { router, useFocusEffect, useLocalSearchParams } from "expo-router";
 import { useCallback, useEffect } from "react";
 import { Pressable, View } from "react-native";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
@@ -9,7 +9,7 @@ import { PrimaryButton } from "@/components/PrimaryButton";
 import { quizTopPadding, useQuizFrame } from "@/components/QuizFrame";
 import { Text } from "@/components/Text";
 import { CONSENT_COPY } from "@/lib/consent-copy";
-import { hasAnswers, quizRoutes } from "@/lib/profile";
+import { quizRoutes } from "@/lib/profile";
 import { noOrphan } from "@/lib/text";
 import { CANVAS, DISPLAY_FONT, INK, LEADING, LINK, SPACE, TOUCH_TARGET, TRACKING, TYPE } from "@/lib/tokens";
 import { useAppStore } from "@/store/useAppStore";
@@ -20,11 +20,11 @@ import { useAppStore } from "@/store/useAppStore";
  * has no count and no progress line; the footer button belongs to QuizFrame as
  * on every step.
  *
- * Two ways in. A new person opens the quiz and lands here first: agreeing goes
- * on to question 1, Not now closes the quiz. Someone who already has answers
- * (from before this screen existed) is sent here once by the tabs: agreeing
- * records it and closes, Not now clears the answers, so there is no profile and
- * no score until they choose to take the quiz. Closing it without a choice
+ * Two ways in. Opening the quiz lands here first: agreeing goes on to question
+ * 1, Not now closes the quiz. Someone who already has answers (from before this
+ * screen existed) is sent here once by the launch gate (`from=launch`):
+ * agreeing records it and closes, Not now clears the answers, so there is no
+ * profile and no score until they choose to take the quiz. Closing it without a choice
  * leaves everything as it was and asks again on the next launch.
  */
 export default function BeforeWeAsk() {
@@ -33,19 +33,20 @@ export default function BeforeWeAsk() {
   const agreeToProfile = useAppStore((s) => s.agreeToProfile);
   const declineProfile = useAppStore((s) => s.declineProfile);
   const deferConsent = useAppStore((s) => s.deferConsent);
+  // Sent here by the launch gate, not by someone opening the quiz. Only changes
+  // where "I agree" goes, so a link that sets it can do no harm.
+  const fromLaunch = useLocalSearchParams<{ from?: string }>().from === "launch";
 
   // Leaving without a choice (Close, a swipe down) is "ask me next time".
   // Leaving by a choice has already settled the question, so this is harmless then.
   useEffect(() => deferConsent, [deferConsent]);
 
   const agree = useCallback(() => {
-    // Read when pressed, not at render: this is about answers already on the phone.
-    const hadAnswers = hasAnswers(useAppStore.getState().profile);
     agreeToProfile();
     // Replace, not push: the quiz's back arrow must close it, not return here.
-    if (hadAnswers) close();
+    if (fromLaunch) close();
     else router.replace(quizRoutes()[0]);
-  }, [agreeToProfile, close]);
+  }, [agreeToProfile, close, fromLaunch]);
 
   const notNow = () => {
     declineProfile();

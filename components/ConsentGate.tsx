@@ -1,6 +1,6 @@
 import { Redirect } from "expo-router";
 
-import { CONSENT_ROUTE, needsConsent } from "@/lib/profile";
+import { CONSENT_LAUNCH_HREF, needsConsent } from "@/lib/profile";
 import { useAppStore } from "@/store/useAppStore";
 
 /**
@@ -20,5 +20,5 @@ export function ConsentGate() {
   const profile = useAppStore((s) => s.profile);
   const consentAt = useAppStore((s) => s.profileConsentAt);
   const deferred = useAppStore((s) => s.consentDeferred);
-  return needsConsent(profile, consentAt) && !deferred ? <Redirect href={CONSENT_ROUTE} /> : null;
+  return needsConsent(profile, consentAt) && !deferred ? <Redirect href={CONSENT_LAUNCH_HREF} /> : null;
 }

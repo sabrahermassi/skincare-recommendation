@@ -17,6 +17,7 @@ jest.setTimeout(30_000);
 
 const mockRouter = { back: jest.fn(), push: jest.fn(), replace: jest.fn(), canGoBack: () => true };
 const mockGoBack = jest.fn();
+let mockParams: Record<string, string> = {};
 
 jest.mock("expo-router", () => {
   const { Text } = jest.requireActual("react-native");
@@ -26,7 +27,7 @@ jest.mock("expo-router", () => {
     },
     useNavigation: () => ({ goBack: mockGoBack, canGoBack: () => true }),
     useFocusEffect: (effect: () => void) => jest.requireActual("react").useEffect(effect, [effect]),
-    useLocalSearchParams: () => ({}),
+    useLocalSearchParams: () => mockParams,
     Redirect: ({ href }: { href: string }) => <Text testID="redirect">{href}</Text>,
   };
 });
@@ -43,6 +44,7 @@ const ANSWERED = { ...EMPTY_PROFILE, concerns: ["dullness" as const], sensitivit
 beforeEach(() => {
   useAppStore.setState({ profile: EMPTY_PROFILE, profileConsentAt: null, consentDeferred: false, routineBuilt: false });
   mockGoBack.mockClear();
+  mockParams = {};
   mockRouter.back.mockClear();
   mockRouter.push.mockClear();
   mockRouter.replace.mockClear();
@@ -101,8 +103,11 @@ describe("a new person", () => {
   });
 });
 
-describe("someone who already has answers", () => {
-  beforeEach(() => useAppStore.setState({ profile: ANSWERED, routineBuilt: true }));
+describe("someone who already has answers, sent here by the launch gate", () => {
+  beforeEach(() => {
+    mockParams = { from: "launch" };
+    useAppStore.setState({ profile: ANSWERED, routineBuilt: true });
+  });
 
   it("keeps them and closes on I agree, without starting the quiz again", async () => {
     await renderScreen();
@@ -120,6 +125,16 @@ describe("someone who already has answers", () => {
     expect(useAppStore.getState().routineBuilt).toBe(false);
     expect(useAppStore.getState().profileConsentAt).toBeNull();
   });
+});
+
+it("starts the quiz on I agree when someone with old answers opens it themselves, after closing the gate", async () => {
+  // No `from=launch`: they tapped Retake quiz, so they asked for question 1.
+  useAppStore.setState({ profile: ANSWERED, consentDeferred: true });
+  await renderScreen();
+  await act(async () => fireEvent.press(screen.getByRole("button", { name: "I agree, continue" })));
+  expect(mockRouter.replace).toHaveBeenCalledWith("/quiz/concerns");
+  expect(mockGoBack).not.toHaveBeenCalled();
+  expect(useAppStore.getState().profile).toEqual(ANSWERED);
 });
 
 describe("the Skin profile editor after Not now", () => {
@@ -156,7 +171,7 @@ describe("the gate for answers from before the screen existed", () => {
 
   it("sends answers with no agreement to the consent screen", async () => {
     useAppStore.setState({ profile: ANSWERED });
-    expect(await gate()).toBe("/quiz/before");
+    expect(await gate()).toBe("/quiz/before?from=launch");
   });
 
   it("stops once they agreed, or said Not now, which clears the answers", async () => {
