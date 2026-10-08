@@ -42,6 +42,13 @@ describe("How scoring works", () => {
     expect(screen.queryByText(/or trying/)).toBeNull();
   });
 
+  // #472: the sentence about where the facts come from is the honest one, and the old promise is gone.
+  it("says where the facts come from without promising every ingredient is checked", async () => {
+    await render(<HowScoringWorks />);
+    expect(screen.getByText(/We match ingredient names against the EU's CosIng list and our own ingredient notes\. Where we have a source, it's on the ingredient's page\. Some ingredients we don't recognise yet\./)).toBeTruthy();
+    expect(screen.queryByText(/Every ingredient is checked/)).toBeNull();
+  });
+
   it("closes from its X", async () => {
     const { router } = jest.requireMock<typeof import("expo-router")>("expo-router");
     await render(<HowScoringWorks />);

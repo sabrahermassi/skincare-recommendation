@@ -507,6 +507,9 @@ export const ACTIVES: readonly Active[] = [
     match: ["alpha-arbutin", "arbutin"],
     save: "alpha-arbutin",
     // A plant cousin of hydroquinone: left out while pregnant or breastfeeding until it is checked.
+    // Owner, 7 October 2026 (#475): unchanged until an expert answers. The one source we hold
+    // (Putra et al.) does not support a ban, so a scan carries no arbutin warning
+    // (`lib/pregnancy-caution.ts`) and only this hiding stays.
     shownInPregnancy: false,
     gentleness: 1,
     sources: {

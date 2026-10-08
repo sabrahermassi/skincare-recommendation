@@ -85,6 +85,10 @@ export function regulatoryStatus(ingredient: Ingredient): string {
   // Two entries are written this way: 358 limits furocoumarins, 360 limits safrole (#468).
   if (ingredient.note?.startsWith(NATURAL_ESSENCE_NOTE_START)) return ingredient.note.includes("safrole") ? "Allowed, with a limit on safrole" : "Allowed, with a limit on furocoumarins";
   if (isOriginDependent(ingredient)) return ORIGIN_DEPENDENT_HEADLINE;
+  // Annex IV (colourants), V (preservatives) and VI (UV filters) are positive lists: an ingredient the
+  // dictionary cites there is listed, with limits, even though its rating is `safe` (phenyl mercuric borate, #419).
+  const positiveList = /\bEU Annex (IV|V|VI)\b/.exec(ingredient.note ?? "")?.[1];
+  if (positiveList) return `Listed in EU Annex ${positiveList}`;
   return EU_ALLERGEN_COPY.noneListed;
 }
 
@@ -294,6 +298,8 @@ export const SAFETY_NOTICE_COPY = {
   /** The same tab's other two words, for the two reasons "Avoid" used to cover. */
   clogWord: "May clog pores",
   pregnancyWord: "Best avoided while pregnant",
+  /** For an ingredient the sources say to limit, not avoid (essential oils, salicylic acid; #475). */
+  pregnancyLimitWord: "Best limited while pregnant",
   /** The small shield beside a verdict in lists, and what a screen reader says for it (#405). */
   shieldLabel: "Contains an ingredient not permitted in EU cosmetics. Check the label.",
   /** What sharing a product says when the notice applies: no score, no safety claim (#405). */

@@ -56,6 +56,40 @@ async function show(names: string[], profile: SkinProfile) {
 const openMatch = () => fireEvent.press(screen.getByRole("tab", { name: "Skin match" }));
 const openIngredients = () => fireEvent.press(screen.getByRole("tab", { name: "Ingredients" }));
 
+// #470: the owner's sentence sits under the score, and takes the score's place where there is none.
+describe("the medical note on Skin match", () => {
+  const NOTE = "Not medical advice. Patch test new products. For a skin condition, see a dermatologist.";
+
+  it("shows under the score and verdict once the answers score, once", async () => {
+    await show(["niacinamide"], { ...EMPTY_PROFILE, baseSkinType: "dry" });
+    await openMatch();
+    expect(screen.getAllByText(NOTE)).toHaveLength(1);
+    expect(screen.getByLabelText(/How scoring works$/)).toBeTruthy();
+  });
+
+  it("shows with no skin profile, where there is no score", async () => {
+    await show(["niacinamide"], EMPTY_PROFILE);
+    await openMatch();
+    expect(screen.getAllByText(NOTE)).toHaveLength(1);
+    expect(screen.queryByLabelText(/How scoring works$/)).toBeNull();
+  });
+
+  it("shows when too little was read to score", async () => {
+    const ingredients = ["water", "mystery extract", "another unknown"].map((name, i) => ({ ...ingredient(name), verified: i === 0 }));
+    const profile = { ...EMPTY_PROFILE, baseSkinType: "dry" as const };
+    await render(<ResultTabs header={null} ingredients={ingredients} type="serum" match={matchProduct({ type: "serum", ingredients }, profile)} profile={profile} onIngredientPress={jest.fn()} />);
+    await act(async () => {});
+    expect(screen.getByText(/^We only recognised \d+ of \d+ names$/)).toBeTruthy();
+    expect(screen.getAllByText(NOTE)).toHaveLength(1);
+  });
+
+  it("is not on the Ingredients tab", async () => {
+    await show(["niacinamide"], { ...EMPTY_PROFILE, baseSkinType: "dry" });
+    await openIngredients();
+    expect(screen.queryByText(NOTE)).toBeNull();
+  });
+});
+
 // Owner, 2 October 2026: no sources on the result; they are on each ingredient's own sheet.
 it("gives a reason its box, with no source under it", async () => {
   await show(["niacinamide"], { ...EMPTY_PROFILE, concerns: ["hyperpigmentation"] });
@@ -70,7 +104,24 @@ it("shows the pregnancy card, with no source on it", async () => {
   await show(["hydroquinone"], { ...EMPTY_PROFILE, pregnancyStatus: "pregnant" });
   await openIngredients();
   expect(screen.getByText("Best avoided while pregnant")).toBeTruthy();
+  // #475: worded for the one question the quiz asks, pregnant or breastfeeding.
+  expect(screen.getByText(/If you're pregnant or breastfeeding and unsure, ask your doctor or midwife\./)).toBeTruthy();
   expect(screen.queryByLabelText(/^Source:/)).toBeNull();
+});
+
+// #475: the AAD page says to limit essential oils and salicylic acid above 2%, not to avoid them.
+it("says 'best limited' when every pregnancy ingredient is one the sources say to limit", async () => {
+  await show(["lavandula angustifolia oil", "salicylic acid"], { ...EMPTY_PROFILE, pregnancyStatus: "pregnant" });
+  await openIngredients();
+  expect(screen.getByText("Best limited while pregnant")).toBeTruthy();
+  expect(screen.queryByText("Best avoided while pregnant")).toBeNull();
+});
+
+it("keeps 'best avoided' when one of them is to be avoided", async () => {
+  await show(["lavandula angustifolia oil", "retinol"], { ...EMPTY_PROFILE, pregnancyStatus: "pregnant" });
+  await openIngredients();
+  expect(screen.getByText("Best avoided while pregnant")).toBeTruthy();
+  expect(screen.queryByText("Best limited while pregnant")).toBeNull();
 });
 
 it("marks a layering note as a caution and leaves the evening note plain", async () => {
