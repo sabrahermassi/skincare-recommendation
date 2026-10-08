@@ -13,6 +13,7 @@
     "typecheck": "tsc --noEmit",
     "import:cosing": "node scripts/import-cosing.mjs",
     "import:eu-annexes": "node scripts/import-eu-annexes.mjs",
+    "match:regulatory": "node scripts/match-regulatory.mjs",
     "clean:stubs": "node scripts/clean-ingredient-stubs.mjs",
     "import:inci-dictionary": "node scripts/import-inci-dictionary.mjs",
     "import:obf": "node scripts/import-obf.mjs",
