@@ -27,4 +27,11 @@ describe("Privacy policy", () => {
     expect(screen.getByText(/no ads, no selling your data/)).toBeTruthy();
     expect(screen.getByText("We do not sell your data, and there are no ads in the app.")).toBeTruthy();
   });
+
+  // #471: the consent screen's promise, said in full on the page it links to.
+  it("says the quiz asks first, keeps the date on the phone, and what Not now leaves", async () => {
+    await render(<Privacy />);
+    expect(screen.getByText(/the date you agreed is kept on this phone/)).toBeTruthy();
+    expect(screen.getByText(/If you choose Not now/)).toBeTruthy();
+  });
 });

@@ -843,6 +843,32 @@ unchanged, so no profile migrates. `lib/skin-needs-data.ts` and the Skin needs
 goals in `lib/journey.ts` are hidden until expert review (#467) and are a
 follow-up.
 
+### The skin quiz asks first (#471, 8 October 2026)
+
+The quiz opens on "Before we ask about your skin", not on question 1: what is
+asked (pregnancy included), that the answers only score products, that they
+stay on the phone, where to change or delete them, a privacy link, and "You
+must be 16 or older to use for.me." (the owner's wording; a lawyer may change
+it). "I agree, continue" records the time (`profileConsentAt`, store v11).
+
+- **Not now means no profile.** Scanning and the ingredient list need none, so
+  they carry on; the score does not, so it is not made. The Skin profile
+  editor sends anyone with no answers and no agreement to the same screen, so
+  it is not a way round.
+- **Existing profiles see it once, on the next open** (owner): answers with no
+  agreement recorded redirect to the screen from the root layout (`ConsentGate`), so a link into a product or the Skin profile editor is held too, not only a launch onto the tabs. Agreeing keeps them (the gate sends `?from=launch`; opening the quiz yourself, after closing the gate, starts question 1 instead);
+  Not now clears them and the routine built from them. Either way the
+  condition stops being true, so it is not shown twice. Closing it without a
+  choice (Close, or a swipe down) records nothing and defers it to the next
+  launch (`consentDeferred`, session only): the redirect replaces the tabs, so
+  without that, Close would land straight back on it.
+- **No question without it.** The quiz's layout redirects any step reached
+  without an agreement (a link to /quiz/concerns, say) to the screen, not just
+  `openQuiz`.
+- Erasing everything also forgets the agreement: the next quiz asks again.
+- Line 4 ("change or delete them any time in Profile") holds: Profile has Skin
+  profile (change, Reset) and Account (Delete my profile).
+
 ## SDK and platform history
 
 **iOS is the only release target for this MVP, decided 19 September 2026.**

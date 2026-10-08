@@ -225,6 +225,7 @@ describe("what survives an app restart", () => {
       "journalStarted",
       "parkedShelf",
       "profile",
+      "profileConsentAt",
       "routineActives",
       "routineBuilt",
       "routinePicks",
@@ -776,8 +777,8 @@ describe("v7 -> v8 migration (#300)", () => {
 
   it("leaves a v8 install alone", () => {
     const state = v7({});
-    // Only the v10 flag is added: no skin profile here, so no routine built.
-    expect(migratePersisted(state, 8)).toEqual({ ...state, routineBuilt: false });
+    // Only the v10 and v11 flags are added: no skin profile here, so no routine built.
+    expect(migratePersisted(state, 8)).toEqual({ ...state, routineBuilt: false, profileConsentAt: null });
   });
 });
 
@@ -796,7 +797,7 @@ describe("v8 -> v9 migration (#189)", () => {
       shelfQueue: [],
       parkedShelf: null,
     };
-    expect(migratePersisted(state, 8)).toEqual({ ...state, routineBuilt: false });
+    expect(migratePersisted(state, 8)).toEqual({ ...state, routineBuilt: false, profileConsentAt: null });
   });
 });
 
@@ -908,3 +909,67 @@ describe("a label photo's number", () => {
   });
 });
 
+
+// #471: the screen before the quiz records when the person agreed. Nobody who
+// already had answers agreed to anything on it, so a migrated install holds
+// null, which is what sends it to the screen once.
+describe("consent before the skin profile (#471)", () => {
+  const v10 = (profile = { ...EMPTY_PROFILE, concerns: ["dullness" as const], pregnancyStatus: "neither" as const }) => ({
+    profile,
+    hasSeenOnboarding: true,
+    savedProducts: [],
+    savedIngredients: [],
+    history: [],
+    routineBuilt: true,
+  });
+
+  beforeEach(() => useAppStore.getState().resetApp());
+
+  it("starts as not asked, and records the time on agreeing", () => {
+    expect(s().profileConsentAt).toBeNull();
+    s().agreeToProfile();
+    expect(Number.isNaN(Date.parse(s().profileConsentAt as string))).toBe(false);
+  });
+
+  it("clears the answers and the routine built from them on Not now, and records nothing", () => {
+    s().setProfile({ concerns: ["dullness"], sensitivity: "high" });
+    s().setRoutineBuilt(true);
+    s().agreeToProfile();
+    s().declineProfile();
+    expect(s().profile).toEqual(EMPTY_PROFILE);
+    expect(s().routineBuilt).toBe(false);
+    expect(s().profileConsentAt).toBeNull();
+  });
+
+  it("leaves the shelf and the log alone on Not now: scanning and saving do not need a profile", () => {
+    s().saveProduct("keep-me");
+    s().declineProfile();
+    expect(s().savedProducts.map((p) => p.id)).toEqual(["keep-me"]);
+  });
+
+  it("forgets the agreement, and any deferral, when everything is erased", () => {
+    s().agreeToProfile();
+    s().deferConsent();
+    s().resetApp();
+    expect(s().profileConsentAt).toBeNull();
+    expect(s().consentDeferred).toBe(false);
+  });
+
+  it("migrates v10 with the answers kept and no agreement recorded", () => {
+    const migrated = migratePersisted(v10(), 10);
+    expect(migrated?.profile.concerns).toEqual(["dullness"]);
+    expect(migrated?.profile.pregnancyStatus).toBe("neither");
+    expect(migrated?.routineBuilt).toBe(true);
+    expect(migrated).toHaveProperty("profileConsentAt", null);
+  });
+
+  it("keeps an agreement already recorded when a v11 store passes through", () => {
+    const stored = { ...v10(), profileConsentAt: "2026-10-08T10:00:00.000Z" };
+    expect(migratePersisted(stored, 11)?.profileConsentAt).toBe("2026-10-08T10:00:00.000Z");
+  });
+
+  it("migrates a v3 store all the way, with the new key null", () => {
+    const old = { profile: { ...EMPTY_PROFILE, concerns: ["redness" as const] }, hasSeenOnboarding: true, savedProducts: [], savedIngredients: [], history: [] };
+    expect(migratePersisted(old, 3)).toHaveProperty("profileConsentAt", null);
+  });
+});

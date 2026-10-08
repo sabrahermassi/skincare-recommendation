@@ -1,6 +1,7 @@
 import { act, fireEvent, render, screen, within } from "@testing-library/react-native";
 
 import SkinProfileScreen from "@/app/skin-profile";
+import { LINK } from "@/lib/tokens";
 import { EMPTY_PROFILE, useAppStore } from "@/store/useAppStore";
 
 /**
@@ -20,7 +21,8 @@ jest.mock("react-native-safe-area-context", () => ({
   useSafeAreaInsets: () => ({ top: 0, bottom: 0, left: 0, right: 0 }),
 }));
 
-beforeEach(() => useAppStore.setState({ profile: EMPTY_PROFILE }));
+// Agreed already (#471): without it the screen sends the person to the consent screen.
+beforeEach(() => useAppStore.setState({ profile: EMPTY_PROFILE, profileConsentAt: "2026-10-08T10:00:00.000Z" }));
 
 it("lists every answer with its value, and says Not set before any", async () => {
   useAppStore.setState({ profile: { ...EMPTY_PROFILE, baseSkinType: "oily", concerns: ["large-pores"] } });
@@ -92,6 +94,13 @@ it("says how to swap once three concerns are chosen", async () => {
   await render(<SkinProfileScreen />);
   await act(async () => fireEvent.press(screen.getByRole("button", { name: /^Skin concerns: / })));
   expect(screen.getByText("3 chosen. Untick one to swap.")).toBeTruthy();
+});
+
+// Owner, 8 October 2026: Reset can be undone, so it is link green, not the red kept for what cannot.
+it("writes Reset in the link green", async () => {
+  useAppStore.setState({ profile: { concerns: ["acne-prone"], baseSkinType: "oily", sensitivity: "some", pregnancyStatus: "neither" } });
+  await render(<SkinProfileScreen />);
+  expect(screen.getByText("Reset")).toHaveStyle({ color: LINK });
 });
 
 // Owner: one tap puts every answer back to not set, and Undo brings them back.

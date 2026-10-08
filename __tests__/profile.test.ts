@@ -1,8 +1,10 @@
 import type { SkinProfile } from "@/data/types";
 import {
   answeredWithoutSignal,
+  hasAnswers,
   isPersonalized,
   isSensitive,
+  needsConsent,
   nextQuizRoute,
   pregnancyOption,
   profileHeadline,
@@ -144,5 +146,21 @@ describe("pregnancyOption", () => {
 
   it("keeps prefer-not-to-say as its own answer", () => {
     expect(pregnancyOption("prefer-not-to-say")).toBe("prefer-not-to-say");
+  });
+});
+
+describe("needsConsent (#471)", () => {
+  it("is true for answers with no agreement recorded: a profile from before the screen existed", () => {
+    expect(needsConsent(profile({ concerns: ["dullness"] }), null)).toBe(true);
+  });
+
+  it("counts an answer that gives nothing to score with, like sensitivity alone", () => {
+    expect(hasAnswers(profile({ sensitivity: "none" }))).toBe(true);
+    expect(needsConsent(profile({ pregnancyStatus: "prefer-not-to-say" }), null)).toBe(true);
+  });
+
+  it("is false once agreed, and for an empty profile, so the screen is shown once", () => {
+    expect(needsConsent(profile({ concerns: ["dullness"] }), "2026-10-08T10:00:00.000Z")).toBe(false);
+    expect(needsConsent(EMPTY_PROFILE, null)).toBe(false);
   });
 });

@@ -92,7 +92,7 @@ beforeEach(() => {
   clockOffset += 10_000;
   jest.spyOn(Date, "now").mockImplementation(() => realNow() + clockOffset);
   mockCanGoBack = true;
-  useAppStore.setState({ hasSeenOnboarding: false, profile: EMPTY_PROFILE });
+  useAppStore.setState({ hasSeenOnboarding: false, profile: EMPTY_PROFILE, profileConsentAt: null });
 });
 
 describe("first launch", () => {
@@ -125,6 +125,8 @@ describe("first launch", () => {
 });
 
 describe("the quiz, as a modal", () => {
+  beforeEach(() => useAppStore.setState({ profileConsentAt: "2026-10-08T10:00:00.000Z" }));
+
   it("opens on its first step", () => {
     openQuiz();
     expect(mockRouter.push).toHaveBeenCalledWith("/quiz/concerns");
