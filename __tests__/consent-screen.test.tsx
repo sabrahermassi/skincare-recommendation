@@ -128,6 +128,15 @@ describe("the Skin profile editor after Not now", () => {
     expect(screen.queryByText("Skin profile")).toBeNull();
   });
 
+  it("lets someone with answers from before the screen reset them without being sent away", async () => {
+    useAppStore.setState({ profile: ANSWERED, profileConsentAt: null, consentDeferred: true });
+    await render(<SkinProfileScreen />);
+    await act(async () => fireEvent.press(screen.getByRole("button", { name: "Reset skin profile" })));
+    expect(useAppStore.getState().profile).toEqual(EMPTY_PROFILE);
+    expect(screen.queryByTestId("redirect")).toBeNull();
+    expect(screen.getByText("Skin profile reset")).toBeTruthy();
+  });
+
   it("opens for someone who agreed", async () => {
     useAppStore.setState({ profileConsentAt: "2026-10-08T10:00:00.000Z" });
     await render(<SkinProfileScreen />);

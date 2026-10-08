@@ -38,7 +38,12 @@ const ORDER: Question[] = ["concerns", "skinType", "sensitivity", "pregnancy"];
 export default function SkinProfileScreen() {
   const profile = useAppStore((s) => s.profile);
   const setProfile = useAppStore((s) => s.setProfile);
-  const consentAt = useAppStore((s) => s.profileConsentAt);
+  // Decided once, on opening: someone with answers and no agreement (a profile
+  // from before the consent screen) may empty it with Reset without being sent away.
+  const [needsConsent] = useState(() => {
+    const { profileConsentAt, profile: stored } = useAppStore.getState();
+    return profileConsentAt === null && !hasAnswers(stored);
+  });
   const routineBuilt = useAppStore((s) => s.routineBuilt);
   const setRoutineBuilt = useAppStore((s) => s.setRoutineBuilt);
   const [open, setOpen] = useState<Question | null>(null);
@@ -101,7 +106,7 @@ export default function SkinProfileScreen() {
 
   // No profile without agreeing to one (#471): someone who said Not now, or
   // never saw the screen, is sent to it rather than let fill the answers in here.
-  if (consentAt === null && !answersGiven) return <Redirect href={CONSENT_ROUTE} />;
+  if (needsConsent) return <Redirect href={CONSENT_ROUTE} />;
 
   return (
     <View style={{ flex: 1, backgroundColor: CANVAS }}>
