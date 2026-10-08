@@ -61,6 +61,19 @@ Kept: "blemish care" and "blemish-prone skin", the usual cosmetic wording.
 Kept: "For a skin problem, a dermatologist is the right person to ask." It sends
 people to a doctor and claims nothing.
 
+## Found after the owner approved the table, not changed
+
+Visible lines the approved table did not list. They need the owner's say before
+they change (#492 carries them):
+
+- `app/ingredient/[inci].tsx`: "…it may clog pores, most of all on acne-prone
+  skin." (a high-confidence pore-clogger's note on the ingredient sheet).
+- `data/ingredients.ts`: the sample-product notes "Highly pore-clogging - risky
+  for acne-prone skin." and "…generally acne-safe." Shown only when the app runs
+  without a backend (checkouts and tests), never to a person with the live
+  catalogue.
+- `data/types.ts`: the product type "Pimple patch", a product category name.
+
 ## One thing for the lawyer in particular
 
 The EU allows benzoyl peroxide in cosmetics only in nail products (Annex III,
