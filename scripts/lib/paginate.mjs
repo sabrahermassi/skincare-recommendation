@@ -49,3 +49,27 @@ export async function paginateOrdered(client, table, { select, cursorColumn, pag
 
   return rows;
 }
+
+/**
+ * Reads every row of a table whose key is more than one column, paging by position in a total order rather
+ * than by a cursor value: `paginateOrdered` advances past the last row's value, which skips the rest of a
+ * run of rows that share it, and no single column of a composite key is unique. Ordering by every key
+ * column makes the order total, so page N is the same rows twice and nothing is dropped at a boundary. Throws on the
+ * first page that errors, rather than returning a silently truncated result.
+ *
+ * @param {import("@supabase/supabase-js").SupabaseClient} client
+ * @param {string} table
+ * @param {{ select: string, orderColumns: string[], pageSize?: number }} options
+ * @returns {Promise<any[]>}
+ */
+export async function paginateByKey(client, table, { select, orderColumns, pageSize = 1000 }) {
+  const rows = [];
+  for (let from = 0; ; from += pageSize) {
+    let query = client.from(table).select(select);
+    for (const column of orderColumns) query = query.order(column, { ascending: true });
+    const { data, error } = await query.range(from, from + pageSize - 1);
+    if (error) throw new Error(`${table} rows ${from}-${from + pageSize - 1}: ${error.message}`);
+    rows.push(...data);
+    if (data.length < pageSize) return rows;
+  }
+}

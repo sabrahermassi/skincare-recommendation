@@ -22,7 +22,7 @@ import { readFileSync, realpathSync, writeFileSync } from "node:fs";
 import { fileURLToPath } from "node:url";
 
 import { connect } from "./lib/db.mjs";
-import { paginateOrdered } from "./lib/paginate.mjs";
+import { paginateByKey, paginateOrdered } from "./lib/paginate.mjs";
 import { matchRegulatory, planRegulatoryWrites, toCsv } from "./lib/regulatory-match.mjs";
 
 export const DEFAULT_OUT = ".regulatory-review.csv";
@@ -36,9 +36,8 @@ const option = (args, name) => {
   return at === -1 ? null : args[at + 1];
 };
 
-async function readAll(db, table, select, order) {
-  return paginateOrdered(db, table, { select, cursorColumn: order });
-}
+/** A table with a single-column key: paged by that key. */
+const readAll = (db, table, select, key) => paginateOrdered(db, table, { select, cursorColumn: key });
 
 /** How many catalogue products each of `names` is in. Asked for the names that matter, not for the whole table. */
 async function productCounts(db, names) {
@@ -72,7 +71,8 @@ async function main(args) {
 
   const { db } = connect({ write: apply });
 
-  const entries = await readAll(db, "regulatory_entries", "annex,entry,wording,cas_numbers,ec_numbers,members,status", "entry").then((rows) => rows.filter((r) => r.status === "active"));
+  // The key is (annex, entry), and an entry number exists in both annexes: page by the whole key.
+  const entries = await paginateByKey(db, "regulatory_entries", { select: "annex,entry,wording,cas_numbers,ec_numbers,members,status", orderColumns: ["annex", "entry"] }).then((rows) => rows.filter((r) => r.status === "active"));
   const records = cosingFile ? JSON.parse(readFileSync(cosingFile, "utf8")) : await readAll(db, "cosing_records", "cosing_ref,kind,inci_name,cas_numbers,ec_numbers,annex_refs", "cosing_ref");
   if (records.length === 0) throw new Error("There is no CosIng copy (cosing_records is empty). Nothing was matched; run the import first.");
   if (!cosingFile && records.length < MIN_RECORDS) throw new Error(`The CosIng copy has ${records.length} records, fewer than the ${MIN_RECORDS} that make it the copy. Nothing was matched.`);
@@ -92,7 +92,7 @@ async function main(args) {
   for (const h of result.held.slice(0, 25)) console.log(`  held: ${h.inci_name} → ${h.annex}/${h.entry}: ${h.reason}`);
   if (result.held.length > 25) console.log(`  … and ${result.held.length - 25} more (in the review list where they touch Annex II).`);
 
-  const stored = await readAll(db, "ingredient_regulatory", "inci_name,annex,entry,matched_by,reviewed_by", "inci_name");
+  const stored = await paginateByKey(db, "ingredient_regulatory", { select: "inci_name,annex,entry,matched_by,reviewed_by", orderColumns: ["inci_name", "annex", "entry"] });
   const plan = planRegulatoryWrites(stored, result.matches);
   console.log(`Against ingredient_regulatory (${stored.length} stored): ${plan.upserts.length} to write, ${plan.unchanged} unchanged, ${plan.stale.length} stale, ${plan.conflicts.length} reviewed or hand-made row(s) this run disagrees with.`);
   for (const c of plan.conflicts) console.log(`  not touched: ${c.inci_name} → ${c.annex}/${c.entry} is ${c.matched_by}${c.reviewed_by ? `, reviewed by ${c.reviewed_by}` : ""}; this run says ${c.now ?? "no match"}`);
