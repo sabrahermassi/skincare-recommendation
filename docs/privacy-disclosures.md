@@ -203,6 +203,12 @@ left the phone.
   not. There is no server copy and no opt-in to make one (#219: pregnancy
   status may be special-category data under GDPR Art. 9, and #14 has not
   decided it).
+- **The date a person agreed to being asked** (`profileConsentAt`, #471) is
+  kept on the phone in `AsyncStorage` with the rest of the store, and goes
+  nowhere else. The screen that records it says what is asked, what the
+  answers are for, that they stay on the phone, and that the person must be 16
+  or older (the owner's line, 7 October 2026; a lawyer may change it). It is
+  not proof of a lawful basis: #14 has still not decided that.
 - **Scan history** never leaves the phone either.
 - **The products a person adds to their routine** ("Add to <step>" on a scanned product's result) never
   leave the phone either: a routine step and a catalogue product id each, in

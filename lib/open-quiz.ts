@@ -1,6 +1,7 @@
 import { router } from "expo-router";
 
-import { quizRoutes } from "@/lib/profile";
+import { CONSENT_ROUTE, quizRoutes } from "@/lib/profile";
+import { useAppStore } from "@/store/useAppStore";
 
 /**
  * How long after opening the quiz a repeat call is ignored — about as long as
@@ -38,5 +39,6 @@ export function openQuizAt(now: number, then: QuizDestination = "back") {
   if (now - lastOpenedAt < REPEAT_GUARD_MS) return;
   lastOpenedAt = now;
   destination = then;
-  router.push(quizRoutes()[0]);
+  // The first time, the screen that asks to be asked comes before question 1 (#471).
+  router.push(useAppStore.getState().profileConsentAt === null ? CONSENT_ROUTE : quizRoutes()[0]);
 }
