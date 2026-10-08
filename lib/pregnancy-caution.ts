@@ -5,7 +5,6 @@ import {
   RETINOID_PRESCRIPTION_NAMES,
   RETINYL_ESTER_PATTERN,
   RETINYL_RETINOATE_NAME,
-  SALICYLATE_NAMES,
   SALICYLATE_FALLBACK_NAMES,
   SALICYLATE_SALT_PATTERN,
 } from "./retinoid-salicylate-names";
@@ -64,12 +63,25 @@ export const PREGNANCY_CAUTION: PregnancyCautionEntry[] = [
     },
   },
   {
-    names: [...SALICYLATE_NAMES, SALICYLATE_SALT_PATTERN, ...SALICYLATE_FALLBACK_NAMES],
+    names: ["salicylic acid"],
     category: "salicylic-acid",
     level: "limit",
     reason:
       "Salicylic acid — guidance is to limit strengths above 2% in pregnancy; a label alone can't say how much is in this formula",
     // "Salicylic acid at high doses (greater than 2%)" is to be used sparingly, after talking to a dermatologist (read 7 October 2026).
+    source: {
+      label: "American Academy of Dermatology: pregnancy skin care",
+      url: "https://www.aad.org/public/everyday-care/skin-care-secrets/routine/pregnancy-skin-care",
+    },
+  },
+  {
+    // The AAD page names salicylic acid only. These are its relatives (an ester, two salts, and willow bark, which carries
+    // salicin), so the line says what they are and what the page says about salicylic acid, and does not call them it.
+    names: ["betaine salicylate", SALICYLATE_SALT_PATTERN, ...SALICYLATE_FALLBACK_NAMES],
+    category: "salicylic-acid",
+    level: "limit",
+    reason:
+      "Related to salicylic acid — guidance is to limit salicylic acid above 2% in pregnancy; a label alone can't say how much is in this formula",
     source: {
       label: "American Academy of Dermatology: pregnancy skin care",
       url: "https://www.aad.org/public/everyday-care/skin-care-secrets/routine/pregnancy-skin-care",

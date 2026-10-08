@@ -174,7 +174,8 @@ say what their source says and no more. The American Academy of Dermatology page
 covers pregnancy and has nothing on breastfeeding, so the retinoid line, the Skin needs line and the
 Frequently-asked answer no longer say "and while breastfeeding". Hydroquinone keeps it: its MotherSafe source
 says "hydroquinone should be avoided [while breastfeeding] as the absorption is high". Salicylic acid is worded as
-the AAD words it, limit strengths above 2%. The quiz still asks one question, "pregnant or breastfeeding?", so
+the AAD words it, limit strengths above 2%. Its relatives (betaine salicylate, sodium and potassium salicylate,
+willow bark) still warn, but as "Related to salicylic acid", since the page names salicylic acid only. The quiz still asks one question, "pregnant or breastfeeding?", so
 the cards that follow it say "If you're pregnant or breastfeeding and unsure, ask your doctor or midwife."
 
 - **Essential oils stay, softened, with the AAD page as their source.** It lists essential oils, including rosemary,
