@@ -41,6 +41,11 @@ import {
 type PregnancyCautionEntry = {
   names: (string | RegExp)[];
   category: "retinoid" | "salicylic-acid" | "hydroquinone" | "essential-oil";
+  /**
+   * What the source says to do: "avoid", or "limit" for the AAD page's "discuss with your dermatologist and limit how
+   * often you use them" list. The result card and the ingredient row word it to match, so a limit never reads as avoid.
+   */
+  level: "avoid" | "limit";
   reason: string;
   /** Where the caution comes from (#326) — same rules as `IngredientRule.source`. */
   source?: RuleSource;
@@ -50,6 +55,7 @@ export const PREGNANCY_CAUTION: PregnancyCautionEntry[] = [
   {
     names: [...RETINOID_NAMES, ...RETINOID_PRESCRIPTION_NAMES, RETINYL_ESTER_PATTERN, RETINYL_RETINOATE_NAME],
     category: "retinoid",
+    level: "avoid",
     reason: "A vitamin A derivative — commonly advised against in pregnancy",
     // "Avoid … retinoids", prescription and over-the-counter alike (read 7 October 2026).
     source: {
@@ -60,6 +66,7 @@ export const PREGNANCY_CAUTION: PregnancyCautionEntry[] = [
   {
     names: [...SALICYLATE_NAMES, SALICYLATE_SALT_PATTERN, ...SALICYLATE_FALLBACK_NAMES],
     category: "salicylic-acid",
+    level: "limit",
     reason:
       "Salicylic acid — guidance is to limit strengths above 2% in pregnancy; a label alone can't say how much is in this formula",
     // "Salicylic acid at high doses (greater than 2%)" is to be used sparingly, after talking to a dermatologist (read 7 October 2026).
@@ -71,6 +78,7 @@ export const PREGNANCY_CAUTION: PregnancyCautionEntry[] = [
   {
     names: ["hydroquinone"],
     category: "hydroquinone",
+    level: "avoid",
     // MotherSafe: avoid hydroquinone in pregnancy, and "while breastfeeding … as the absorption is high" (read 7 October 2026).
     reason: "Hydroquinone — commonly advised against in pregnancy and while breastfeeding",
     source: {
@@ -84,6 +92,7 @@ export const PREGNANCY_CAUTION: PregnancyCautionEntry[] = [
       /^(lavandula|citrus|mentha|rosmarinus|eucalyptus|melaleuca|cinnamomum|origanum|thymus|salvia|ocimum|jasminum) .*oil$/,
     ],
     category: "essential-oil",
+    level: "limit",
     // The AAD page lists "essential oils, including rosemary, basil, jasmine, and sage oils" among the ingredients to
     // "discuss with your dermatologist and limit how often you use them during pregnancy" (read 7 October 2026). It says
     // limit, not avoid, so this does not say "advised against". Softened from the earlier wording by the owner, 7 October 2026.
@@ -104,16 +113,27 @@ function entryMatches(entry: PregnancyCautionEntry, inciName: string): boolean {
 
 export type PregnancyCautionHit = {
   ingredient: Ingredient;
+  level: PregnancyCautionEntry["level"];
   reason: string;
   source?: RuleSource;
 };
+
+/** "avoid" or "limit" for a pregnancy-caution ingredient, or null when the list does not name it. */
+export function pregnancyCautionLevel(inciName: string): PregnancyCautionEntry["level"] | null {
+  return PREGNANCY_CAUTION.find((entry) => entryMatches(entry, inciName))?.level ?? null;
+}
+
+/** True when every named ingredient is one the sources say to limit, not avoid: the card and the row then say "limited". */
+export function onlyLimitedInPregnancy(inciNames: readonly string[]): boolean {
+  return inciNames.length > 0 && inciNames.every((name) => pregnancyCautionLevel(name) === "limit");
+}
 
 /** Every pregnancy-caution ingredient in a formula, label order. */
 export function pregnancyCautionHits(ingredients: Ingredient[]): PregnancyCautionHit[] {
   const hits: PregnancyCautionHit[] = [];
   for (const ingredient of ingredients) {
     const entry = PREGNANCY_CAUTION.find((candidate) => entryMatches(candidate, ingredient.name));
-    if (entry) hits.push({ ingredient, reason: entry.reason, source: entry.source });
+    if (entry) hits.push({ ingredient, level: entry.level, reason: entry.reason, source: entry.source });
   }
   return hits;
 }

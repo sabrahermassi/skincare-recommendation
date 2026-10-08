@@ -1,6 +1,7 @@
 import type { Ingredient, SkinProfile } from "@/data/types";
 import { ruleFor, RUNG_META, type Contraindication, type MatchResult } from "@/lib/matching";
 import { cloggerConfidence, isWarnedPoreClogging } from "@/lib/pore-clogging";
+import { onlyLimitedInPregnancy } from "@/lib/pregnancy-caution";
 import { isSensitive, treatAsReactive } from "@/lib/profile";
 import { targetApplies, type RuleCategory } from "@/lib/rules";
 import { contraindications, euAllergenFor, groupByRisk, isVerified, SAFETY_NOTICE_COPY, safetyNoticeFor } from "@/lib/safety";
@@ -132,7 +133,9 @@ export function rowWord(
   if (!noticeEnabled || label !== "avoid") return plain;
   if (safetyNoticeFor(ingredient, true)) return { word: SAFETY_NOTICE_COPY.listWord, line: SAFETY_NOTICE_COPY.listLine };
   if (warnings.some((w) => w.severity === "hazard") || riskOf(ingredient) === "avoid") return plain;
-  if (warnings.some((w) => w.origin === "pregnancy")) return { word: SAFETY_NOTICE_COPY.pregnancyWord };
+  if (warnings.some((w) => w.origin === "pregnancy")) {
+    return { word: onlyLimitedInPregnancy([ingredient.name]) ? SAFETY_NOTICE_COPY.pregnancyLimitWord : SAFETY_NOTICE_COPY.pregnancyWord };
+  }
   if (cloggerConfidence(ingredient) === "high") return { word: SAFETY_NOTICE_COPY.clogWord };
   return plain;
 }

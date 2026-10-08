@@ -27,6 +27,7 @@ import { CONCERN_PHRASE, isPersonalized } from "@/lib/profile";
 import { cloggerConfidence, PORE_COUNTS_TEXT, poreCountedNames, poreVerdict } from "@/lib/pore-clogging";
 import { irritationRisk, poreRisk, type Risk } from "@/lib/risk";
 import { EU_PROHIBITED_SOURCE, irritationWarnings, isVerified, SAFETY_NOTICE_COPY, type SafetyNoticeHit } from "@/lib/safety";
+import { onlyLimitedInPregnancy } from "@/lib/pregnancy-caution";
 import { inSentence } from "@/lib/skin-needs";
 import { CARD_RADIUS, DIVIDER, DISPLAY_FONT, HOME_CARD_FILL, INK, MUTED, RISK_FILL, RISK_LINE, SEGMENT_TRACK, SHEET, SPACE, STONE, STONE_GLASS, TEASER_INK, TYPE, VERDICT, VERDICT_NEUTRAL, WHITE, RADIUS, LEADING, TRACKING } from "@/lib/tokens";
 import { EMPTY_PROFILE } from "@/store/useAppStore";
@@ -722,10 +723,14 @@ function RoutineNotes({ ingredients, type, profile }: { ingredients: Ingredient[
   );
 }
 
-/** "Best avoided while pregnant" (v7): shown only when the profile says so. Its sources are on each ingredient's own sheet. */
+/**
+ * "Best avoided while pregnant" (v7): shown only when the profile says so. Its sources are on each ingredient's own sheet.
+ * "Best limited" instead when every ingredient it names is one the sources say to limit, not avoid (#475).
+ */
 function PregnancyCard({ match }: { match: MatchResult }) {
   const pregnancy = match.warnings.filter((w) => w.origin === "pregnancy");
   if (pregnancy.length === 0) return null;
+  const limited = onlyLimitedInPregnancy(pregnancy.map((w) => w.ingredient.name));
   return (
     <View style={{ flexDirection: "row", alignItems: "flex-start", gap: SPACE.block, borderRadius: CARD_RADIUS, backgroundColor: VERDICT.low.wash, padding: SPACE.gutter }}>
       <View style={{ width: 28, height: 28, borderRadius: RADIUS.control, alignItems: "center", justifyContent: "center", backgroundColor: VERDICT.low.solid }}>
@@ -735,7 +740,7 @@ function PregnancyCard({ match }: { match: MatchResult }) {
       </View>
       <View style={{ flex: 1, gap: SPACE.hair }}>
         <Text accessibilityRole="header" style={{ fontSize: TYPE.card, fontWeight: "600", color: VERDICT.low.word }}>
-          Best avoided while pregnant
+          {limited ? SAFETY_NOTICE_COPY.pregnancyLimitWord : SAFETY_NOTICE_COPY.pregnancyWord}
         </Text>
         <Text style={{ fontSize: TYPE.body, lineHeight: LEADING.body, color: INK }}>
           It contains {listNames(pregnancy.map((w) => displayIngredientName(w.ingredient.name)))}. If you&apos;re pregnant or breastfeeding and unsure, ask your doctor or midwife.
