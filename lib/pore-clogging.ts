@@ -196,7 +196,7 @@ export const PORE_CLOGGERS: CloggerEntry[] = [
     ],
     confidence: "moderate",
     reason:
-      "Algae and seaweed extracts are flagged across the acne-clinic lists, which is why they turn up in so many 'why did this break me out' posts",
+      "Algae and seaweed extracts are flagged across published pore-clogging lists",
   },
 
   // ── Plant oils and butters ────────────────────────────────────────────────
@@ -234,7 +234,7 @@ export const PORE_CLOGGERS: CloggerEntry[] = [
   {
     names: ["avocado oil", /^persea gratissima/, "olive oil", /^olea europaea/, "mink oil"],
     confidence: "moderate",
-    reason: "A rich, oleic-heavy oil; listed as a moderate clogger for acne-prone skin",
+    reason: "A rich, oleic-heavy oil; listed as a moderate pore-clogger",
   },
   {
     names: ["squalene"],
@@ -246,7 +246,7 @@ export const PORE_CLOGGERS: CloggerEntry[] = [
     names: ["shea butter", /^butyrospermum parkii/, "argan oil", /^argania spinosa/, "marula oil"],
     confidence: "contested",
     reason:
-      "Flagged by some acne clinics and explicitly cleared by others; widely tolerated in practice, so shown here rather than warned about",
+      "Flagged on some pore-clogging lists and cleared on others; widely tolerated in practice, so shown here rather than warned about",
   },
   {
     names: ["beeswax", "cera alba", "cera flava"],
@@ -273,7 +273,7 @@ export const PORE_CLOGGERS: CloggerEntry[] = [
     names: [/^d&c red (no\.?\s*)?\d+$/, /^ci 1[56]\d{3}$/],
     confidence: "moderate",
     reason:
-      "The D&C Red pigment series is flagged across the acne-clinic lists, most often in blushes, lipsticks and tinted bases",
+      "The D&C Red pigment series is flagged across published pore-clogging lists, often in blushes, lipsticks and tinted bases",
   },
 
   // ── Silicones and salts, both contested ───────────────────────────────────
@@ -287,7 +287,7 @@ export const PORE_CLOGGERS: CloggerEntry[] = [
     names: ["sodium chloride", "potassium chloride"],
     confidence: "contested",
     reason:
-      "Salt appears on several acne-clinic lists, usually attributed to irritation rather than to blocking a follicle",
+      "Salt appears on several pore-clogging lists, usually attributed to irritation rather than to blocking a follicle",
   },
 ];
 

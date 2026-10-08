@@ -121,7 +121,7 @@ export const INGREDIENT_RULES: IngredientRule[] = [
     category: "barrier",
     helps: { skinTypes: ["dry"], sensitive: true, concerns: ["atopic"] },
     reason:
-      "Ceramides supply barrier lipids that dry, reactive and eczema-prone skin can run short of",
+      "Ceramides supply barrier lipids that dry and reactive skin can run short of",
     weight: 10,
     source: { label: "International Journal of Cosmetic Science review, 2024", url: "https://pubmed.ncbi.nlm.nih.gov/39113291/" },
   },
@@ -140,7 +140,7 @@ export const INGREDIENT_RULES: IngredientRule[] = [
     names: [/^avena sativa/, "colloidal oatmeal", "oat kernel extract", "oat kernel oil"],
     category: "soothing",
     helps: { concerns: ["atopic", "redness"], sensitive: true },
-    reason: "Colloidal oatmeal is a classic comforting barrier ingredient for eczema-prone skin",
+    reason: "Colloidal oatmeal is a classic comforting barrier ingredient for very dry or reactive skin",
     weight: 9,
     source: { label: "Journal of Drugs in Dermatology trial, 2020", url: "https://pubmed.ncbi.nlm.nih.gov/32484623/" },
   },
@@ -148,14 +148,14 @@ export const INGREDIENT_RULES: IngredientRule[] = [
     names: [/^butyrospermum/, "shea butter", /^helianthus annuus seed oil/, "canola oil"],
     category: "barrier",
     helps: { concerns: ["atopic"], skinTypes: ["dry"] },
-    reason: "A rich plant lipid that replaces what an eczema-prone barrier leaks",
+    reason: "A rich plant lipid that helps a dry skin barrier hold water",
     weight: 7,
   },
   {
     names: [/^vitreoscilla/, "bifida ferment lysate", /^lactobacillus/, "aqua posae filiformis"],
     category: "soothing",
     helps: { concerns: ["atopic"], sensitive: true },
-    reason: "Microbiome-derived ferments used in eczema-prone ranges to help calm reactivity",
+    reason: "Microbiome-derived ferments used in ranges for reactive skin",
     weight: 6,
   },
   {
@@ -466,7 +466,7 @@ export const INGREDIENT_RULES: IngredientRule[] = [
     helps: { concerns: ["acne-prone"] },
     hurts: { sensitive: true, concerns: ["atopic"] },
     reason:
-      "Tea tree oil has real evidence against blemishes, and is a common irritant on reactive skin",
+      "Tea tree oil is common in products for breakout-prone skin, and is a common irritant on reactive skin",
     weight: 7,
   },
   {
@@ -548,7 +548,7 @@ export const INGREDIENT_RULES: IngredientRule[] = [
     names: ["lauric acid", "oleth-3", "isopropyl isostearate", "butyl stearate"],
     category: "pore-clogging",
     hurts: { concerns: ["acne-prone"] },
-    reason: "Commonly implicated in congestion on acne-prone skin",
+    reason: "Commonly implicated in congestion",
     weight: 5,
   },
   {
@@ -580,7 +580,7 @@ export const INGREDIENT_RULES: IngredientRule[] = [
     helps: { concerns: ["acne-prone"] },
     hurts: { sensitive: true, skinTypes: ["dry"] },
     reason:
-      "Benzoyl peroxide is a strong blemish active with a high drying and irritation cost",
+      "Benzoyl peroxide is a strong active with a high drying and irritation cost",
     weight: 12,
   },
   {
@@ -594,7 +594,7 @@ export const INGREDIENT_RULES: IngredientRule[] = [
     names: [/^houttuynia/],
     category: "soothing",
     helps: { concerns: ["acne-prone", "redness"], sensitive: true },
-    reason: "Houttuynia is the calming anti-blemish botanical Korean acne ranges are built around",
+    reason: "Houttuynia is a calming botanical common in Korean ranges for breakout-prone skin",
     weight: 6,
   },
   {
@@ -665,7 +665,7 @@ export const INGREDIENT_RULES: IngredientRule[] = [
     names: [/^panax ginseng/, "ginseng root extract"],
     category: "actives",
     helps: { concerns: ["fine-lines", "dullness"] },
-    reason: "Ginseng is antioxidant and circulation-boosting, an anchor of Korean anti-ageing formulas",
+    reason: "Ginseng is an antioxidant, an anchor of Korean formulas for mature skin",
     weight: 5,
   },
 

@@ -830,6 +830,19 @@ charges it by its own weight.
   Stearalkonium and steartrimonium chloride were left out: no source supports
   them.
 
+### Concern names and effect claims, softened (#473, 8 October 2026)
+
+The app is cosmetic, so what a person can see no longer names a condition or
+claims an effect on one: "Acne or pimples" is "Breakouts", "Eczema-prone" is
+"Very dry or reactive", "Redness or rosacea" is "Redness", and the rule, pore
+and School lines that said "eczema-prone", "acne-clinic lists" or "strong
+blemish active" say what the ingredient is, not what it treats. Done now, not
+after the lawyer: the owner approved each row, and `docs/wording-for-review.md`
+is the list for the lawyer. Only labels moved; the stored concern keys are
+unchanged, so no profile migrates. `lib/skin-needs-data.ts` and the Skin needs
+goals in `lib/journey.ts` are hidden until expert review (#467) and are a
+follow-up.
+
 ## SDK and platform history
 
 **iOS is the only release target for this MVP, decided 19 September 2026.**

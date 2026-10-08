@@ -11,6 +11,7 @@ import { pairingNotesFor, shelfPairingNotes } from "@/lib/active-pairings";
 import { claimPolicyViolations } from "@/lib/claims-policy";
 import { goalNudgesFor, nudgesFor } from "@/lib/context-nudges";
 import { PORE_CLOGGERS, PORE_COUNTS_TEXT } from "@/lib/pore-clogging";
+import { CONCERN_PHRASE, CONCERN_TITLE } from "@/lib/profile";
 import { PREGNANCY_CAUTION } from "@/lib/pregnancy-caution";
 import { INGREDIENT_RULES } from "@/lib/rules";
 import { SCHOOL_CHAT_COPY } from "@/lib/school-chat";
@@ -161,6 +162,12 @@ const SCORING_CLAIMS: OwnedClaim[] = [
 // The skincare tip on Home (handoff_home_and_tip): every tip and its reason, said in the app's own voice.
 const TIP_CLAIMS: OwnedClaim[] = stringsIn({ GENERAL_TIPS, MORNING_TIPS, EVENING_TIPS, EVENING_FALLBACK, REST_NIGHT_TIP }, "skin-tips");
 
+// #473: the concerns' names, as the quiz, Profile and every sentence say them.
+const CONCERN_CLAIMS: OwnedClaim[] = [
+  ...Object.entries(CONCERN_TITLE).map(([key, text]) => ({ source: `CONCERN_TITLE.${key}`, text })),
+  ...Object.entries(CONCERN_PHRASE).map(([key, text]) => ({ source: `CONCERN_PHRASE.${key}`, text })),
+];
+
 const SCHOOL_CHAT_CLAIMS: OwnedClaim[] = Object.entries(SCHOOL_CHAT_COPY).map(([key, text]) => ({
   source: `SCHOOL_CHAT_COPY.${key}`,
   text,
@@ -237,6 +244,7 @@ const OWNED_CLAIMS: OwnedClaim[] = [
   ...PAIRING_CLAIMS,
   ...SCHOOL_CLAIMS,
   ...SCHOOL_CHAT_CLAIMS,
+  ...CONCERN_CLAIMS,
   ...TIP_CLAIMS,
   ...SCORING_CLAIMS,
   // Audited directly (#261 review): `WARNINGS` below comes from the sample

@@ -74,27 +74,27 @@ export function sensitivityLabel(sensitivity: Sensitivity): string {
 export const CONCERN_TITLE: Record<Concern, string> = {
   dehydrated: "Dry / Dehydrated",
   dullness: "Dullness",
-  "acne-prone": "Acne or pimples",
+  "acne-prone": "Breakouts",
   hyperpigmentation: "Dark spots",
   "large-pores": "Enlarged pores",
   "fine-lines": "Fine lines and wrinkles",
-  redness: "Redness or rosacea",
-  "post-acne-marks": "Post-acne marks",
+  redness: "Redness",
+  "post-acne-marks": "Marks left by breakouts",
   // No quiz option any more; a profile from before that change can still carry it.
-  atopic: "Eczema-prone",
+  atopic: "Very dry or reactive",
 };
 
 /** A concern inside a sentence ("helps with dark spots", "with acne and enlarged pores"). */
 export const CONCERN_PHRASE: Record<Concern, string> = {
   dehydrated: "dry, dehydrated skin",
   dullness: "dullness",
-  "acne-prone": "acne",
+  "acne-prone": "breakouts",
   hyperpigmentation: "dark spots",
   "large-pores": "enlarged pores",
   "fine-lines": "fine lines",
   redness: "redness",
-  "post-acne-marks": "post-acne marks",
-  atopic: "eczema-prone skin",
+  "post-acne-marks": "marks left by breakouts",
+  atopic: "very dry or reactive skin",
 };
 
 // Asked as Yes, No or Prefer not to say (owner, 1 October 2026).

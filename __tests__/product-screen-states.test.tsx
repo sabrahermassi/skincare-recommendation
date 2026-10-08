@@ -518,7 +518,7 @@ describe("the product screen opened from the journey", () => {
     await open({});
     expect(screen.getByText(/^It covers \d of the \d recommendations for your skin\.( (One|\d+) things? to watch below\.)?$/)).toBeTruthy();
     // Nothing in it works on acne, the profile's one concern.
-    expect(screen.getAllByText(/it won.t work on your acne on its own/).length).toBeGreaterThan(0);
+    expect(screen.getAllByText(/it won.t work on your breakouts on its own/).length).toBeGreaterThan(0);
   });
 
   it("logs a scan as Scanned and anything else as Opened", async () => {

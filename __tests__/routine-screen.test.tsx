@@ -159,7 +159,7 @@ it("names the best match for each step, and opens the product screen from it", a
   expect(screen.getAllByText(/ match · \d+\/100$/)[0]).toHaveStyle({ fontWeight: "500" });
   // The serum step has nothing gentle to name for acne here: its active leads, in big letters.
   expect(screen.getByText("Azelaic acid")).toBeTruthy();
-  expect(screen.getByText("For acne.")).toBeTruthy();
+  expect(screen.getByText("For breakouts.")).toBeTruthy();
   expect(screen.getByText("No product to suggest yet.")).toBeTruthy();
   await fireEvent.press(screen.getByRole("button", { name: /^Brand Foaming gel\. / }));
   expect(router.push).toHaveBeenCalledWith({ pathname: "/product/[id]", params: { id: "c1" } });
@@ -184,7 +184,7 @@ it("names a treatment with the active for the concern in the evening, with what 
   expect(screen.getByText("BHA serum")).toBeTruthy();
   // The step is named for the active that serum holds.
   expect(screen.getByText("Salicylic acid")).toBeTruthy();
-  expect(screen.getByText("For acne. Benzoyl peroxide or Retinoids would do too.")).toBeTruthy();
+  expect(screen.getByText("For breakouts. Benzoyl peroxide or Retinoids would do too.")).toBeTruthy();
   expect(screen.getByRole("button", { name: "Scan one to check, for treatment" })).toBeTruthy();
 });
 
