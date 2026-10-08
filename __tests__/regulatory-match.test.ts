@@ -91,6 +91,15 @@ describe("where CosIng disagrees with the regulation, the pair is held back", ()
     expect(r.held[0].reason).toBe("CosIng lists CAS numbers the entry does not: 23726-93-4");
   });
 
+  it("holds a record whose CAS matches but whose EC the entry does not list, and the other way round", () => {
+    const ecOff = run([record("30", "Hydroquinone", ["123-31-9"], ["999-999-9"])], ["Hydroquinone"]);
+    expect(ecOff.matches).toEqual([]);
+    expect(ecOff.held.every((h) => /EC numbers the entry does not: 999-999-9/.test(h.reason))).toBe(true);
+    const casOff = run([record("31", "Isobutylparaben", ["0000-00-0"], ["224-208-8"])], ["Isobutylparaben"]);
+    expect(casOff.matches).toEqual([]);
+    expect(casOff.held[0].reason).toBe("CosIng lists CAS numbers the entry does not: 0000-00-0");
+  });
+
   it("holds a record whose citation and numbers point at different entries", () => {
     const r = run([record("8", "Hydroquinone", ["123-31-9"], [], ["II/1666"])], ["Hydroquinone"]);
     expect(r.matches).toEqual([]);
@@ -256,6 +265,13 @@ describe("what counts as the CosIng copy, and when a prune is a bad read", () =>
     const stored = Array.from({ length: 100 }, (_, i) => ({ inci_name: `n${i}`, annex: "II", entry: "1", matched_by: "cas", reviewed_by: null }));
     expect(pruneIsSane(stored, { stale: stored.slice(0, 60) } as never)).toBe(false);
     expect(pruneIsSane(stored, { stale: stored.slice(0, 5) } as never)).toBe(true);
+  });
+
+  it("holds a small table to the same rule: a partial run cannot erase the few rows there are", () => {
+    const stored = Array.from({ length: 4 }, (_, i) => ({ inci_name: `n${i}`, annex: "II", entry: "1", matched_by: "cas", reviewed_by: null }));
+    expect(pruneIsSane(stored, { stale: stored } as never)).toBe(false);
+    expect(pruneIsSane(stored, { stale: stored.slice(0, 2) } as never)).toBe(true);
+    expect(pruneIsSane([], { stale: [] } as never)).toBe(true);
   });
 
   it("does not count reviewed or hand-made rows toward the automatic ones", () => {

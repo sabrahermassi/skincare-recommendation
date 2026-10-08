@@ -88,7 +88,7 @@ export const MAX_STALE_SHARE = 0.5;
 /** Whether `--prune` may go ahead: not when it would delete most of the automatic rows there are. */
 export function pruneIsSane(stored, plan) {
   const automatic = stored.filter((r) => !r.reviewed_by && r.matched_by !== "manual").length;
-  return automatic < 20 || plan.stale.length <= automatic * MAX_STALE_SHARE;
+  return plan.stale.length <= automatic * MAX_STALE_SHARE;
 }
 
 /** The numbers of `kind` ("cas" or "ec") in `own` that neither the entry nor any of its listed members carries. */
@@ -135,8 +135,12 @@ export function matchRegulatory({ entries, records, ingredients, productCounts =
       ]) {
         const hits = unique(own.flatMap((id) => [...(byId.get(id) ?? [])]));
         for (const k of hits) {
-          const extra = unlisted(idx.byKey.get(k), how, own);
-          if (extra.length > 0) blocked.set(k, `CosIng lists ${how.toUpperCase()} numbers the entry does not: ${extra.join(", ")}`);
+          // Both kinds of number are checked, whichever one made the hit: a CAS that matches beside an EC the
+          // entry does not list is still a record the entry does not agree with.
+          const extraCas = unlisted(idx.byKey.get(k), "cas", rec.cas);
+          const extraEc = unlisted(idx.byKey.get(k), "ec", rec.ec);
+          const parts = [extraCas.length > 0 ? `CAS numbers the entry does not: ${extraCas.join(", ")}` : null, extraEc.length > 0 ? `EC numbers the entry does not: ${extraEc.join(", ")}` : null].filter(Boolean);
+          if (parts.length > 0) blocked.set(k, `CosIng lists ${parts.join("; ")}`);
           else note(k, how);
         }
       }
