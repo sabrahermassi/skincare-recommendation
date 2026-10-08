@@ -8,7 +8,6 @@ import { Glass, hasLiquidGlass } from "@/components/Glass";
 import { activeTabSlot, PILL_HEIGHT, PILL_WIDTH, TabBarBackground } from "@/components/TabBarBackground";
 import { Text } from "@/components/Text";
 import { openScanner } from "@/lib/open-scanner";
-import { CONSENT_ROUTE, needsConsent } from "@/lib/profile";
 import { SCAN_BUTTON, SCAN_BUTTON_LIFT, SCAN_ICON, TAB_BAR_HEIGHT, TAB_BAR_SIDE_MARGIN, tabBarBottom } from "@/lib/tab-bar";
 import { BUTTON, LINK, RAISED_SHADOW, TAB_INACTIVE, WHITE } from "@/lib/tokens";
 import { useAppStore } from "@/store/useAppStore";
@@ -117,9 +116,6 @@ function ScanTabButton() {
 
 export default function TabsLayout() {
   const hasSeenOnboarding = useAppStore((s) => s.hasSeenOnboarding);
-  const profile = useAppStore((s) => s.profile);
-  const consentAt = useAppStore((s) => s.profileConsentAt);
-  const consentDeferred = useAppStore((s) => s.consentDeferred);
   const insets = useSafeAreaInsets();
 
   /*
@@ -134,17 +130,6 @@ export default function TabsLayout() {
   */
   if (!hasSeenOnboarding) {
     return <Redirect href="/onboarding" />;
-  }
-
-  /*
-    Answers from before the consent screen existed: shown it once, on the next
-    open (#471, owner). Agreeing records the date; Not now clears the answers,
-    so either way this stops being true and it is not shown again. Closing it
-    without a choice defers it to the next launch, or Close would land back
-    here and redirect again. Declarative for the same reason as the gate above.
-  */
-  if (needsConsent(profile, consentAt) && !consentDeferred) {
-    return <Redirect href={CONSENT_ROUTE} />;
   }
 
   return (

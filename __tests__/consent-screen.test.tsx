@@ -2,6 +2,7 @@ import { act, fireEvent, render, screen } from "@testing-library/react-native";
 
 import BeforeWeAsk from "@/app/quiz/before";
 import SkinProfileScreen from "@/app/skin-profile";
+import { ConsentGate } from "@/components/ConsentGate";
 import { QuizFrame } from "@/components/QuizFrame";
 import { CONSENT_COPY } from "@/lib/consent-copy";
 import { EMPTY_PROFILE, useAppStore } from "@/store/useAppStore";
@@ -142,5 +143,39 @@ describe("the Skin profile editor after Not now", () => {
     await render(<SkinProfileScreen />);
     expect(screen.queryByTestId("redirect")).toBeNull();
     expect(screen.getByText("Skin profile")).toBeTruthy();
+  });
+});
+
+// Rendered by the root layout beside the navigator, so it holds whichever
+// screen the app was opened on, not only the tabs.
+describe("the gate for answers from before the screen existed", () => {
+  const gate = async () => {
+    await render(<ConsentGate />);
+    return screen.queryByTestId("redirect")?.props.children ?? null;
+  };
+
+  it("sends answers with no agreement to the consent screen", async () => {
+    useAppStore.setState({ profile: ANSWERED });
+    expect(await gate()).toBe("/quiz/before");
+  });
+
+  it("stops once they agreed, or said Not now, which clears the answers", async () => {
+    useAppStore.setState({ profile: ANSWERED });
+    useAppStore.getState().agreeToProfile();
+    expect(await gate()).toBeNull();
+
+    useAppStore.setState({ profile: ANSWERED, profileConsentAt: null });
+    useAppStore.getState().declineProfile();
+    expect(await gate()).toBeNull();
+  });
+
+  it("stands down for the rest of the launch once closed without a choice, or Close would land back on it", async () => {
+    useAppStore.setState({ profile: ANSWERED });
+    useAppStore.getState().deferConsent();
+    expect(await gate()).toBeNull();
+  });
+
+  it("does not ask someone who has answered nothing", async () => {
+    expect(await gate()).toBeNull();
   });
 });
