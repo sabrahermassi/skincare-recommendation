@@ -69,7 +69,7 @@ export function DoctorSheet({ ingredients, need }: { ingredients: readonly Pick<
         </Text>
         <Text style={{ textAlign: "center", fontSize: TYPE.body, lineHeight: LEADING.body, color: MUTED }}>
           {pregnant
-            ? `This has ${found.name}, ${found.what}. It's usually avoided while pregnant or breastfeeding. Ask your doctor before using it.`
+            ? `This has ${found.name}, ${found.what}. It's usually avoided while pregnant. Ask your doctor or midwife before using it.`
             : `This has ${found.name}, ${found.what}. A doctor should guide how you use it.`}
         </Text>
         {pregnant ? (

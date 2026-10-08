@@ -220,7 +220,7 @@ export const DECK_MAX = 5;
  */
 export type Need = { goal: GoalKey; sensitivity: Sensitivity | null; pregnant: boolean | null; uses?: readonly ActiveKey[] };
 
-export const PREGNANCY_LINE = "Commonly advised against while pregnant or breastfeeding.";
+export const PREGNANCY_LINE = "Commonly advised against while pregnant.";
 
 
 /** How strongly a card works on something: its heaviest rule that passes. */

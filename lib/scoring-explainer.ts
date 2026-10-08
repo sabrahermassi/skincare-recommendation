@@ -70,7 +70,7 @@ export function scoreNotes(): ScoreNote[] {
     {
       kind: "pregnancy",
       title: "Pregnancy warnings",
-      body: "If you said you're pregnant or trying, they're shown apart from the score and never hidden. They don't change it.",
+      body: "If you said you're pregnant or breastfeeding, they're shown apart from the score and never hidden. They don't change it.",
     },
     {
       kind: "no-score",
@@ -84,9 +84,20 @@ export function scoreNotes(): ScoreNote[] {
 /** The sheet's first line (v9, the hand-off's words). */
 export const SCORING_INTRO = "Your score shows how well a product fits your skin profile.";
 
-/** Where the ingredient facts come from (v9, the hand-off's words), said before the disclaimer. */
+/**
+ * Where the ingredient facts come from, said before the disclaimer. It does not say "every" or
+ * "each" ingredient is checked or sourced: some rules and pregnancy cautions still have no source
+ * (`__tests__/rule-sources.test.ts`), and the dictionary does not recognise every name. A test fails
+ * if this says so while any does (#472).
+ */
 export const SCORING_SOURCES =
-  "Every ingredient is checked against EU CosIng and published safety reviews. You'll find the sources on each ingredient's page.";
+  "We match ingredient names against the EU's CosIng list and our own ingredient notes. Where we have a source, it's on the ingredient's page. Some ingredients we don't recognise yet.";
+
+/**
+ * The line under the score on Skin match, and in its place when there is no score (#470, the owner's
+ * exact sentence). The "How scoring works" sheet keeps its own disclaimer below.
+ */
+export const MEDICAL_NOTE = "Not medical advice. Patch test new products. For a skin condition, see a dermatologist.";
 
 export const SCORING_DISCLAIMER =
   "No ads, no brand deals, no paid placements. Not medical advice: for a skin condition, see a dermatologist.";

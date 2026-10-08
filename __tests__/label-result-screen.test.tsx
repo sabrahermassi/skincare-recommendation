@@ -147,7 +147,7 @@ describe("the label result", () => {
     // Pregnant, breastfeeding or not said: nothing in its place.
     mockParams = { from: "journey", need: "lines.." };
     await openOnly(["water", "tretinoin", "glycerin"]);
-    expect(screen.getByText(/usually avoided while pregnant or breastfeeding/)).toBeTruthy();
+    expect(screen.getByText(/usually avoided while pregnant\. Ask your doctor or midwife/)).toBeTruthy();
     expect(screen.queryByRole("button", { name: /Learn about/ })).toBeNull();
     await act(async () => screen.unmount());
 
@@ -168,6 +168,20 @@ describe("the label result", () => {
     await open(LIST);
     await fireEvent.press(screen.getByRole("tab", { name: "Skin match" }));
     expect(screen.queryByText("Is it right for your skin?")).toBeNull();
+  });
+
+  // #470: a label result says it too, with a score and without one.
+  it("says it is not medical advice on Skin match, with a score and without one", async () => {
+    const NOTE = "Not medical advice. Patch test new products. For a skin condition, see a dermatologist.";
+    await open(LIST);
+    await fireEvent.press(screen.getByRole("tab", { name: "Skin match" }));
+    expect(screen.getAllByText(NOTE)).toHaveLength(1);
+    await act(async () => screen.unmount());
+
+    useAppStore.setState({ profile: { ...EMPTY_PROFILE, baseSkinType: "dry" } });
+    await open(LIST);
+    await fireEvent.press(screen.getByRole("tab", { name: "Skin match" }));
+    expect(screen.getAllByText(NOTE)).toHaveLength(1);
   });
 
   it("says a thin read can't be scored, and asks for a retake, not the quiz", async () => {

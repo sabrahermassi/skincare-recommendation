@@ -101,7 +101,7 @@ the catalogue held about 104-138 products. Re-measured the same way today:
 
 ### Open: rule claims that disagree with the evidence (for #237's review)
 
-All 61 rules were read against published consensus. Most hold: the
+All 61 rules there were at the time (65 today) were read against published consensus. Most hold: the
 humectants, ceramides, niacinamide, retinoids, AHAs, salicylic acid,
 benzoyl peroxide, azelaic acid, the EU fragrance allergens, SLS and
 denatured alcohol. These don't. Each is a harm or benefit weighing on a

@@ -302,11 +302,35 @@ describe("allowed with limits (#407)", () => {
     expect(groups.clean).toEqual([sodiumHydroxide, benzylAlcohol]);
   });
 
-  it("says 'Allowed with limits' for Annex III, and 'No restriction listed' for no entry", () => {
+  it("says 'Allowed with limits' for Annex III, and 'No EU listing found' for no entry", () => {
     expect(regulatoryStatus(sodiumHydroxide)).toBe("Allowed with limits");
     expect(regulatoryStatus(benzylAlcohol)).toBe("Allowed with limits");
     expect(regulatoryStatus(hexylCinnamal)).toBe("Allowed with limits");
-    expect(regulatoryStatus(safe)).toBe("No restriction listed");
+    expect(regulatoryStatus(safe)).toBe("No EU listing found");
+  });
+
+  // #469 review (Codex): an ingredient the dictionary cites in Annex IV, V or VI is listed, whatever its rating.
+  it("says which positive annex lists an ingredient it cites there, never 'No EU listing found'", () => {
+    const cited = (note: string): Ingredient => ({ id: "x", name: "phenyl mercuric borate", comedogenic: 0, safety: "safe", verified: true, note });
+    expect(regulatoryStatus(cited("EU Annex V/17"))).toBe("Listed in EU Annex V");
+    expect(regulatoryStatus(cited("Allowed (EU Annex VI/3)"))).toBe("Listed in EU Annex VI");
+    expect(regulatoryStatus(cited("EU Annex IV/12"))).toBe("Listed in EU Annex IV");
+    expect(regulatoryStatus(cited("Some other note"))).toBe("No EU listing found");
+  });
+
+  // #469: the dictionary finding no entry is not a finding that a substance is safe.
+  it("never says 'safe' in an ingredient's EU status or in the words the status draws on", () => {
+    const named = (name: string, overrides: Partial<Ingredient> = {}): Ingredient => ({ id: name, name, comedogenic: 0, safety: "safe", verified: true, functions: [], ...overrides });
+    const statuses = [
+      regulatoryStatus(safe),
+      regulatoryStatus(named("hydroquinone", { safety: "avoid" })),
+      regulatoryStatus(named("mystery", { verified: false })),
+      regulatoryStatus(named("petrolatum", { note: "Allowed when fully refined. The EU bans it only when its refining history isn't known (EU Annex II/904)" })),
+      regulatoryStatus(named("cannabidiol", { note: "EU rules depend on how it's made." })),
+      regulatoryStatus(sodiumHydroxide),
+      ...Object.values(EU_ALLERGEN_COPY).flatMap((value) => (typeof value === "string" ? [value] : [])),
+    ];
+    for (const status of statuses) expect(status).not.toMatch(/\bsafe\b/i);
   });
 
   it("gives the condition we hold: an allergen's label duty, else the cited entry number", () => {

@@ -328,7 +328,7 @@ it("says the pregnancy caution under a step's active when the profile does not s
   await open();
   await act(async () => fireEvent.press(screen.getByRole("tab", { name: "Evening" })));
   expect(screen.getByText("Salicylic acid")).toBeTruthy();
-  expect(screen.getByText("Commonly advised against while pregnant or breastfeeding.")).toBeTruthy();
+  expect(screen.getByText("Commonly advised against while pregnant.")).toBeTruthy();
 });
 
 it("leaves the caution out once the profile says not pregnant", async () => {
@@ -337,7 +337,7 @@ it("leaves the caution out once the profile says not pregnant", async () => {
   await open();
   await act(async () => fireEvent.press(screen.getByRole("tab", { name: "Evening" })));
   expect(screen.getByText("Salicylic acid")).toBeTruthy();
-  expect(screen.queryByText("Commonly advised against while pregnant or breastfeeding.")).toBeNull();
+  expect(screen.queryByText("Commonly advised against while pregnant.")).toBeNull();
 });
 
 describe("by day, with actives added from Skin needs (design_handoff october 3d, R1–R3)", () => {

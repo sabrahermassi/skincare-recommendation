@@ -2,7 +2,6 @@ import {
   comedogenicLabel,
   formatKRW,
   relativeTime,
-  SAFETY_LABEL,
 } from "@/lib/format";
 
 describe("formatKRW", () => {
@@ -27,12 +26,6 @@ describe("comedogenicLabel", () => {
   it("agrees with the flag threshold: 2 is low, 3 is not", () => {
     expect(comedogenicLabel(2)).toMatch(/Low/);
     expect(comedogenicLabel(3)).not.toMatch(/Low/);
-  });
-});
-
-describe("SAFETY_LABEL", () => {
-  it("covers every safety level", () => {
-    expect(Object.keys(SAFETY_LABEL).sort()).toEqual(["avoid", "caution", "safe"]);
   });
 });
 
